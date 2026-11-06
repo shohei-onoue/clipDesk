@@ -422,13 +422,15 @@ class _Field extends StatelessWidget {
       // InputDecoration.constraints で高さを固定する（文字は上下中央に入る）。
       maxLines: 1,
       textAlignVertical: TextAlignVertical.center,
-      style: AppText.noto(r.x(13), weight: FontWeight.w400, height: 1.3),
+      // iOS Safariは16px未満の入力欄でフォーカス時に拡大するため16px以上にする
+      style: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
+          weight: FontWeight.w400, height: 1.3),
       decoration: InputDecoration(
         constraints: BoxConstraints.tightFor(height: height),
         filled: true,
         fillColor: Colors.white,
         hintText: hint,
-        hintStyle: AppText.noto(r.x(13),
+        hintStyle: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
             weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
         contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
         border: OutlineInputBorder(

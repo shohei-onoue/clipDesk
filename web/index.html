@@ -17,6 +17,12 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <style>
+    html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    video { pointer-events: none; }
+    input, textarea { font-size: 16px !important; }
+  </style>
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
@@ -42,5 +48,20 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
+    (function () {
+      function kick() {
+        document.querySelectorAll('video').forEach(function (v) {
+          v.muted = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+          if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+        });
+      }
+      ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(function (e) {
+        window.addEventListener(e, kick, { capture: true, passive: true });
+      });
+      setInterval(kick, 1500);
+    })();
+  </script>
 </body>
 </html>
