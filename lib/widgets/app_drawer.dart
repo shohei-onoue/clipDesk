@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
@@ -41,7 +42,10 @@ class AppDrawer extends StatelessWidget {
                     () => Navigator.of(context).pop()),
                 _Tile(Icons.settings, '設定', () => Navigator.of(context).pop()),
                 const Spacer(),
-                _Tile(Icons.logout, 'ログアウト', () => _go(context, '/')),
+                _Tile(Icons.logout, 'ログアウト', () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) _go(context, '/');
+                }),
               ],
             ),
           ),

@@ -10,6 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   google_fonts: ^6.2.1
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  cloud_firestore: ^7.1.0
   video_player: ^2.14.1
 
 dev_dependencies:
@@ -20,7 +23,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/video.mp4
+    - assets/video_web.mp4
   fonts:
     - family: Oswald
       fonts:

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -18,12 +20,18 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _keep = false;
+  bool _busy = false;
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _showForm = false;
   bool _paused = false;
   late final AnimationController _intro;
   final _time = ValueNotifier<double>(0);
   final _hide = ValueNotifier<double>(0);
   late final VideoPlayerController _video;
+
+  /// ブラウザ（iPhone Safariなど）が自動再生を止めたとき、最初のタップで再生する。
+  bool _needsGesture = false;
 
   @override
   void initState() {
@@ -32,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 19700),
     )..addListener(() => _time.value = _intro.value * 19.7);
-    _video = VideoPlayerController.asset('assets/video.mp4');
+    _video = VideoPlayerController.asset('assets/video_web.mp4');
     _initializeVideo();
     _intro.forward();
   }
@@ -43,7 +51,14 @@ class _LoginScreenState extends State<LoginScreen>
       await _video.setLooping(true);
       await _video.setVolume(0);
       if (!mounted) return;
-      if (!_paused) await _video.play();
+      if (!_paused) {
+        try {
+          await _video.play();
+        } catch (error) {
+          debugPrint('Opening video autoplay blocked: $error');
+          _needsGesture = true;
+        }
+      }
       if (mounted) setState(() {});
     } catch (error) {
       // ローカル動画が読めない場合もログインへ進める。
@@ -78,15 +93,89 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_paused) _intro.forward();
   }
 
-  void _togglePlayback() {
-    setState(() => _paused = !_paused);
-    if (_paused) {
-      _intro.stop();
-      _video.pause();
-    } else {
-      _intro.forward();
-      if (_video.value.isInitialized) _video.play();
+  /// メールアドレスとパスワードで Firebase Authentication にログインする。
+  Future<void> _login() async {
+    if (_busy) return;
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError('メールアドレスとパスワードを入力してください');
+      return;
     }
+    FocusScope.of(context).unfocus();
+    setState(() => _busy = true);
+    final auth = FirebaseAuth.instance;
+    try {
+      // ONなら端末に保存（ログアウトまで保持）、OFFならタブを閉じるまで。
+      // setPersistence は Web 専用。他の端末では何もしない。
+      try {
+        await auth.setPersistence(
+          _keep ? Persistence.LOCAL : Persistence.SESSION,
+        );
+      } on UnimplementedError {
+        // 対応していない端末では、そのまま続ける。
+      }
+      final cred = await auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await _saveUser(cred.user);
+    } on FirebaseAuthException catch (e) {
+      _showError(_errorMessage(e.code));
+      if (mounted) setState(() => _busy = false);
+      return;
+    } catch (e) {
+      _showError('ログインできませんでした。通信を確認してください');
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/home');
+  }
+
+  /// ログイン成功時に、Firestore の users/{uid} へ email・name・updatedAt を保存する。
+  /// merge 保存なので、すでにある項目は消えない。name は Authentication に
+  /// 表示名があるときだけ書く（無いときに空で上書きして消さないため）。
+  /// 保存に失敗しても、ログイン自体は続ける。
+  Future<void> _saveUser(User? user) async {
+    if (user == null) return;
+    final name = user.displayName?.trim();
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'email': user.email,
+        if (name != null && name.isNotEmpty) 'name': name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('users/${user.uid} の保存に失敗しました: $e');
+    }
+  }
+
+  String _errorMessage(String code) {
+    switch (code) {
+      case 'wrong-password':
+        return 'パスワードが違います';
+      case 'user-not-found':
+        return 'メールアドレスが違います';
+      case 'invalid-credential':
+        return 'メールアドレスまたはパスワードが違います';
+      case 'invalid-email':
+        return 'メールアドレスの形式が正しくありません';
+      case 'user-disabled':
+        return 'このアカウントは使えません';
+      case 'too-many-requests':
+        return '試行回数が多すぎます。しばらくしてからやり直してください';
+      case 'network-request-failed':
+        return '通信できませんでした。ネットワークを確認してください';
+      default:
+        return 'ログインできませんでした（$code）';
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -95,6 +184,8 @@ class _LoginScreenState extends State<LoginScreen>
     _time.dispose();
     _hide.dispose();
     _video.dispose();
+    _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -107,151 +198,166 @@ class _LoginScreenState extends State<LoginScreen>
     final fieldHeight = r.y(46);
     return Scaffold(
       backgroundColor: AppColors.loginBg,
-      body: Stack(
-        children: [
-          if (_video.value.isInitialized)
-            Positioned.fill(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                clipBehavior: Clip.hardEdge,
-                child: SizedBox(
-                  width: _video.value.size.width,
-                  height: _video.value.size.height,
-                  child: VideoPlayer(_video),
-                ),
-              ),
-            ),
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => _intro.value = 1,
-              child: CustomPaint(painter: IntroPainter(_time, _hide)),
-            ),
-          ),
-          if (!_showForm)
-            Positioned(
-              top: r.y(475),
-              left: r.x(133.5),
-              width: r.x(123),
-              height: r.y(50),
-              child: AnimatedBuilder(
-                animation: _intro,
-                builder: (context, child) {
-                  final alpha = ((_time.value - IntroPainter.fadeStart) /
-                          IntroPainter.fadeLen)
-                      .clamp(0.0, 1.0);
-                  return ExcludeSemantics(
-                    excluding: alpha == 0,
-                    child: ExcludeFocus(
-                      excluding: alpha == 0,
-                      child: IgnorePointer(
-                        ignoring: alpha == 0,
-                        child: Opacity(opacity: alpha, child: child),
-                      ),
-                    ),
-                  );
-                },
-                child: ElevatedButton(
-                  onPressed: _openForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.blue,
-                    foregroundColor: Colors.white,
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) {
+          if (_needsGesture && !_paused) {
+            _needsGesture = false;
+            _video.play();
+          }
+        },
+        child: Stack(
+          children: [
+            if (_video.value.isInitialized)
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: _video.value.size.width,
+                    height: _video.value.size.height,
+                    child: VideoPlayer(_video),
                   ),
-                  child: const Text('LOGIN'),
                 ),
               ),
+            Positioned.fill(
+              // オープニング中に画面をタップすると、演出を最後（LOGINボタンの表示）まで飛ばす。
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (!_showForm && _intro.value < 1) _intro.value = 1;
+                },
+                child: CustomPaint(painter: IntroPainter(_time, _hide)),
+              ),
             ),
-          Positioned(
-            top: r.y(14),
-            right: r.x(20),
-            child: Row(
-              children: [
-                _Pill(label: 'REPLAY', onTap: _replay),
-                SizedBox(width: r.x(8)),
-                _Pill(label: 'SKIP', onTap: _openForm),
-              ],
-            ),
-          ),
-          Positioned(
-            left: r.x(20),
-            bottom: r.y(20),
-            child: _Pill(
-              label: _paused ? 'PLAY' : 'PAUSE',
-              onTap: _togglePlayback,
-            ),
-          ),
-          if (_showForm)
+            if (!_showForm)
+              Positioned(
+                top: r.y(475),
+                left: r.x(133.5),
+                width: r.x(123),
+                height: r.y(50),
+                child: AnimatedBuilder(
+                  animation: _intro,
+                  builder: (context, child) {
+                    final alpha = ((_time.value - IntroPainter.fadeStart) /
+                            IntroPainter.fadeLen)
+                        .clamp(0.0, 1.0);
+                    return ExcludeSemantics(
+                      excluding: alpha == 0,
+                      child: ExcludeFocus(
+                        excluding: alpha == 0,
+                        child: IgnorePointer(
+                          ignoring: alpha == 0,
+                          child: Opacity(opacity: alpha, child: child),
+                        ),
+                      ),
+                    );
+                  },
+                  child: ElevatedButton(
+                    onPressed: _openForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('LOGIN'),
+                  ),
+                ),
+              ),
             Positioned(
-              // 入力欄の位置は、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ。
-              top: introTitleCenterY(size.height) +
-                  titleSize / 2 +
-                  r.y(10) +
-                  r.x(13) +
-                  r.y(14),
-              left: r.x(24),
-              width: r.x(342),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(r.x(2), 0, r.x(2), r.y(24)),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Field(hint: 'メールアドレス', height: fieldHeight),
-                    SizedBox(height: r.y(14)),
-                    _Field(hint: 'パスワード', obscure: true, height: fieldHeight),
-                    SizedBox(height: r.y(14)),
-                    SizedBox(
-                      height: fieldHeight,
-                      child: ElevatedButton(
-                        onPressed: () =>
-                            Navigator.of(context).pushReplacementNamed('/home'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.blue,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(r.x(6))),
-                        ),
-                        child: Text('ログイン',
-                            style: AppText.noto(r.x(13),
-                                color: Colors.white, height: 1.3)),
-                      ),
-                    ),
-                    SizedBox(height: r.y(14)),
-                    GestureDetector(
-                      onTap: () => setState(() => _keep = !_keep),
-                      child: Padding(
-                        padding: EdgeInsets.only(top: r.y(10)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: r.x(20),
-                              height: r.x(20),
-                              decoration: BoxDecoration(
-                                border:
-                                    Border.all(color: Colors.white, width: 1.5),
-                                borderRadius: BorderRadius.circular(r.x(2)),
-                              ),
-                              child: _keep
-                                  ? Icon(Icons.check,
-                                      size: r.x(16), color: Colors.white)
-                                  : null,
-                            ),
-                            SizedBox(width: r.x(8)),
-                            Text('ログイン状態を維持する',
-                                style: AppText.noto(r.x(12),
-                                    weight: FontWeight.w500,
-                                    color: Colors.white,
-                                    height: 1.3)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              top: r.y(14),
+              right: r.x(20),
+              child: Row(
+                children: [
+                  _Pill(label: 'REPLAY', onTap: _replay),
+                  SizedBox(width: r.x(8)),
+                  _Pill(label: 'SKIP', onTap: _openForm),
+                ],
               ),
             ),
-        ],
+            if (_showForm)
+              Positioned(
+                // 入力欄の位置は、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ。
+                top: introTitleCenterY(size.height) +
+                    titleSize / 2 +
+                    r.y(10) +
+                    r.x(13) +
+                    r.y(14),
+                left: r.x(24),
+                width: r.x(342),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(r.x(2), 0, r.x(2), r.y(24)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Field(
+                        hint: 'メールアドレス',
+                        height: fieldHeight,
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      SizedBox(height: r.y(14)),
+                      _Field(
+                        hint: 'パスワード',
+                        obscure: true,
+                        height: fieldHeight,
+                        controller: _password,
+                        onSubmitted: (_) => _login(),
+                      ),
+                      SizedBox(height: r.y(14)),
+                      SizedBox(
+                        height: fieldHeight,
+                        child: ElevatedButton(
+                          onPressed: _busy ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.blue,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(r.x(6))),
+                          ),
+                          child: Text('ログイン',
+                              style: AppText.noto(r.x(13),
+                                  color: Colors.white, height: 1.3)),
+                        ),
+                      ),
+                      SizedBox(height: r.y(14)),
+                      GestureDetector(
+                        onTap: () => setState(() => _keep = !_keep),
+                        child: Padding(
+                          padding: EdgeInsets.only(top: r.y(10)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: r.x(20),
+                                height: r.x(20),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
+                                  borderRadius: BorderRadius.circular(r.x(2)),
+                                ),
+                                child: _keep
+                                    ? Icon(Icons.check,
+                                        size: r.x(16), color: Colors.white)
+                                    : null,
+                              ),
+                              SizedBox(width: r.x(8)),
+                              Text('ログイン状態を維持する',
+                                  style: AppText.noto(r.x(12),
+                                      weight: FontWeight.w500,
+                                      color: Colors.white,
+                                      height: 1.3)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -284,12 +390,21 @@ class _Pill extends StatelessWidget {
 }
 
 class _Field extends StatelessWidget {
-  const _Field(
-      {required this.hint, required this.height, this.obscure = false});
+  const _Field({
+    required this.hint,
+    required this.height,
+    required this.controller,
+    this.obscure = false,
+    this.keyboardType,
+    this.onSubmitted,
+  });
 
   final String hint;
   final double height;
+  final TextEditingController controller;
   final bool obscure;
+  final TextInputType? keyboardType;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +412,12 @@ class _Field extends StatelessWidget {
     return SizedBox(
       height: height,
       child: TextField(
+        controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType,
+        onSubmitted: onSubmitted,
+        autocorrect: false,
+        enableSuggestions: false,
         // 高さいっぱいに広げ、文字は上下中央に置く（ボタンと同じ高さにそろえる）。
         expands: true,
         maxLines: null,
