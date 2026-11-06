@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -185,7 +187,22 @@ class _LoginScreenState extends State<LoginScreen>
     final titleSize = introTitleSize(size.width);
     // 入力欄とログインボタンの高さ（共通）。
     final fieldHeight = r.y(46);
+    // キーボードが出ているとき、入力欄とログインボタンがキーボードに隠れないよう、
+    // フォームをキーボードの上へ持ち上げる（上のREPLAY/SKIPには重ねない）。
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final formTop = introTitleCenterY(size.height) +
+        titleSize / 2 +
+        r.y(10) +
+        r.x(13) +
+        r.y(14);
+    final formHeight = fieldHeight * 3 + r.y(14) * 2; // 入力2つ + ボタン + すき間
+    final visibleTop = math.max(
+      r.y(60),
+      math.min(formTop, size.height - keyboard - formHeight - r.y(12)),
+    );
     return Scaffold(
+      // 位置は上で自分で計算するため、Scaffoldによる縮小は使わない。
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.loginBg,
       body: Listener(
         behavior: HitTestBehavior.translucent,
@@ -269,13 +286,11 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
             if (_showForm)
-              Positioned(
-                // 入力欄の位置は、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ。
-                top: introTitleCenterY(size.height) +
-                    titleSize / 2 +
-                    r.y(10) +
-                    r.x(13) +
-                    r.y(14),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                // キーボードが出ていないときは、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ位置。
+                top: visibleTop,
                 left: r.x(24),
                 width: r.x(342),
                 child: Padding(
