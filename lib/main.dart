@@ -17,26 +17,6 @@ class ClipDeskApp extends StatelessWidget {
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      // 画面が縦長の端末より横に広い場合（PC・タブレット）は、
-      // デザイン比率 390:844 の枠を中央に置き、比率レイアウトが崩れないようにする。
-      builder: (context, child) {
-        final size = MediaQuery.sizeOf(context);
-        const aspect = 390 / 844;
-        if (size.width / size.height <= aspect + 0.05) return child!;
-        final w = size.height * aspect;
-        return ColoredBox(
-          color: const Color(0xFF111111),
-          child: Center(
-            child: SizedBox(
-              width: w,
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(size: Size(w, size.height)),
-                child: ClipRect(child: child),
-              ),
-            ),
-          ),
-        );
-      },
       initialRoute: '/',
       routes: {
         '/': (_) => const LoginScreen(),
