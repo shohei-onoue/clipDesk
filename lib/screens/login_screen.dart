@@ -25,11 +25,22 @@ class _LoginScreenState extends State<LoginScreen>
   bool _busy = false;
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  bool _showPassword = false;
+
+  /// 入力中に見えたキーボードの高さの最大値。メール欄とパスワード欄で
+  /// キーボードの高さが違っても、フォームの位置が変わらないようにそろえる。
+  double _keyboardMax = 0;
   bool _showForm = false;
   late final AnimationController _intro;
   final _time = ValueNotifier<double>(0);
   final _hide = ValueNotifier<double>(0);
   late final VideoPlayerController _video;
+
+  /// ログイン認証エラーのときに鳴らす音声（assets/voice.mp3）。
+  late final VideoPlayerController _voice;
+  bool _voiceReady = false;
 
   /// ブラウザ（iPhone Safariなど）が自動再生を止めたとき、最初のタップで再生する。
   bool _needsGesture = false;
@@ -37,6 +48,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _emailFocus.addListener(_onFocusChange);
+    _passwordFocus.addListener(_onFocusChange);
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 18700),
@@ -45,6 +58,7 @@ class _LoginScreenState extends State<LoginScreen>
     )..addListener(() => _time.value = _intro.value * 18.7);
     _video = VideoPlayerController.asset('assets/video_web.mp4');
     _initializeVideo();
+    _initializeVoice();
     _intro.forward();
   }
 
@@ -65,6 +79,47 @@ class _LoginScreenState extends State<LoginScreen>
       // ローカル動画が読めない場合もログインへ進める。
       debugPrint('Opening video: $error');
       if (mounted) _openForm();
+    }
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _initializeVoice() async {
+    _voice = VideoPlayerController.asset('assets/voice.mp3');
+    try {
+      await _voice.initialize();
+      await _voice.setLooping(false);
+      _voiceReady = true;
+    } catch (e) {
+      debugPrint('Error voice: $e');
+    }
+  }
+
+  /// iPhone Safariは、利用者の操作の中で一度再生しないと、あとから自動で音を鳴らせない。
+  /// ログインボタンを押した時点で、音量0で再生して止めておく（鳴らす準備）。
+  Future<void> _primeVoice() async {
+    if (!_voiceReady) return;
+    try {
+      await _voice.setVolume(0);
+      await _voice.play();
+      await _voice.pause();
+      await _voice.seekTo(Duration.zero);
+    } catch (e) {
+      debugPrint('Prime voice: $e');
+    }
+  }
+
+  /// ログインに失敗したときの音声を鳴らす。
+  Future<void> _playErrorVoice() async {
+    if (!_voiceReady) return;
+    try {
+      await _voice.seekTo(Duration.zero);
+      await _voice.setVolume(1);
+      await _voice.play();
+    } catch (e) {
+      debugPrint('Error voice play: $e');
     }
   }
 
@@ -93,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
     FocusScope.of(context).unfocus();
     setState(() => _busy = true);
+    _primeVoice();
     final auth = FirebaseAuth.instance;
     try {
       // ONなら端末に保存（ログアウトまで保持）、OFFならタブを閉じるまで。
@@ -112,11 +168,13 @@ class _LoginScreenState extends State<LoginScreen>
       await _saveUser(cred.user);
     } on FirebaseAuthException catch (e) {
       _showError(_errorMessage(e.code));
+      _playErrorVoice();
       if (mounted) setState(() => _busy = false);
       return;
     } catch (e) {
       debugPrint('ログインに失敗しました: $e');
       _showError('ログインできませんでした（${e.runtimeType}）。通信を確認してください');
+      _playErrorVoice();
       if (mounted) setState(() => _busy = false);
       return;
     }
@@ -175,8 +233,11 @@ class _LoginScreenState extends State<LoginScreen>
     _time.dispose();
     _hide.dispose();
     _video.dispose();
+    _voice.dispose();
     _email.dispose();
     _password.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -189,7 +250,12 @@ class _LoginScreenState extends State<LoginScreen>
     final fieldHeight = r.y(46);
     // キーボードが出ているとき、入力欄とログインボタンがキーボードに隠れないよう、
     // フォームをキーボードの上へ持ち上げる（上のREPLAY/SKIPには重ねない）。
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final inputting = _emailFocus.hasFocus || _passwordFocus.hasFocus;
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (!inputting && inset == 0) _keyboardMax = 0;
+    if (inset > _keyboardMax) _keyboardMax = inset;
+    // 入力中は、どちらの欄でも同じ配置（最大のキーボード高さ）にする。
+    final keyboard = (inputting || inset > 0) ? _keyboardMax : 0.0;
     final formTop = introTitleCenterY(size.height) +
         titleSize / 2 +
         r.y(10) +
@@ -303,15 +369,29 @@ class _LoginScreenState extends State<LoginScreen>
                         hint: 'メールアドレス',
                         height: fieldHeight,
                         controller: _email,
+                        focusNode: _emailFocus,
                         keyboardType: TextInputType.emailAddress,
                       ),
                       SizedBox(height: r.y(14)),
                       _Field(
                         hint: 'パスワード',
-                        obscure: true,
                         height: fieldHeight,
                         controller: _password,
-                        onSubmitted: (_) => _login(),
+                        focusNode: _passwordFocus,
+                        obscure: !_showPassword,
+                        suffix: IconButton(
+                          tooltip: _showPassword ? 'パスワードを隠す' : 'パスワードを表示',
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints.tightFor(
+                              width: r.x(44), height: fieldHeight),
+                          iconSize: r.x(22),
+                          color: AppColors.hint,
+                          icon: Icon(_showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined),
+                          onPressed: () =>
+                              setState(() => _showPassword = !_showPassword),
+                        ),
                       ),
                       SizedBox(height: r.y(14)),
                       SizedBox(
@@ -342,6 +422,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 width: r.x(20),
                                 height: r.x(20),
                                 decoration: BoxDecoration(
+                                  // チェック時は、ログインボタンと同じ青色で塗る。
+                                  color: _keep ? AppColors.blue : null,
                                   border: Border.all(
                                       color: Colors.white, width: 1.5),
                                   borderRadius: BorderRadius.circular(r.x(2)),
@@ -405,7 +487,8 @@ class _Field extends StatelessWidget {
     required this.controller,
     this.obscure = false,
     this.keyboardType,
-    this.onSubmitted,
+    this.focusNode,
+    this.suffix,
   });
 
   final String hint;
@@ -413,16 +496,19 @@ class _Field extends StatelessWidget {
   final TextEditingController controller;
   final bool obscure;
   final TextInputType? keyboardType;
-  final ValueChanged<String>? onSubmitted;
+  final FocusNode? focusNode;
+
+  /// 入力欄の中の右端に置くウィジェット（パスワードの表示/非表示ボタンなど）。
+  final Widget? suffix;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       obscureText: obscure,
       keyboardType: keyboardType,
-      onSubmitted: onSubmitted,
       autocorrect: false,
       enableSuggestions: false,
       // パスワード欄（obscureText）は1行でないと使えないため、1行のまま
@@ -439,6 +525,7 @@ class _Field extends StatelessWidget {
         hintText: hint,
         hintStyle: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
             weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
+        suffixIcon: suffix,
         contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(r.x(6)),

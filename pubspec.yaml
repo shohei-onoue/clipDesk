@@ -14,16 +14,21 @@ dependencies:
   firebase_auth: ^7.0.1
   cloud_firestore: ^7.1.0
   video_player: ^2.14.1
+  firebase_storage: ^14.0.1
+  file_picker: ^13.3.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  fake_cloud_firestore: ^4.5.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/video_web.mp4
+    - assets/voice.mp3
   fonts:
     - family: Oswald
       fonts:
