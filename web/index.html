@@ -20,8 +20,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <style>
     html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
-    video { pointer-events: none; }
-    input, textarea { font-size: 16px !important; }
+    /* 背景動画（プラットフォームビュー）が画面全体のタップを奪い、Safariで入力欄にフォーカスできなくなるのを防ぐ */
+    flt-platform-view, flt-platform-view *, video { pointer-events: none !important; }
   </style>
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">

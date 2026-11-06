@@ -218,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: SizedBox(
                     width: _video.value.size.width,
                     height: _video.value.size.height,
-                    child: VideoPlayer(_video),
+                    child: IgnorePointer(child: VideoPlayer(_video)),
                   ),
                 ),
               ),
