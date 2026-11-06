@@ -109,6 +109,17 @@ double _justRatio(String text, double targetW) {
   return (targetW - sum) / ((text.length - 1) * size);
 }
 
+/// ログインフォームの「Clip Desk」を、オープニング最後の「Clip Desk」と揃えるための値。
+/// 文字サイズ（画面幅 w に対する実寸）。
+double introTitleSize(double w) => _titleSize(w);
+
+/// 同じく、タイトルの縦の中心（画面の高さ h に対する実寸）。
+double introTitleCenterY(double h) => _titleY(h);
+
+/// 最終画面のタイトル（OLDROOKIE / Clip Desk 共通）の文字サイズ。
+/// 幅の80%に収めた OLDROOKIE の大きさ（390px幅で約58px）。
+double _titleSize(double w) => _fitted('OLDROOKIE', w * 0.8, 0.08);
+
 /// 幅いっぱいに合わせた OLDROOKIE と同じ文字の大きさにするための倍率。
 /// Clip Desk の p のしっぽが、下のサブタイトルに重ならない大きさになる。
 double _sameSize(String text, double targetW) =>
@@ -187,11 +198,13 @@ class IntroPainter extends CustomPainter {
     Paint Function(double alpha)? paintFor,
     String family = _oswald,
     double? fixedSize,
+    double? absSize,
   }) {
-    // fixedSize は 390px 幅のデザイン値。画面幅に比例させる。
-    final size = fixedSize != null
-        ? fixedSize * _w / 390
-        : _fitted(text, targetW, ratio) * scale;
+    // absSize は画面上の実寸。fixedSize は 390px 幅のデザイン値で、画面幅に比例させる。
+    final size = absSize ??
+        (fixedSize != null
+            ? fixedSize * _w / 390
+            : _fitted(text, targetW, ratio) * scale);
     final m = _measure(text, size, ratio, family);
     var x = cx - m.total * 0.5;
     for (var i = 0; i < text.length; i++) {
@@ -424,7 +437,8 @@ class IntroPainter extends CustomPainter {
         scale: isClip ? 1 : _sameSize(title, tw),
         paintFor: paintFor,
         family: _oswald,
-        fixedSize: isClip ? 58 : null,
+        // Clip Desk は OLDROOKIE と同じ文字サイズ・同じ中心の高さにそろえる。
+        absSize: isClip ? _titleSize(w) : null,
       );
       _text(
         _subtitle,
@@ -501,7 +515,7 @@ class IntroPainter extends CustomPainter {
       0.1,
       paintFor: stroke,
       family: _oswald,
-      fixedSize: 58,
+      absSize: _titleSize(w),
     );
     _text(
       _subtitle,

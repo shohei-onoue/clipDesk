@@ -101,6 +101,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final size = MediaQuery.sizeOf(context);
+    final titleSize = introTitleSize(size.width);
+    // 入力欄とログインボタンの高さ（共通）。
+    final fieldHeight = r.y(46);
     return Scaffold(
       backgroundColor: AppColors.loginBg,
       body: Stack(
@@ -177,36 +181,26 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           if (_showForm)
             Positioned(
-              top: r.y(223),
+              // 入力欄の位置は、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ。
+              top: introTitleCenterY(size.height) +
+                  titleSize / 2 +
+                  r.y(10) +
+                  r.x(13) +
+                  r.y(14),
               left: r.x(24),
               width: r.x(342),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(r.x(2), r.y(30), r.x(2), r.y(24)),
+                padding: EdgeInsets.fromLTRB(r.x(2), 0, r.x(2), r.y(24)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Clip Desk',
-                      textAlign: TextAlign.center,
-                      style: AppText.oswald(r.x(48), height: 46.8 / 48),
-                    ),
-                    SizedBox(height: r.y(22.2)),
-                    Text(
-                      '動画編集指示書用アプリ',
-                      textAlign: TextAlign.center,
-                      style: AppText.noto(r.x(10),
-                          weight: FontWeight.w400,
-                          color: Colors.white,
-                          height: 1.3),
-                    ),
+                    _Field(hint: 'メールアドレス', height: fieldHeight),
                     SizedBox(height: r.y(14)),
-                    _Field(hint: 'メールアドレス'),
-                    SizedBox(height: r.y(14)),
-                    _Field(hint: 'パスワード', obscure: true),
+                    _Field(hint: 'パスワード', obscure: true, height: fieldHeight),
                     SizedBox(height: r.y(14)),
                     SizedBox(
-                      height: r.y(46),
+                      height: fieldHeight,
                       child: ElevatedButton(
                         onPressed: () =>
                             Navigator.of(context).pushReplacementNamed('/home'),
@@ -290,28 +284,37 @@ class _Pill extends StatelessWidget {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.hint, this.obscure = false});
+  const _Field(
+      {required this.hint, required this.height, this.obscure = false});
 
   final String hint;
+  final double height;
   final bool obscure;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return TextField(
-      obscureText: obscure,
-      style: AppText.noto(r.x(13), weight: FontWeight.w400, height: 1.3),
-      decoration: InputDecoration(
-        isDense: true,
-        filled: true,
-        fillColor: Colors.white,
-        hintText: hint,
-        hintStyle: AppText.noto(r.x(13),
-            weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
-        contentPadding: EdgeInsets.all(r.x(14)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(r.x(6)),
-          borderSide: BorderSide.none,
+    return SizedBox(
+      height: height,
+      child: TextField(
+        obscureText: obscure,
+        // 高さいっぱいに広げ、文字は上下中央に置く（ボタンと同じ高さにそろえる）。
+        expands: true,
+        maxLines: null,
+        minLines: null,
+        textAlignVertical: TextAlignVertical.center,
+        style: AppText.noto(r.x(13), weight: FontWeight.w400, height: 1.3),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          hintText: hint,
+          hintStyle: AppText.noto(r.x(13),
+              weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
+          contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(r.x(6)),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );
