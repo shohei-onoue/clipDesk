@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Flutter generated files
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Local settings and secrets
+.idea/
+.firebase/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+android/key.properties
