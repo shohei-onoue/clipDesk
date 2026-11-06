@@ -107,13 +107,14 @@ class _LoginScreenState extends State<LoginScreen>
     final auth = FirebaseAuth.instance;
     try {
       // ONなら端末に保存（ログアウトまで保持）、OFFならタブを閉じるまで。
-      // setPersistence は Web 専用。他の端末では何もしない。
+      // 保存先が使えない環境（iPhoneのプライベートブラウズ、Web以外の端末など）では
+      // 保存方法の指定に失敗するが、ログインそのものは止めずに続ける。
       try {
         await auth.setPersistence(
           _keep ? Persistence.LOCAL : Persistence.SESSION,
         );
-      } on UnimplementedError {
-        // 対応していない端末では、そのまま続ける。
+      } catch (e) {
+        debugPrint('ログイン状態の保存方法を設定できませんでした: $e');
       }
       final cred = await auth.signInWithEmailAndPassword(
         email: email,
@@ -125,7 +126,8 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _busy = false);
       return;
     } catch (e) {
-      _showError('ログインできませんでした。通信を確認してください');
+      debugPrint('ログインに失敗しました: $e');
+      _showError('ログインできませんでした（${e.runtimeType}）。通信を確認してください');
       if (mounted) setState(() => _busy = false);
       return;
     }
