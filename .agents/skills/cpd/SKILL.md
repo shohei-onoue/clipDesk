@@ -13,7 +13,7 @@ description: clipdeskの変更をコミット・プッシュし、Web版をビ�
 4. コミットする。メッセージは日本語で変更内容を端的に書き、末尾に会話のsystem-reminderで指定された Co-Authored-By 行を付ける。
 5. `git push` する。
 6. `flutter build web --release` でWeb版をビルドする。
-7. `firebase deploy --only hosting` でデプロイする（公開先: https://clipdesk-oldrookie.web.app）。
+7. `firebase deploy --only hosting` でデプロイする（公開先: https://video-editing-instructions.web.app）。
 8. コミットID・プッシュ結果・デプロイ結果を3行以内で報告する。
 9. 起動（または再起動）のたびに、前回の追記以降の変更内容を `~/Desktop/work_log.md` の今日の日付の見出し（`## 日付`）の下にある小タイトル `### clipdesk` の直下へ、箇条書き1〜2行で端的に追記する（日付見出しが無ければ作る。小タイトル `### clipdesk` が無ければ日付見出しの下に作ってから追記する。既にある場合は新しく作らず、そのタイトル下の末尾へ追加する）。`git diff` で変更を確認して書く。
 
