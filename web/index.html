@@ -49,6 +49,14 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    // Safari: pointerdownで入力欄にフォーカスした直後、mousedownの既定動作がフォーカスを奪い返して
+    // 入力できなくなる（フォーカスが外れる）ため、mousedownの既定動作を止める。
+    window.addEventListener('mousedown', function (e) {
+      var t = e.target;
+      if (t && (t.tagName === 'FLT-GLASS-PANE' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.preventDefault();
+    }, true);
+  </script>
+  <script>
     // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
     (function () {
       function kick() {
