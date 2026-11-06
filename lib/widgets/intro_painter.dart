@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// 起動時オープニング（OLDROOKIE）の長さ。この秒数から先は最終画面。
-const introEnd = 18.2;
+const introEnd = 17.2;
 
 double _clamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
 double _lerp(double a, double b, double t) => a + (b - a) * t;
@@ -42,6 +42,10 @@ double _outBack(double t, [double s = 1.70158]) {
 
 /// 冒頭の OLDROOKIE を3秒にしたぶん（元の1.5秒より1.5秒長い）、以降の場面を後ろへずらす。
 const _shift = 1.5;
+
+/// I の回転ズームインが終わり、O の回転ズームアウト（OLDROOKIE）が始まる時刻（u）。
+/// 止まる間をつくらず、ズームインの直後にそのままズームアウトへつなぐ。
+const _zoomEnd = 10.5;
 
 class _Metrics {
   _Metrics(this.total, this.advances, this.tracking);
@@ -165,10 +169,10 @@ class IntroPainter extends CustomPainter {
     if (t >= introEnd) {
       _paintFinal(t);
     } else {
-      // 白い面から文字を抜く表現。11.5秒（時間割u）の瞬間に、
+      // 白い面から文字を抜く表現。10.5秒（時間割u）の瞬間に、
       // 見た目が同じまま「背景は動画のまま、文字を白で塗る」表現に切り替わる。
       final u = t - _shift;
-      if (u < 11.5) {
+      if (u < _zoomEnd) {
         canvas.saveLayer(Offset.zero & size, Paint());
         canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
         _paintMask(t);
@@ -343,12 +347,14 @@ class IntroPainter extends CustomPainter {
       }
     }
 
-    if (u >= 5.95 && u < 11.5) {
+    if (u >= 5.95 && u < _zoomEnd) {
       final slideInP = _snap(_clamp01((u - 5.95) / 1.0));
       final currentX = _lerp(w * 1.7, w * 0.5, slideInP);
       const zoomStart = 9.5;
       final zoomP = u >= zoomStart
-          ? _cubic(0.2, 0.85, 0.2, 1.0, _clamp01((u - zoomStart) / 2.0))
+          // 終わり際で失速せず、勢いを保ったままズームアウトへつなぐ曲線（1秒）。
+          ? _cubic(0.25, 0.7, 0.6, 0.85,
+              _clamp01((u - zoomStart) / (_zoomEnd - zoomStart)))
           : 0.0;
       final sample = _fitted('INSTRUCTIONS', tw, 0.07);
       final exact = (h * 2.0 / (sample * 0.78)) * 1.3;
@@ -386,7 +392,7 @@ class IntroPainter extends CustomPainter {
         Paint()..color = Colors.white.withValues(alpha: _clamp01(a));
     // 移動・拡大縮小・回転は、すべて同じ進み方（2秒、Iの回転ズームと同じ曲線）。
     // 回転が先に終わって位置だけ調整する、という動きにならないようにそろえる。
-    final e = _cubic(0.2, 0.85, 0.2, 1.0, _clamp01((u - 11.5) / 2.0));
+    final e = _cubic(0.2, 0.85, 0.2, 1.0, _clamp01((u - _zoomEnd) / 2.0));
     final rOffset = _charOffset('OLDROOKIE', tw, 0.08, 4, 0.5);
     // Oの内側の空洞（横にすると、幅は文字の高さの0.122倍）が、
     // 縦60%・横は画面いっぱいになる大きさから始める。
@@ -406,20 +412,20 @@ class IntroPainter extends CustomPainter {
     _c.restore();
   }
 
-  /// 背景は動画のまま、文字を白で塗る表現（11.5秒〜）。
+  /// 背景は動画のまま、文字を白で塗る表現（10.5秒〜）。
   /// OLDROOKIE が整ったあと、白い塗りが透明になり、白い枠線だけが残る。
   void _paintFilled(double u) {
     final w = _w;
     final h = _h;
     final tw = w * 0.8;
-    if (u < 13.5) {
+    if (u < _zoomEnd + 2.0) {
       _paintMorph(u);
       return;
     }
-    final e = u - 13.5;
+    final e = u - (_zoomEnd + 2.0);
     // 横ラインが左から右へ伸びるのに合わせて、文字の白い塗りも左から右へ透明になり、
     // 透明になった側は OLDROOKIE から Clip Desk の枠線に変わる。
-    final lineP = _snap(_clamp01((u - 15.7) / 1.0));
+    final lineP = _snap(_clamp01((u - (_zoomEnd + 4.2)) / 1.0));
     final left = (w - tw) * 0.5;
     final wipeX = left + tw * lineP;
     void lockup(
@@ -535,7 +541,7 @@ class IntroPainter extends CustomPainter {
   }
 
   /// オープニングの最終画面が整い、ログインボタンが現れる区間。
-  static const fadeStart = 19.1;
+  static const fadeStart = 18.1;
   static const fadeLen = 0.6;
 
   @override
