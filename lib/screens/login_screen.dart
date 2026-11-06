@@ -25,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _password = TextEditingController();
   bool _showForm = false;
   bool _paused = false;
+  bool _replayed = false;
   late final AnimationController _intro;
   final _time = ValueNotifier<double>(0);
   final _hide = ValueNotifier<double>(0);
@@ -70,7 +71,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    // 「視差効果を減らす」等がONの端末では、最初はオープニングを省いてフォームを出す。
+    // ただしREPLAYを押したあと（_replayed）は、利用者の操作を優先して演出を再生する。
+    if (MediaQuery.disableAnimationsOf(context) && !_replayed) {
       _paused = true;
       _intro.value = 1;
       _showForm = true;
@@ -87,6 +90,16 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _replay() {
     FocusScope.of(context).unfocus();
+    // 「動きを減らす」設定のときも、REPLAYを押したら動画と演出を再生する。
+    _replayed = true;
+    if (_paused) {
+      _paused = false;
+      _video.seekTo(Duration.zero);
+      _video.play().catchError((Object e) {
+        debugPrint('Replay video: $e');
+        _needsGesture = true;
+      });
+    }
     _hide.value = 0;
     setState(() => _showForm = false);
     _intro.value = 0;
