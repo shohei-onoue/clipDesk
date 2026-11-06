@@ -40,6 +40,8 @@ class _LoginScreenState extends State<LoginScreen>
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 19700),
+      // 「動きを減らす」ONの端末では、標準だとアニメが約20倍速で終わってしまうため、そのままの速さで流す。
+      animationBehavior: AnimationBehavior.preserve,
     )..addListener(() => _time.value = _intro.value * 19.7);
     _video = VideoPlayerController.asset('assets/video_web.mp4');
     _initializeVideo();
