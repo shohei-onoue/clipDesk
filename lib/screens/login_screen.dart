@@ -409,32 +409,29 @@ class _Field extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return SizedBox(
-      height: height,
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        onSubmitted: onSubmitted,
-        autocorrect: false,
-        enableSuggestions: false,
-        // 高さいっぱいに広げ、文字は上下中央に置く（ボタンと同じ高さにそろえる）。
-        expands: true,
-        maxLines: null,
-        minLines: null,
-        textAlignVertical: TextAlignVertical.center,
-        style: AppText.noto(r.x(13), weight: FontWeight.w400, height: 1.3),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          hintText: hint,
-          hintStyle: AppText.noto(r.x(13),
-              weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
-          contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(r.x(6)),
-            borderSide: BorderSide.none,
-          ),
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      keyboardType: keyboardType,
+      onSubmitted: onSubmitted,
+      autocorrect: false,
+      enableSuggestions: false,
+      // パスワード欄（obscureText）は1行でないと使えないため、1行のまま
+      // InputDecoration.constraints で高さを固定する（文字は上下中央に入る）。
+      maxLines: 1,
+      textAlignVertical: TextAlignVertical.center,
+      style: AppText.noto(r.x(13), weight: FontWeight.w400, height: 1.3),
+      decoration: InputDecoration(
+        constraints: BoxConstraints.tightFor(height: height),
+        filled: true,
+        fillColor: Colors.white,
+        hintText: hint,
+        hintStyle: AppText.noto(r.x(13),
+            weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
+        contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(r.x(6)),
+          borderSide: BorderSide.none,
         ),
       ),
     );
