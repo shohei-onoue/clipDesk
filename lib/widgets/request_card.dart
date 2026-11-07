@@ -16,6 +16,7 @@ class RequestCard extends StatelessWidget {
     required this.tag,
     this.tagColor = AppColors.blue,
     this.tagTextColor = AppColors.bg,
+    this.onTap,
   });
 
   final double progress;
@@ -25,50 +26,54 @@ class RequestCard extends StatelessWidget {
   final String tag;
   final Color tagColor;
   final Color tagTextColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(minHeight: r.y(92)),
-      padding: EdgeInsets.all(r.x(14)),
-      decoration: BoxDecoration(
-        color: AppColors.bg,
-        border: Border.all(color: AppColors.ink),
-        borderRadius: BorderRadius.circular(r.x(15)),
-      ),
-      child: Row(
-        children: [
-          ProgressRing(value: progress, label: progressLabel),
-          SizedBox(width: r.x(14)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppText.noto(r.x(16), height: 20.8 / 16)),
-                SizedBox(height: r.y(4)),
-                Text(meta,
-                    style: AppText.noto(r.x(14),
-                        weight: FontWeight.w500, height: 18.2 / 14)),
-                SizedBox(height: r.y(4)),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: r.x(16), vertical: r.y(5)),
-                  decoration: BoxDecoration(
-                    color: tagColor,
-                    border: Border.all(color: AppColors.ink),
-                    borderRadius: BorderRadius.circular(r.x(16)),
-                  ),
-                  child: Text(tag,
-                      style: AppText.noto(r.x(15),
-                          color: tagTextColor, height: 19.5 / 15)),
-                ),
-              ],
-            ),
+    return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(minHeight: r.y(92)),
+          padding: EdgeInsets.all(r.x(14)),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            border: Border.all(color: AppColors.ink),
+            borderRadius: BorderRadius.circular(r.x(15)),
           ),
-        ],
-      ),
-    );
+          child: Row(
+            children: [
+              ProgressRing(value: progress, label: progressLabel),
+              SizedBox(width: r.x(14)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: AppText.noto(r.x(16), height: 20.8 / 16)),
+                    SizedBox(height: r.y(4)),
+                    Text(meta,
+                        style: AppText.noto(r.x(14),
+                            weight: FontWeight.w500, height: 18.2 / 14)),
+                    SizedBox(height: r.y(4)),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: r.x(16), vertical: r.y(5)),
+                      decoration: BoxDecoration(
+                        color: tagColor,
+                        border: Border.all(color: AppColors.ink),
+                        borderRadius: BorderRadius.circular(r.x(16)),
+                      ),
+                      child: Text(tag,
+                          style: AppText.noto(r.x(15),
+                              color: tagTextColor, height: 19.5 / 15)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ));
   }
 }

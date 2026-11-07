@@ -13,13 +13,19 @@ class AppHeader extends StatelessWidget {
     this.titleSize = 24,
     this.onMenu,
     this.onSettings,
+    this.actions = const [],
   });
 
   final String title;
   final Color background;
   final double titleSize;
   final VoidCallback? onMenu;
+
+  /// 未接続のときは設定アイコンを出さない（押しても反応しないボタンを置かない）。
   final VoidCallback? onSettings;
+
+  /// 右端に並べるボタン。
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +46,9 @@ class AppHeader extends StatelessWidget {
             style: AppText.noto(r.x(titleSize), height: 32 / titleSize),
           ),
           const Spacer(),
-          _HeaderIcon(icon: Icons.settings, onTap: onSettings),
+          ...actions,
+          if (onSettings != null)
+            _HeaderIcon(icon: Icons.settings, onTap: onSettings),
           SizedBox(width: r.x(8)),
         ],
       ),

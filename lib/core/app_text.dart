@@ -13,7 +13,8 @@ class AppText {
     double? height,
     double? letterSpacing,
   }) =>
-      GoogleFonts.notoSansJp(
+      TextStyle(
+        fontFamily: 'NotoSansJP',
         fontSize: size,
         fontWeight: weight,
         color: color,

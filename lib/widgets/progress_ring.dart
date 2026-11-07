@@ -24,8 +24,7 @@ class ProgressRing extends StatelessWidget {
       child: CustomPaint(
         painter: _RingPainter(value, r.x(5)),
         child: Center(
-          child: Text(label,
-              style: AppText.noto(r.x(16), height: 20.8 / 16)),
+          child: Text(label, style: AppText.noto(r.x(16), height: 20.8 / 16)),
         ),
       ),
     );

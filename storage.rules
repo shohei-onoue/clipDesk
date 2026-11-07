@@ -1,0 +1,48 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function roleOf(uid) {
+      return firestore.get(/databases/(default)/documents/roles/$(uid)).data.role;
+    }
+    function hasRole(r) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/roles/$(request.auth.uid))
+        && roleOf(request.auth.uid) == r;
+    }
+    function req(requestId) {
+      return firestore.get(/databases/(default)/documents/requests/$(requestId)).data;
+    }
+    function reqExists(requestId) {
+      return firestore.exists(/databases/(default)/documents/requests/$(requestId));
+    }
+    // 1ファイルの上限（暫定 500MB。FigJamで未確定、lib/data/storage_service.dart と揃える）
+    function sizeOk() { return request.resource.size <= 500 * 1024 * 1024; }
+
+    // 依頼者が添付する動画・参考資料。依頼の作成前にアップロードするため、
+    // 依頼者本人のフォルダにだけ書ける。編集者は担当（または未割り当て）の依頼のものだけ読める。
+    match /uploads/{uid}/{requestId}/{file} {
+      allow write: if hasRole('requester') && request.auth.uid == uid && sizeOk()
+        && (request.resource.contentType.matches('video/.*')
+          || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'application/octet-stream');
+      allow read: if signedIn() && (
+        request.auth.uid == uid
+        || (hasRole('editor') && reqExists(requestId)
+            && req(requestId).requesterId == uid
+            && (req(requestId).editorId == null || req(requestId).editorId == request.auth.uid)));
+    }
+
+    // 編集者が提出する初稿・修正動画。担当編集者が編集中／修正の間だけ書ける。
+    match /videos/{requestId}/{version}/{file} {
+      allow write: if hasRole('editor') && reqExists(requestId) && sizeOk()
+        && req(requestId).editorId == request.auth.uid
+        && (req(requestId).status == 'editing' || req(requestId).status == 'revision')
+        && request.resource.contentType.matches('video/.*');
+      allow read: if signedIn() && reqExists(requestId) && (
+        req(requestId).requesterId == request.auth.uid
+        || req(requestId).editorId == request.auth.uid);
+    }
+  }
+}

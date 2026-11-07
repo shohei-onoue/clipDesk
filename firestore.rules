@@ -1,9 +1,200 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 自分の users/{uid} だけ読み書きできる。
+
+    function signedIn() { return request.auth != null; }
+    function roleOf(uid) {
+      return get(/databases/$(database)/documents/roles/$(uid)).data.role;
+    }
+    function hasRole(r) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && roleOf(request.auth.uid) == r;
+    }
+    function isEditor() { return hasRole('editor'); }
+    function isRequester() { return hasRole('requester'); }
+
+    // 役割は管理者（Firebaseコンソール／Admin SDK）だけが設定する。
+    // 利用者は自分の役割を読めるが、書き換えられない。
+    match /roles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ログイン時に保存するプロフィール。権限判断には使わない（役割は roles/{uid}）。
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if signedIn() && request.auth.uid == uid
+        && !('role' in request.resource.data);
+    }
+
+    function canRead(req) {
+      return signedIn() && (
+        req.requesterId == request.auth.uid
+        || (isEditor() && (req.editorId == null || req.editorId == request.auth.uid)));
+    }
+
+    match /requests/{requestId} {
+      // 存在しない依頼IDの確認（resource == null）は、送信の再試行で冪等性を確かめるために許可する。
+      allow read: if signedIn() && (resource == null || canRead(resource.data));
+
+      allow create: if isRequester()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.editorId == null
+        && request.resource.data.status == 'pending'
+        && request.resource.data.submissionCount == 0
+        && request.resource.data.reviewRound == 0
+        && request.resource.data.approvedVersion == null
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.brief.purpose.size() > 0
+        && request.resource.data.brief.structure.size() > 0
+        && request.resource.data.brief.deliveryTerms.size() > 0
+        && request.resource.data.dueDate is timestamp
+        && request.resource.data.attachments is list
+        && request.resource.data.attachments.size() >= 1
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'requesterId', 'editorId', 'status', 'title', 'brief', 'dueDate',
+          'attachments', 'reviewReason', 'revisionNote', 'reviewRound',
+          'submissionCount', 'approvedVersion', 'createdAt', 'updatedAt']);
+
+      // 状態遷移ごとに「誰が」「どの状態から」「どの項目を」変えられるかを限定する。
+      allow update: if signedIn()
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.requesterId == resource.data.requesterId
+        && (
+          // 依頼者: 要確認 → 受付待ち（指示書を直して再送信）
+          (resource.data.requesterId == request.auth.uid && isRequester()
+            && resource.data.status == 'needsInfo'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.brief.purpose.size() > 0
+            && request.resource.data.brief.structure.size() > 0
+            && request.resource.data.brief.deliveryTerms.size() > 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['title', 'brief', 'dueDate', 'reviewReason', 'status', 'updatedAt']))
+          // 依頼者: 初稿確認 → 修正（承認前のみ）
+          || (resource.data.requesterId == request.auth.uid && isRequester()
+            && resource.data.status == 'review'
+            && resource.data.approvedVersion == null
+            && request.resource.data.status == 'revision'
+            && request.resource.data.revisionNote is string
+            && request.resource.data.revisionNote.size() > 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['revisionNote', 'status', 'updatedAt']))
+          // 依頼者: 承認（状態は初稿確認のまま、承認した版だけ保存）
+          || (resource.data.requesterId == request.auth.uid && isRequester()
+            && resource.data.status == 'review'
+            && request.resource.data.status == 'review'
+            && resource.data.approvedVersion == null
+            && request.resource.data.approvedVersion == resource.data.submissionCount
+            && resource.data.submissionCount >= 1
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['approvedVersion', 'approvedAt', 'updatedAt']))
+          // 編集者: 受付待ち → 編集中（担当は開始した編集者）
+          || (isEditor()
+            && resource.data.status == 'pending'
+            && resource.data.editorId == null
+            && request.resource.data.status == 'editing'
+            && request.resource.data.editorId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['editorId', 'status', 'updatedAt']))
+          // 編集者: 受付待ち／編集中 → 要確認（理由必須）
+          || (isEditor()
+            && (resource.data.editorId == null || resource.data.editorId == request.auth.uid)
+            && (resource.data.status == 'pending' || resource.data.status == 'editing')
+            && request.resource.data.status == 'needsInfo'
+            && request.resource.data.editorId == request.auth.uid
+            && request.resource.data.reviewReason is string
+            && request.resource.data.reviewReason.size() > 0
+            && request.resource.data.reviewRound == resource.data.reviewRound + 1
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['reviewReason', 'editorId', 'reviewRound', 'status', 'updatedAt']))
+          // 編集者: 編集中／修正 → 初稿確認（動画の保存記録と同時のみ）
+          || (isEditor() && resource.data.editorId == request.auth.uid
+            && (resource.data.status == 'editing' || resource.data.status == 'revision')
+            && request.resource.data.status == 'review'
+            && request.resource.data.submissionCount == resource.data.submissionCount + 1
+            && existsAfter(/databases/$(database)/documents/requests/$(requestId)/submissions/$('v' + string(request.resource.data.submissionCount)))
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['submissionCount', 'revisionNote', 'status', 'updatedAt']))
+          // 編集者: 承認済みの初稿確認 → 投稿済
+          || (isEditor() && resource.data.editorId == request.auth.uid
+            && resource.data.status == 'review'
+            && resource.data.approvedVersion != null
+            && request.resource.data.status == 'posted'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['postedAt', 'status', 'updatedAt']))
+        );
+
+      allow delete: if false;
+
+      // 提出動画の記録。依頼の更新と同時に、担当編集者だけが追加できる。
+      match /submissions/{sid} {
+        allow read: if canRead(get(/databases/$(database)/documents/requests/$(requestId)).data);
+        allow create: if isEditor()
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.editorId == request.auth.uid
+          && request.resource.data.uploadedBy == request.auth.uid
+          && request.resource.data.version == getAfter(/databases/$(database)/documents/requests/$(requestId)).data.submissionCount
+          && sid == 'v' + string(request.resource.data.version)
+          && request.resource.data.path.matches('videos/' + requestId + '/.*');
+        allow update, delete: if false;
+      }
+
+      // 修正指示の記録。依頼者が修正指示と同時にだけ追加できる。
+      match /revisions/{rid} {
+        allow read: if canRead(get(/databases/$(database)/documents/requests/$(requestId)).data);
+        allow create: if isRequester()
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.status == 'revision'
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.instruction is string
+          && request.resource.data.instruction.size() > 0;
+        allow update, delete: if false;
+      }
+    }
+
+    // 通知。依頼の状態更新と同じ書き込み内（updatedAt == request.time）で、
+    // 状態に対応する通知だけを、相手宛てに作成できる。既読管理は未確定のため持たない。
+    match /notifications/{nid} {
+      allow read: if signedIn() && (
+        resource.data.recipientId == request.auth.uid
+        || (resource.data.audience == 'editors' && isEditor()));
+
+      allow create: if signedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.updatedAt == request.time
+        && (
+          (request.resource.data.type == 'newRequest'
+            && request.resource.data.audience == 'editors'
+            && request.resource.data.recipientId == null
+            && nid == request.resource.data.requestId + '_new'
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')
+          || (request.resource.data.type == 'resubmitted'
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')
+          || (request.resource.data.type == 'needsInfo'
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'needsInfo')
+          || (request.resource.data.type == 'reviewRequested'
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'review')
+          || (request.resource.data.type == 'revisionRequested'
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'revision')
+          || (request.resource.data.type == 'approved'
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.approvedVersion != null)
+        );
+      allow update, delete: if false;
     }
   }
 }

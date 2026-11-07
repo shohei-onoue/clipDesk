@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import '../data/services.dart';
+import '../domain/request_status.dart';
 
 /// 左から出る青いドロワー。幅は画面の 350/390。
 class AppDrawer extends StatelessWidget {
@@ -36,11 +38,19 @@ class AppDrawer extends StatelessWidget {
             child: Column(
               children: [
                 _Tile(Icons.home_outlined, 'ホーム', () => _go(context, '/home')),
-                _Tile(Icons.add_circle_outline, '新しい依頼',
-                    () => _go(context, '/chat')),
+                StreamBuilder<UserRole?>(
+                  stream: Services.uid == null
+                      ? null
+                      : Services.repo.watchRole(Services.uid!),
+                  builder: (context, snap) => snap.data == UserRole.requester
+                      ? _Tile(Icons.add_circle_outline, '新しい依頼',
+                          () => _go(context, '/chat'))
+                      : const SizedBox.shrink(),
+                ),
+                _Tile(Icons.notifications_none, '通知',
+                    () => _go(context, '/notifications')),
                 _Tile(Icons.video_library_outlined, '納品ライブラリ',
-                    () => Navigator.of(context).pop()),
-                _Tile(Icons.settings, '設定', () => Navigator.of(context).pop()),
+                    () => _go(context, '/library')),
                 const Spacer(),
                 _Tile(Icons.logout, 'ログアウト', () async {
                   await FirebaseAuth.instance.signOut();

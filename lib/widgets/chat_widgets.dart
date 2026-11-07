@@ -26,8 +26,8 @@ class AssistantMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    final style = AppText.noto(r.x(18),
-        weight: FontWeight.w400, height: 27 / 18);
+    final style =
+        AppText.noto(r.x(18), weight: FontWeight.w400, height: 27 / 18);
     final body = lines != null
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +53,7 @@ class AssistantMessage extends StatelessWidget {
                 if (showHeader)
                   Padding(
                     padding: EdgeInsets.only(bottom: r.y(4)),
-                    child: Text('アシスタント',
+                    child: Text('ナビゲーター',
                         style: AppText.noto(r.x(14), height: 18.2 / 14)),
                   ),
                 Container(
@@ -81,12 +81,9 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.avatar,
-        border: Border.all(color: AppColors.ink),
-      ),
+    return ClipOval(
+      child: Image.asset('assets/navigater.png',
+          fit: BoxFit.cover, semanticLabel: 'ナビゲーター'),
     );
   }
 }
@@ -105,15 +102,14 @@ class MyMessage extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          padding:
-              EdgeInsets.symmetric(horizontal: r.x(20), vertical: r.y(10)),
+          padding: EdgeInsets.symmetric(horizontal: r.x(20), vertical: r.y(10)),
           decoration: BoxDecoration(
             color: AppColors.blue,
             borderRadius: BorderRadius.circular(r.x(16)),
           ),
           child: Text(text,
-              style: AppText.noto(r.x(18),
-                  color: Colors.white, height: 27 / 18)),
+              style:
+                  AppText.noto(r.x(18), color: Colors.white, height: 27 / 18)),
         ),
       ),
     );
@@ -130,19 +126,23 @@ class AppChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: r.y(48),
-        padding: EdgeInsets.symmetric(horizontal: r.x(20)),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.ink),
-          borderRadius: BorderRadius.circular(r.x(16)),
-        ),
-        child: Center(
-          widthFactor: 1,
-          child: Text(label, style: AppText.noto(r.x(16), height: 20.8 / 16)),
+    return Semantics(
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(r.x(16)),
+        onTap: onTap,
+        child: Container(
+          constraints: BoxConstraints(minHeight: r.y(48)),
+          padding: EdgeInsets.symmetric(horizontal: r.x(20)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AppColors.ink),
+            borderRadius: BorderRadius.circular(r.x(16)),
+          ),
+          child: Center(
+            widthFactor: 1,
+            child: Text(label, style: AppText.noto(r.x(16), height: 20.8 / 16)),
+          ),
         ),
       ),
     );
@@ -163,8 +163,8 @@ class BottomAlignedScroll extends StatelessWidget {
         reverse: true,
         padding: EdgeInsets.fromLTRB(r.x(20), r.y(4), r.x(20), r.y(12)),
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-              minHeight: c.maxHeight - r.y(4) - r.y(12)),
+          constraints:
+              BoxConstraints(minHeight: c.maxHeight - r.y(4) - r.y(12)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.stretch,

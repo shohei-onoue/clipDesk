@@ -39,8 +39,8 @@ class NoticeCard extends StatelessWidget {
             Icon(Icons.notifications, size: r.x(24), color: bellColor),
             SizedBox(width: r.x(10)),
             Expanded(
-              child: Text(text,
-                  style: AppText.noto(r.x(14), height: 18.2 / 14)),
+              child:
+                  Text(text, style: AppText.noto(r.x(14), height: 18.2 / 14)),
             ),
             Icon(Icons.chevron_right, size: r.x(24), color: AppColors.ink),
           ],
