@@ -8,6 +8,8 @@ import 'screens/delivery_library_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/request_detail_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/menu_screen.dart';
+import 'screens/progress_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/request_list_screen.dart';
 
@@ -30,6 +32,8 @@ class ClipDeskApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (_) => const LoginScreen(),
+        '/menu': (_) => const MenuScreen(),
+        '/progress': (_) => const ProgressScreen(),
         '/home': (_) => const HomeScreen(),
         '/drawer': (_) => const RequestListScreen(),
         '/chat': (_) => const ChatScreen(),

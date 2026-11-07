@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/home');
+    Navigator.of(context).pushReplacementNamed('/menu');
   }
 
   /// ログイン成功時に、Firestore の users/{uid} へ email・name・updatedAt を保存する。

@@ -18,7 +18,7 @@ before(async () => {
 });
 after(() => env.cleanup());
 
-const REQ = 'req', ED = 'ed', ED2 = 'ed2', OTHER = 'other', NOROLE = 'norole';
+const REQ = 'req', ED = 'ed', ED2 = 'ed2', OTHER = 'other', NOROLE = 'norole', STAFF = 'staff1';
 const ctxs = new Map();
 const ctx = (uid) => { if (!ctxs.has(uid)) ctxs.set(uid, env.authenticatedContext(uid)); return ctxs.get(uid); };
 const db = (uid) => ctx(uid).firestore();
@@ -39,6 +39,7 @@ async function seed(reqData) {
     await setDoc(doc(d, 'roles', OTHER), { role: 'requester' });
     await setDoc(doc(d, 'roles', ED), { role: 'editor' });
     await setDoc(doc(d, 'roles', ED2), { role: 'editor' });
+    await setDoc(doc(d, 'roles', STAFF), { role: 'staff' });
     if (reqData) await setDoc(doc(d, 'requests', 'r1'), { ...reqData, createdAt: new Date(), updatedAt: new Date() });
   });
 }
@@ -197,4 +198,14 @@ test('Storage: 添付は依頼者本人のみ書込、動画は担当編集者�
   await assertFails(uploadBytes(ref(st(REQ), 'videos/r1/v1/v.mp4'), bytes, mp4));
   await assertSucceeds(getBytes(ref(st(REQ), 'videos/r1/v1/v.mp4')));
   await assertFails(getBytes(ref(st(OTHER), 'videos/r1/v1/v.mp4')));
+});
+
+test('スタッフ: 依頼の作成と、他人の依頼の受付（編集開始）の両方ができる', async () => {
+  await seed();
+  const b = writeBatch(db(STAFF));
+  b.set(doc(db(STAFF), 'requests', 's1'), newReq({ requesterId: STAFF }));
+  b.set(doc(db(STAFF), 'notifications', 's1_new'), note('newRequest', { requestId: 's1', audience: 'editors', recipientId: null, actorId: STAFF }));
+  await assertSucceeds(b.commit());
+  await assertFails(setDoc(doc(db(NOROLE), 'requests', 's2'), newReq({ requesterId: NOROLE })));
+  await assertSucceeds(getDoc(doc(db(STAFF), 'requests', 's1')));
 });

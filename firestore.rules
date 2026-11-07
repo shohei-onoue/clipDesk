@@ -9,11 +9,12 @@ service cloud.firestore {
     function hasRole(r) {
       return signedIn()
         && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
-        && roleOf(request.auth.uid) == r;
+        && (roleOf(request.auth.uid) == r || roleOf(request.auth.uid) == 'staff');
     }
     function isEditor() { return hasRole('editor'); }
     function isRequester() { return hasRole('requester'); }
 
+    // 役割は 'requester'（依頼者）／'editor'（編集者）／'staff'（スタッフ：両方の操作が可能）。
     // 役割は管理者（Firebaseコンソール／Admin SDK）だけが設定する。
     // 利用者は自分の役割を読めるが、書き換えられない。
     match /roles/{uid} {

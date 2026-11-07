@@ -35,11 +35,16 @@ class RequestRepository {
   String newRequestId() => _requests.doc().id;
 
   // ---- 役割 ----
-  Stream<UserRole?> watchRole(String uid) => _db
-      .collection('roles')
-      .doc(uid)
-      .snapshots()
-      .map((s) => UserRole.parse(s.data()?['role']));
+  /// roles/{uid} が 'staff' のスタッフが、メイン画面で選んだ立場（暫定仕様）。
+  /// 依頼者・編集者のどちらにもなれる。選び直すたびにメイン画面で書き換える。
+  UserRole staffMode = UserRole.requester;
+
+  /// 'staff' は [staffMode] の立場として返す。'requester'／'editor' は従来どおり固定。
+  Stream<UserRole?> watchRole(String uid) =>
+      _db.collection('roles').doc(uid).snapshots().map((s) {
+        final v = s.data()?['role'];
+        return v == 'staff' ? staffMode : UserRole.parse(v);
+      });
 
   // ---- 通知の既読（暫定：最後に通知画面を開いた時刻）----
   // 通知ごとの既読はFigJamで未確定のため、users/{uid}.notificationsSeenAt より

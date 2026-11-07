@@ -28,7 +28,7 @@ class AppDrawer extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(r.x(10), r.y(10), r.x(10), 0),
           child: Container(
-            height: r.y(434),
+            height: r.y(490),
             padding: EdgeInsets.symmetric(vertical: r.y(16)),
             decoration: BoxDecoration(
               color: AppColors.blue,
@@ -37,6 +37,7 @@ class AppDrawer extends StatelessWidget {
             ),
             child: Column(
               children: [
+                _Tile(Icons.apps, 'メイン', () => _go(context, '/menu')),
                 _Tile(Icons.home_outlined, 'ホーム', () => _go(context, '/home')),
                 StreamBuilder<UserRole?>(
                   stream: Services.uid == null

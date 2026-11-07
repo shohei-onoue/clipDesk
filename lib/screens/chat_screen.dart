@@ -197,7 +197,9 @@ class _ChatScreenState extends State<ChatScreen> {
         final target = video ? d.videos : d.references;
         target.addAll(list);
         _me('${video ? '動画' : '参考資料'}を添付：${list.map((f) => f.name).join('、')}');
-        _say('添付しました。追加するか「添付を完了」を押してください。');
+        _say(_step == _Step.video || _step == _Step.reference
+            ? '添付しました。追加するか「添付を完了」を押してください。'
+            : '添付しました。続けて質問にお答えください。');
       });
     } catch (e) {
       if (mounted) {
@@ -207,6 +209,75 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+  }
+
+  Future<void> _attachments() async {
+    FocusScope.of(context).unfocus();
+    final kind = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const ListTile(
+                title: Text('ファイルを添付'), subtitle: Text('回答の途中でも追加できます')),
+            for (final item in [
+              ('video', Icons.video_library_outlined, '編集する動画'),
+              ('image', Icons.photo_library_outlined, '参考画像・写真'),
+              ('file', Icons.insert_drive_file_outlined, '参考動画・ファイル'),
+            ])
+              ListTile(
+                leading: Icon(item.$2, color: AppColors.blue),
+                title: Text(item.$3),
+                onTap: () => Navigator.pop(context, item.$1),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (kind == null || !mounted) return;
+    await _pick(video: kind == 'video', image: kind == 'image');
+  }
+
+  void _showChoices() {
+    FocusScope.of(context).unfocus();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .55),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('回答を選択',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final option in _options())
+                      // Close before invoking the choice so new questions appear in the chat.
+                      Builder(builder: (_) {
+                        final chip = option as AppChip;
+                        return AppChip(chip.label,
+                            onTap: chip.onTap == null
+                                ? null
+                                : () {
+                                    Navigator.pop(sheetContext);
+                                    chip.onTap!();
+                                  });
+                      }),
+                  ]),
+                ]),
+          ),
+        ),
+      ),
+    );
   }
 
   void _choose(String text) {
@@ -372,7 +443,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }.contains(_step);
     final options = _options();
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFEAF0F6),
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
@@ -381,22 +452,20 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: BottomAlignedScroll(
                 children: [
-                  for (final m in _msgs)
-                    m.mine
-                        ? MyMessage(m.text)
-                        : AssistantMessage(
-                            text: m.text, fixedWidth: m.text.length > 35),
+                  for (final m in _msgs) _ChatBubble(m),
                   if (_picking)
                     const Padding(
                       padding: EdgeInsets.all(12),
                       child: Text('添付ファイルを読み込んでいます…'),
                     ),
-                  if (_step == _Step.video || _step == _Step.reference)
-                    for (final file
-                        in (_step == _Step.video ? d.videos : d.references))
+                  if (d.original == null)
+                    for (final file in [...d.videos, ...d.references])
                       ListTile(
                         dense: true,
-                        leading: Icon(_step == _Step.video
+                        tileColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        leading: Icon(d.videos.contains(file)
                             ? Icons.videocam_outlined
                             : Icons.attach_file),
                         title: Text(file.name,
@@ -409,10 +478,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           onPressed: _picking
                               ? null
                               : () => setState(() {
-                                    (_step == _Step.video
-                                            ? d.videos
-                                            : d.references)
-                                        .remove(file);
+                                    d.videos.remove(file);
+                                    d.references.remove(file);
                                   }),
                         ),
                       ),
@@ -453,6 +520,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 controller: _input,
                 enabled: textStep,
                 onSend: _send,
+                onAttach: _picking || d.original != null ? null : _attachments,
+                onChoices: options.isEmpty ? null : _showChoices,
               ),
           ],
         ),
@@ -461,66 +530,130 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble(this.message);
+  final _Msg message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        mainAxisAlignment:
+            message.mine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!message.mine) ...[
+            ClipOval(
+                child: Image.asset('assets/navigater.png',
+                    width: 38, height: 38, fit: BoxFit.cover)),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!message.mine)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text('ナビゲーター',
+                        style: AppText.noto(12, weight: FontWeight.w500)),
+                  ),
+                Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * .73),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color:
+                        message.mine ? const Color(0xFFA8E888) : Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(message.mine ? 18 : 4),
+                      topRight: Radius.circular(message.mine ? 4 : 18),
+                      bottomLeft: const Radius.circular(18),
+                      bottomRight: const Radius.circular(18),
+                    ),
+                  ),
+                  child: Text(message.text,
+                      style: AppText.noto(15,
+                          weight: FontWeight.w400, height: 1.5)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InputBar extends StatelessWidget {
   const _InputBar(
-      {required this.controller, required this.enabled, required this.onSend});
+      {required this.controller,
+      required this.enabled,
+      required this.onSend,
+      this.onAttach,
+      this.onChoices});
 
   final TextEditingController controller;
   final bool enabled;
   final VoidCallback onSend;
+  final VoidCallback? onAttach;
+  final VoidCallback? onChoices;
 
   @override
   Widget build(BuildContext context) {
-    final r = context.r;
-    return Padding(
-      padding: EdgeInsets.all(r.x(5)),
-      child: Container(
-        constraints: BoxConstraints(minHeight: r.y(66)),
-        padding: EdgeInsets.symmetric(horizontal: r.x(14), vertical: r.y(9)),
-        decoration: BoxDecoration(
-          color: AppColors.blue,
-          borderRadius: BorderRadius.circular(r.x(20)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: r.x(14)),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: AppColors.ink),
-                  borderRadius: BorderRadius.circular(r.x(16)),
-                ),
-                child: TextField(
-                  controller: controller,
-                  enabled: enabled,
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
-                  style: AppText.noto(r.x(16), weight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: enabled ? 'ここに入力…' : '上の選択肢から選んでください',
-                  ),
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Color(0xFFE0E5EA)))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          IconButton(
+              tooltip: 'ファイルを添付',
+              onPressed: onAttach,
+              icon: const Icon(Icons.add_circle_outline),
+              color: const Color(0xFF66727D)),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              style: AppText.noto(15, weight: FontWeight.w400),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF2F4F6),
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none),
+                hintText: enabled ? 'メッセージを入力' : '選択肢から回答',
               ),
             ),
-            SizedBox(width: r.x(8)),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (_, value, __) => IconButton(
-                tooltip: '回答を送信',
-                onPressed:
-                    enabled && value.text.trim().isNotEmpty ? onSend : null,
-                icon: Icon(Icons.send, size: r.x(24)),
-                color: Colors.white,
-                disabledColor: Colors.white38,
-                constraints:
-                    BoxConstraints(minWidth: r.x(48), minHeight: r.x(48)),
-              ),
+          ),
+          IconButton(
+              tooltip: '選択肢を表示',
+              onPressed: onChoices,
+              icon: const Icon(Icons.list_alt_rounded),
+              color: const Color(0xFF66727D)),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (_, value, __) => IconButton(
+              tooltip: '回答を送信',
+              onPressed:
+                  enabled && value.text.trim().isNotEmpty ? onSend : null,
+              icon: const Icon(Icons.send),
+              color: const Color(0xFF168A45),
+              disabledColor: const Color(0xFFBEC6CE),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -53,6 +53,13 @@ void main() {
             .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.send))
             .onPressed,
         isNull);
+    await tester.tap(find.byTooltip('ファイルを添付'));
+    await tester.pumpAndSettle();
+    expect(find.text('編集する動画'), findsOneWidget);
+    expect(find.text('参考画像・写真'), findsOneWidget);
+    expect(find.text('参考動画・ファイル'), findsOneWidget);
+    Navigator.of(tester.element(find.text('編集する動画'))).pop();
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '秋の会社紹介');
     await tester.pump();
     await tester.tap(find.widgetWithIcon(IconButton, Icons.send));
@@ -69,7 +76,9 @@ void main() {
           .writeAsBytes(data!.buffer.asUint8List());
       image.dispose();
     });
-    await tester.tap(find.text('Instagram リール'));
+    await tester.tap(find.byTooltip('選択肢を表示'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Instagram リール').last);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '地域の20〜30代');
     await tester.pump();

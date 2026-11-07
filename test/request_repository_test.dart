@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:clipdesk/data/request_repository.dart';
 import 'package:clipdesk/data/storage_service.dart';
 import 'package:clipdesk/domain/brief.dart';
+import 'package:clipdesk/domain/request_status.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -223,5 +224,16 @@ void main() {
     expect(await repo.watchNotificationsSeenAt('u1').first, isNotNull);
     final doc = await db.collection('users').doc('u1').get();
     expect(doc.data()!.containsKey('role'), isFalse);
+  });
+
+  test("役割 'staff' は、メイン画面で選んだ立場として返る（固定役割はそのまま）", () async {
+    await db.collection('roles').doc('s1').set({'role': 'staff'});
+    await db.collection('roles').doc('e1').set({'role': 'editor'});
+    expect(await repo.watchRole('s1').first, UserRole.requester);
+    repo.staffMode = UserRole.editor;
+    expect(await repo.watchRole('s1').first, UserRole.editor);
+    repo.staffMode = UserRole.requester;
+    expect(await repo.watchRole('e1').first, UserRole.editor);
+    expect(await repo.watchRole('none').first, isNull);
   });
 }
