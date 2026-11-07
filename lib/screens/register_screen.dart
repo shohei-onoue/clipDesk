@@ -4,18 +4,22 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../data/services.dart';
 
-/// スタッフの新規登録。登録しただけでは何も見られず、責任者の承認（権限の割り当て）後に使える。
-class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+/// スタッフの登録フォーム。責任者からの招待メールのリンクから開く。
+/// 名前とパスワードを決めて登録すると、招待された権限がそのまま付く。
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
-  final _email = TextEditingController();
+  final _email =
+      TextEditingController(text: Uri.base.queryParameters['email'] ?? '');
+  final _phone = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -24,15 +28,17 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _phone.dispose();
     _password.dispose();
     super.dispose();
   }
 
   String _message(String code) => switch (code) {
-        'email-already-in-use' => 'このメールアドレスはすでに登録されています',
-        'invalid-email' => 'メールアドレスの形式が正しくありません',
+        'invalid-action-code' ||
+        'expired-action-code' =>
+          '招待のリンクが無効か、期限が切れています。責任者に再送を依頼してください',
+        'invalid-email' => 'メールアドレスが、招待されたものと一致しません',
         'weak-password' => 'パスワードは6文字以上にしてください',
-        'operation-not-allowed' => '新規登録は現在受け付けていません',
         'network-request-failed' => '通信に失敗しました。接続を確認してください',
         _ => '登録できませんでした（$code）',
       };
@@ -41,8 +47,8 @@ class _SignupScreenState extends State<SignupScreen> {
     if (_busy) return;
     final name = _name.text.trim();
     final email = _email.text.trim();
-    if (name.isEmpty || email.isEmpty || _password.text.isEmpty) {
-      setState(() => _error = '名前・メールアドレス・パスワードを入力してください');
+    if (name.isEmpty || email.isEmpty || _password.text.length < 6) {
+      setState(() => _error = '名前・メールアドレスを入力し、パスワードは6文字以上にしてください');
       return;
     }
     setState(() {
@@ -50,19 +56,23 @@ class _SignupScreenState extends State<SignupScreen> {
       _error = null;
     });
     try {
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email, password: _password.text);
+      final auth = FirebaseAuth.instance;
+      final cred = await auth.signInWithEmailLink(
+          email: email, emailLink: Uri.base.toString());
       final user = cred.user!;
+      await user.updatePassword(_password.text);
       await user.updateDisplayName(name);
-      // 承認画面に表示するための記録（権限は付かない）。失敗しても登録自体は完了。
       try {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': email,
+          'email': user.email ?? email,
           'name': name,
+          'phone': _phone.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+        // 招待された権限を、自分の権限にする。招待が無ければ承認待ちのまま。
+        await Services.repo.claimInvite(user.uid, user.email ?? email);
       } catch (e) {
-        debugPrint('users/${user.uid} の保存に失敗しました: $e');
+        debugPrint('登録情報の保存に失敗しました: $e');
       }
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil('/menu', (_) => false);
@@ -83,7 +93,8 @@ class _SignupScreenState extends State<SignupScreen> {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        title: Text('スタッフ新規登録', style: AppText.noto(18)),
+        automaticallyImplyLeading: false,
+        title: Text('スタッフ登録', style: AppText.noto(18)),
       ),
       body: SafeArea(
         child: Center(
@@ -92,7 +103,7 @@ class _SignupScreenState extends State<SignupScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text('登録後、責任者が承認すると使えるようになります。',
+                Text('招待ありがとうございます。名前とパスワードを決めて登録してください。次回からはこのパスワードでログインします。',
                     style: AppText.noto(14, height: 1.6)),
                 const SizedBox(height: 16),
                 TextField(controller: _name, decoration: deco('名前')),
@@ -100,7 +111,12 @@ class _SignupScreenState extends State<SignupScreen> {
                 TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: deco('メールアドレス')),
+                    decoration: deco('メールアドレス（招待されたもの）')),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: deco('電話番号')),
                 const SizedBox(height: 12),
                 TextField(
                     controller: _password,

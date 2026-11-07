@@ -18,16 +18,28 @@ class RequestStateException implements Exception {
 
 /// 責任者の承認画面に出す、登録済みアカウント。
 class StaffUser {
-  const StaffUser({required this.uid, required this.email, required this.name});
+  const StaffUser(
+      {required this.uid,
+      required this.email,
+      required this.name,
+      this.phone = ''});
   final String uid;
   final String email;
   final String name;
+  final String phone;
 }
 
 /// 依頼・指示書・動画・通知の保存と状態更新。
 /// 状態更新はトランザクションで「現在の状態の確認 → 更新 → 通知」を1回で行い、
 /// 二重操作や保存失敗で状態と通知が食い違わないようにする。
 /// 通知IDは操作ごとに決まる値にし、再実行しても重複しない。
+/// 送信済みで、まだ登録されていない招待。
+class Invite {
+  const Invite({required this.email, required this.access});
+  final String email;
+  final StaffAccess access;
+}
+
 class RequestRepository {
   RequestRepository({FirebaseFirestore? db, StorageService? storage})
       : _db = db ?? FirebaseFirestore.instance,
@@ -69,7 +81,8 @@ class RequestRepository {
               StaffUser(
                   uid: d.id,
                   email: d.data()['email'] as String? ?? '',
-                  name: d.data()['name'] as String? ?? '')
+                  name: d.data()['name'] as String? ?? '',
+                  phone: d.data()['phone'] as String? ?? '')
           ]);
 
   /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
@@ -86,6 +99,58 @@ class RequestRepository {
     } else {
       await ref.set({'role': role, 'manager': manager});
     }
+  }
+
+  // ---- 招待（責任者がメールで招待 → 本人が登録フォームで登録）----
+  // 招待は invites/{メールアドレス（小文字）} に権限を保存する。本人が登録すると、
+  // その内容がそのまま本人の roles/{uid} になり、招待は消える。
+
+  static String inviteId(String email) => email.trim().toLowerCase();
+
+  Future<void> saveInvite(String email,
+      {required bool canRequest,
+      required bool canEdit,
+      required bool manager,
+      required String invitedBy}) {
+    final role =
+        StaffAccess.roleValue(canRequest: canRequest, canEdit: canEdit);
+    if (role == null) {
+      throw ArgumentError('依頼者か編集者のどちらかを選んでください');
+    }
+    return _db.collection('invites').doc(inviteId(email)).set({
+      'role': role,
+      'manager': manager,
+      'invitedBy': invitedBy,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<Invite>> watchInvites() =>
+      _db.collection('invites').snapshots().map((q) => [
+            for (final d in q.docs)
+              Invite(
+                  email: d.id,
+                  access: StaffAccess.fromRole(d.data()['role'],
+                      manager: d.data()['manager']))
+          ]);
+
+  Future<void> cancelInvite(String email) =>
+      _db.collection('invites').doc(inviteId(email)).delete();
+
+  /// 登録した本人が、招待された権限を自分の roles/{uid} にする（招待は削除）。
+  /// 招待が無ければ何もしない（承認待ちのまま）。権限が付いたら true。
+  Future<bool> claimInvite(String uid, String email) async {
+    final ref = _db.collection('invites').doc(inviteId(email));
+    final snap = await ref.get();
+    if (!snap.exists) return false;
+    final batch = _db.batch();
+    batch.set(_db.collection('roles').doc(uid), {
+      'role': snap.data()!['role'],
+      'manager': snap.data()!['manager'] == true,
+    });
+    batch.delete(ref);
+    await batch.commit();
+    return true;
   }
 
   /// 全案件（スタッフは全員が閲覧できる）。

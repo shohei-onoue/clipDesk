@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
@@ -10,7 +12,7 @@ import 'screens/request_detail_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/progress_screen.dart';
-import 'screens/signup_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/staff_admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/request_list_screen.dart';
@@ -31,10 +33,14 @@ class ClipDeskApp extends StatelessWidget {
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      initialRoute: '/',
+      // 招待メールのリンクから開いたときは、登録フォームから始める。
+      initialRoute: kIsWeb &&
+              FirebaseAuth.instance.isSignInWithEmailLink(Uri.base.toString())
+          ? '/register'
+          : '/',
       routes: {
         '/': (_) => const LoginScreen(),
-        '/signup': (_) => const SignupScreen(),
+        '/register': (_) => const RegisterScreen(),
         '/staff': (_) => const StaffAdminScreen(),
         '/menu': (_) => const MenuScreen(),
         '/progress': (_) => const ProgressScreen(),

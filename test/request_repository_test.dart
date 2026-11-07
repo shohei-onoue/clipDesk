@@ -248,8 +248,8 @@ void main() {
         canRequest: true, canEdit: true, manager: true);
     a = await repo.watchAccess('u1').first;
     expect([a.canRequest, a.canEdit, a.manager], [true, true, true]);
-    expect(
-        (await db.collection('roles').doc('u1').get()).data()!['role'], 'staff');
+    expect((await db.collection('roles').doc('u1').get()).data()!['role'],
+        'staff');
     await repo.setStaffAccess('u1',
         canRequest: false, canEdit: false, manager: false);
     expect((await repo.watchAccess('u1').first).approved, isFalse);
@@ -276,5 +276,33 @@ void main() {
       },
     });
     expect((await repo.watchAllRequests().first).length, 1);
+  });
+
+  test('招待：保存→登録した本人が権限を受け取り、招待は消える', () async {
+    await repo.saveInvite('New.User@Example.com',
+        canRequest: true, canEdit: false, manager: false, invitedBy: 'mgr');
+    final invites = await repo.watchInvites().first;
+    expect(invites.single.email, 'new.user@example.com');
+    expect(invites.single.access.label, '依頼者');
+
+    // 招待の無いメールは何も付かない
+    expect(await repo.claimInvite('u9', 'other@example.com'), isFalse);
+    expect((await repo.watchAccess('u9').first).approved, isFalse);
+
+    expect(await repo.claimInvite('u2', 'NEW.user@example.com'), isTrue);
+    final a = await repo.watchAccess('u2').first;
+    expect([a.canRequest, a.canEdit, a.manager], [true, false, false]);
+    expect(await repo.watchInvites().first, isEmpty);
+  });
+
+  test('招待：権限を選ばないと保存できない。取消できる', () async {
+    expect(
+        () => repo.saveInvite('a@x.y',
+            canRequest: false, canEdit: false, manager: false, invitedBy: 'm'),
+        throwsArgumentError);
+    await repo.saveInvite('a@x.y',
+        canRequest: false, canEdit: true, manager: true, invitedBy: 'm');
+    await repo.cancelInvite('A@x.y');
+    expect(await repo.watchInvites().first, isEmpty);
   });
 }

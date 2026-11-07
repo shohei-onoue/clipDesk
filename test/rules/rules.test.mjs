@@ -232,3 +232,21 @@ test('責任者: 全アカウント（users）を読める。他の人は自分�
   await assertSucceeds(getDoc(doc(db(NOROLE), 'users', NOROLE)));
   await assertFails(getDocs(collection(db(STAFF), 'users')));
 });
+
+test('招待: 責任者だけが作れる。本人は確認済みメールで、招待どおりの権限だけ自分に付けられる', async () => {
+  await seed();
+  const inv = { role: 'editor', manager: false, invitedBy: MGR, createdAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(db(MGR), 'invites', 'new@x.y'), inv));
+  await assertFails(setDoc(doc(db(STAFF), 'invites', 'z@x.y'), { ...inv, invitedBy: STAFF }));
+  const me = (uid, email, verified = true) =>
+    env.authenticatedContext(uid, { email, email_verified: verified }).firestore();
+  // 招待どおり → 成功。権限の水増し・責任者化・他人の招待・未確認メールは不可
+  await assertFails(setDoc(doc(me('n1', 'new@x.y'), 'roles', 'n1'), { role: 'staff', manager: false }));
+  await assertFails(setDoc(doc(me('n1', 'new@x.y'), 'roles', 'n1'), { role: 'editor', manager: true }));
+  await assertFails(setDoc(doc(me('n1', 'other@x.y'), 'roles', 'n1'), { role: 'editor', manager: false }));
+  await assertFails(setDoc(doc(me('n1', 'new@x.y', false), 'roles', 'n1'), { role: 'editor', manager: false }));
+  await assertSucceeds(getDoc(doc(me('n1', 'new@x.y'), 'invites', 'new@x.y')));
+  await assertFails(getDoc(doc(me('n1', 'other@x.y'), 'invites', 'new@x.y')));
+  await assertSucceeds(setDoc(doc(me('n1', 'new@x.y'), 'roles', 'n1'), { role: 'editor', manager: false }));
+  await assertSucceeds(deleteDoc(doc(me('n1', 'new@x.y'), 'invites', 'new@x.y')));
+});

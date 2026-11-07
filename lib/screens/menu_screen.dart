@@ -64,8 +64,8 @@ class MenuScreen extends StatelessWidget {
                         if (a.manager)
                           _MenuButton(
                             icon: Icons.group_add_outlined,
-                            title: 'スタッフ承認',
-                            sub: '新しく登録した人に権限を付ける',
+                            title: 'スタッフ管理',
+                            sub: 'メールで招待する・権限を変える',
                             onTap: () => _go(context, null, '/staff'),
                           ),
                       ],
