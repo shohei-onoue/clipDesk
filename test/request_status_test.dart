@@ -9,12 +9,16 @@ void main() {
 
   group('状態遷移', () {
     test('FigJamの流れ: 受付待ち→編集中→初稿確認→(承認)→投稿済', () {
-      expect(go(RequestStatus.pending, RequestAction.startEditing, UserRole.editor),
+      expect(
+          go(RequestStatus.pending, RequestAction.startEditing,
+              UserRole.editor),
           RequestStatus.editing);
-      expect(go(RequestStatus.editing, RequestAction.submitVideo, UserRole.editor),
+      expect(
+          go(RequestStatus.editing, RequestAction.submitVideo, UserRole.editor),
           RequestStatus.review);
       // 承認しても状態は初稿確認のまま（自動で投稿済にしない）
-      expect(go(RequestStatus.review, RequestAction.approve, UserRole.requester),
+      expect(
+          go(RequestStatus.review, RequestAction.approve, UserRole.requester),
           RequestStatus.review);
       expect(
           go(RequestStatus.review, RequestAction.markPosted, UserRole.editor,
@@ -23,20 +27,30 @@ void main() {
     });
 
     test('要確認と修正は分岐', () {
-      expect(go(RequestStatus.pending, RequestAction.askForInfo, UserRole.editor),
+      expect(
+          go(RequestStatus.pending, RequestAction.askForInfo, UserRole.editor),
           RequestStatus.needsInfo);
-      expect(go(RequestStatus.needsInfo, RequestAction.resubmit, UserRole.requester),
+      expect(
+          go(RequestStatus.needsInfo, RequestAction.resubmit,
+              UserRole.requester),
           RequestStatus.pending);
-      expect(go(RequestStatus.review, RequestAction.requestRevision, UserRole.requester),
+      expect(
+          go(RequestStatus.review, RequestAction.requestRevision,
+              UserRole.requester),
           RequestStatus.revision);
-      expect(go(RequestStatus.revision, RequestAction.submitVideo, UserRole.editor),
+      expect(
+          go(RequestStatus.revision, RequestAction.submitVideo,
+              UserRole.editor),
           RequestStatus.review);
     });
 
     test('承認前は投稿済にできない／承認後は修正できない', () {
-      expect(go(RequestStatus.review, RequestAction.markPosted, UserRole.editor), isNull);
       expect(
-          go(RequestStatus.review, RequestAction.requestRevision, UserRole.requester,
+          go(RequestStatus.review, RequestAction.markPosted, UserRole.editor),
+          isNull);
+      expect(
+          go(RequestStatus.review, RequestAction.requestRevision,
+              UserRole.requester,
               approved: true),
           isNull);
       expect(
@@ -46,23 +60,37 @@ void main() {
     });
 
     test('役割違い・状態違いは拒否', () {
-      expect(go(RequestStatus.pending, RequestAction.startEditing, UserRole.requester), isNull);
-      expect(go(RequestStatus.review, RequestAction.approve, UserRole.editor), isNull);
-      expect(go(RequestStatus.editing, RequestAction.startEditing, UserRole.editor), isNull);
-      expect(go(RequestStatus.posted, RequestAction.submitVideo, UserRole.editor), isNull);
-      expect(go(RequestStatus.editing, RequestAction.approve, UserRole.requester), isNull);
+      expect(
+          go(RequestStatus.pending, RequestAction.startEditing,
+              UserRole.requester),
+          isNull);
+      expect(go(RequestStatus.review, RequestAction.approve, UserRole.editor),
+          isNull);
+      expect(
+          go(RequestStatus.editing, RequestAction.startEditing,
+              UserRole.editor),
+          isNull);
+      expect(
+          go(RequestStatus.posted, RequestAction.submitVideo, UserRole.editor),
+          isNull);
+      expect(
+          go(RequestStatus.editing, RequestAction.approve, UserRole.requester),
+          isNull);
     });
   });
 
   group('指示書の検証', () {
     final now = DateTime(2026, 11, 6, 15);
-    const ok = Brief(
-        title: 't', purpose: 'p', structure: 's', deliveryTerms: 'd');
+    const ok =
+        Brief(title: 't', purpose: 'p', structure: 's', deliveryTerms: 'd');
 
     test('揃っていればエラーなし（当日の納期も可）', () {
       expect(
           BriefValidation.validate(
-              brief: ok, dueDate: DateTime(2026, 11, 6), videoCount: 1, now: now),
+              brief: ok,
+              dueDate: DateTime(2026, 11, 6),
+              videoCount: 1,
+              now: now),
           isEmpty);
     });
 
@@ -72,8 +100,16 @@ void main() {
           dueDate: null,
           videoCount: 0,
           now: now);
-      expect(e.keys,
-          containsAll(['title', 'purpose', 'structure', 'deliveryTerms', 'video', 'dueDate']));
+      expect(
+          e.keys,
+          containsAll([
+            'title',
+            'purpose',
+            'structure',
+            'deliveryTerms',
+            'video',
+            'dueDate'
+          ]));
     });
 
     test('過去の納期は不可', () {

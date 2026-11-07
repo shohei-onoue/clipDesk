@@ -10,6 +10,7 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/roles/$(request.auth.uid))
         && (roleOf(request.auth.uid) == r || roleOf(request.auth.uid) == 'staff');
     }
+    function isStaff() { return hasRole('editor') || hasRole('requester'); }
     function req(requestId) {
       return firestore.get(/databases/(default)/documents/requests/$(requestId)).data;
     }
@@ -28,10 +29,7 @@ service firebase.storage {
           || request.resource.contentType == 'application/pdf'
           || request.resource.contentType == 'application/octet-stream');
       allow read: if signedIn() && (
-        request.auth.uid == uid
-        || (hasRole('editor') && reqExists(requestId)
-            && req(requestId).requesterId == uid
-            && (req(requestId).editorId == null || req(requestId).editorId == request.auth.uid)));
+        request.auth.uid == uid || isStaff());
     }
 
     // 編集者が提出する初稿・修正動画。担当編集者が編集中／修正の間だけ書ける。
@@ -41,8 +39,7 @@ service firebase.storage {
         && (req(requestId).status == 'editing' || req(requestId).status == 'revision')
         && request.resource.contentType.matches('video/.*');
       allow read: if signedIn() && reqExists(requestId) && (
-        req(requestId).requesterId == request.auth.uid
-        || req(requestId).editorId == request.auth.uid);
+        req(requestId).requesterId == request.auth.uid || isStaff());
     }
   }
 }

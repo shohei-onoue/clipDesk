@@ -4,6 +4,7 @@ import 'package:clipdesk/data/request_repository.dart';
 import 'package:clipdesk/data/storage_service.dart';
 import 'package:clipdesk/domain/brief.dart';
 import 'package:clipdesk/domain/request_status.dart';
+import 'package:clipdesk/domain/staff_access.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -235,5 +236,45 @@ void main() {
     repo.staffMode = UserRole.requester;
     expect(await repo.watchRole('e1').first, UserRole.editor);
     expect(await repo.watchRole('none').first, isNull);
+  });
+
+  test('責任者の承認：権限を付与・変更・取り消しでき、責任者の印は別に持つ', () async {
+    expect(await repo.watchAccess('u1').first, same(StaffAccess.none));
+    await repo.setStaffAccess('u1',
+        canRequest: false, canEdit: true, manager: false);
+    var a = await repo.watchAccess('u1').first;
+    expect([a.canRequest, a.canEdit, a.manager], [false, true, false]);
+    await repo.setStaffAccess('u1',
+        canRequest: true, canEdit: true, manager: true);
+    a = await repo.watchAccess('u1').first;
+    expect([a.canRequest, a.canEdit, a.manager], [true, true, true]);
+    expect(
+        (await db.collection('roles').doc('u1').get()).data()!['role'], 'staff');
+    await repo.setStaffAccess('u1',
+        canRequest: false, canEdit: false, manager: false);
+    expect((await repo.watchAccess('u1').first).approved, isFalse);
+    expect((await db.collection('roles').doc('u1').get()).exists, isFalse);
+  });
+
+  test('承認画面の一覧：登録アカウント（users）を返す', () async {
+    await db.collection('users').doc('a').set({'email': 'a@x.y', 'name': 'あ'});
+    final list = await repo.watchUsers().first;
+    expect(list.single.email, 'a@x.y');
+    expect(list.single.name, 'あ');
+  });
+
+  test('全案件：他人の依頼も一覧に出る', () async {
+    await db.collection('requests').doc('x').set({
+      'requesterId': 'other',
+      'status': 'pending',
+      'title': 't',
+      'brief': {
+        'title': 't',
+        'purpose': 'p',
+        'structure': 's',
+        'deliveryTerms': 'd'
+      },
+    });
+    expect((await repo.watchAllRequests().first).length, 1);
   });
 }

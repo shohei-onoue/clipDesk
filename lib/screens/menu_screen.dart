@@ -5,12 +5,13 @@ import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/role_builder.dart';
 
 /// ログイン後のメイン画面。「依頼する」「編集する」「進捗状況をみる」から各画面へ進む。
-/// スタッフ全員が依頼者にも編集者にもなれる暫定仕様（FigJamで未確定）。
+/// ボタンは付与された権限に応じて出す（依頼者／編集者／両方、責任者はスタッフ承認も）。暫定仕様（FigJamで未確定）。
 /// 選んだ立場は [RequestRepository.staffMode] に保持し、roles/{uid} が 'staff' のとき使う。
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -32,28 +33,44 @@ class MenuScreen extends StatelessWidget {
             const AppHeader(title: 'メイン', background: AppColors.bg),
             Expanded(
               child: RoleBuilder(
-                builder: (context, uid, role) => ListView(
-                  padding: EdgeInsets.all(r.x(16)),
-                  children: [
-                    _MenuButton(
-                      icon: Icons.note_add_outlined,
-                      title: '依頼する',
-                      sub: '新しい依頼を出す・届いた動画を確認する',
-                      onTap: () => _go(context, UserRole.requester, '/home'),
-                    ),
-                    _MenuButton(
-                      icon: Icons.movie_edit,
-                      title: '編集する',
-                      sub: '依頼を受け付ける・動画を提出する',
-                      onTap: () => _go(context, UserRole.editor, '/home'),
-                    ),
-                    _MenuButton(
-                      icon: Icons.timeline,
-                      title: '進捗状況をみる',
-                      sub: '動いている案件だけを一覧で見る',
-                      onTap: () => _go(context, null, '/progress'),
-                    ),
-                  ],
+                builder: (context, uid, role) => StreamBuilder<StaffAccess>(
+                  stream: Services.repo.watchAccess(uid),
+                  builder: (context, snap) {
+                    final a = snap.data ?? StaffAccess.none;
+                    return ListView(
+                      padding: EdgeInsets.all(r.x(16)),
+                      children: [
+                        if (a.canRequest)
+                          _MenuButton(
+                            icon: Icons.note_add_outlined,
+                            title: '依頼する',
+                            sub: '新しい依頼を出す・届いた動画を確認する',
+                            onTap: () =>
+                                _go(context, UserRole.requester, '/home'),
+                          ),
+                        if (a.canEdit)
+                          _MenuButton(
+                            icon: Icons.movie_edit,
+                            title: '編集する',
+                            sub: '依頼を受け付ける・動画を提出する',
+                            onTap: () => _go(context, UserRole.editor, '/home'),
+                          ),
+                        _MenuButton(
+                          icon: Icons.timeline,
+                          title: '進捗状況をみる',
+                          sub: '動いている案件を全員分見る',
+                          onTap: () => _go(context, null, '/progress'),
+                        ),
+                        if (a.manager)
+                          _MenuButton(
+                            icon: Icons.group_add_outlined,
+                            title: 'スタッフ承認',
+                            sub: '新しく登録した人に権限を付ける',
+                            onTap: () => _go(context, null, '/staff'),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

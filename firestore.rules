@@ -17,22 +17,34 @@ service cloud.firestore {
     // 役割は 'requester'（依頼者）／'editor'（編集者）／'staff'（スタッフ：両方の操作が可能）。
     // 役割は管理者（Firebaseコンソール／Admin SDK）だけが設定する。
     // 利用者は自分の役割を読めるが、書き換えられない。
+    // 承認画面（責任者）から、責任者だけが他人の役割を付与・変更・取り消しできる。
+    // 自分自身の役割は書き換えられない（昇格・誤って降格を防ぐ）。最初の責任者はコンソールで登録する。
+    function isManager() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.get('manager', false) == true;
+    }
+    function isStaff() { return isEditor() || isRequester(); }
+
     match /roles/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
+      allow create, update: if isManager() && request.auth.uid != uid
+        && request.resource.data.keys().hasOnly(['role', 'manager'])
+        && request.resource.data.role in ['requester', 'editor', 'staff']
+        && request.resource.data.manager is bool;
+      allow delete: if isManager() && request.auth.uid != uid;
     }
 
     // ログイン時に保存するプロフィール。権限判断には使わない（役割は roles/{uid}）。
     match /users/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
       allow write: if signedIn() && request.auth.uid == uid
         && !('role' in request.resource.data);
     }
 
     function canRead(req) {
-      return signedIn() && (
-        req.requesterId == request.auth.uid
-        || (isEditor() && (req.editorId == null || req.editorId == request.auth.uid)));
+      // 登録済みスタッフは全案件を閲覧できる（承認前のアカウントは不可）。
+      return signedIn() && (req.requesterId == request.auth.uid || isStaff());
     }
 
     match /requests/{requestId} {

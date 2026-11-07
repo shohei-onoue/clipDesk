@@ -9,6 +9,7 @@ import '../data/services.dart';
 import '../data/storage_service.dart';
 import '../domain/draft.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
@@ -72,6 +73,11 @@ class _BodyState extends State<_Body> {
 
   VideoRequest get q => widget.request;
   bool get _isEditor => widget.role == UserRole.editor;
+
+  Future<void> _download(String path) async {
+    final url = await Services.repo.downloadUrl(path);
+    await launchUrl(Uri.parse(url));
+  }
 
   /// 多重操作を防ぎつつ実行し、失敗は画面に出す。
   Future<void> _run(Future<void> Function() action, {String? done}) async {
@@ -235,37 +241,64 @@ class _BodyState extends State<_Body> {
         SizedBox(height: r.y(10)),
         _Card(children: [
           Text('添付資料', style: AppText.noto(r.x(16))),
-          for (final a in q.attachments)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(a.kind == 'video'
-                  ? Icons.play_circle_outline
-                  : Icons.attach_file),
-              title: Text(a.name),
-              onTap: () async {
-                if (a.kind == 'video') {
-                  await showVideoDialog(context, path: a.path, title: a.name);
-                } else {
-                  final url = await Services.repo.downloadUrl(a.path);
-                  await launchUrl(Uri.parse(url));
-                }
-              },
-            ),
+          // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
+          StreamBuilder<StaffAccess>(
+            stream: Services.repo.watchAccess(widget.uid),
+            builder: (context, snap) {
+              final canDownload = snap.data?.canEdit ?? false;
+              return Column(children: [
+                for (final a in q.attachments)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(a.kind == 'video'
+                        ? Icons.play_circle_outline
+                        : Icons.attach_file),
+                    title: Text(a.name),
+                    subtitle: !canDownload && a.kind != 'video'
+                        ? const Text('ダウンロードは編集者のみ')
+                        : null,
+                    trailing: canDownload
+                        ? IconButton(
+                            tooltip: 'ダウンロード',
+                            icon: const Icon(Icons.download),
+                            onPressed: () => _download(a.path),
+                          )
+                        : null,
+                    onTap: () async {
+                      if (a.kind == 'video') {
+                        await showVideoDialog(context,
+                            path: a.path, title: a.name);
+                      } else if (canDownload) {
+                        await _download(a.path);
+                      }
+                    },
+                  ),
+              ]);
+            },
+          ),
         ]),
         SizedBox(height: r.y(10)),
-        _Submissions(request: q),
+        _Submissions(request: q, uid: widget.uid),
       ],
     );
   }
 }
 
 class _Submissions extends StatelessWidget {
-  const _Submissions({required this.request});
+  const _Submissions({required this.request, required this.uid});
   final VideoRequest request;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<StaffAccess>(
+      stream: Services.repo.watchAccess(uid),
+      builder: (context, accessSnap) => _list(context, accessSnap.data),
+    );
+  }
+
+  Widget _list(BuildContext context, StaffAccess? access) {
     final r = context.r;
     return StreamBuilder<List<Submission>>(
       stream: Services.repo.watchSubmissions(request.id),
@@ -282,6 +315,17 @@ class _Submissions extends StatelessWidget {
               title: Text(
                   '${s.version == 1 ? '初稿' : '修正動画'}（v${s.version}）${s.version == request.approvedVersion ? '　承認済み' : ''}'),
               subtitle: Text(s.name),
+              // 完成品のダウンロードは依頼者権限のスタッフだけ。
+              trailing: (access?.canRequest ?? false)
+                  ? IconButton(
+                      tooltip: 'ダウンロード',
+                      icon: const Icon(Icons.download),
+                      onPressed: () async {
+                        final url = await Services.repo.downloadUrl(s.path);
+                        await launchUrl(Uri.parse(url));
+                      },
+                    )
+                  : null,
               onTap: () => showVideoDialog(context,
                   path: s.path, title: '${request.brief.title} v${s.version}'),
             ),

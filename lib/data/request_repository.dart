@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/brief.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import 'storage_service.dart';
 
@@ -13,6 +14,14 @@ class RequestStateException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+/// 責任者の承認画面に出す、登録済みアカウント。
+class StaffUser {
+  const StaffUser({required this.uid, required this.email, required this.name});
+  final String uid;
+  final String email;
+  final String name;
 }
 
 /// 依頼・指示書・動画・通知の保存と状態更新。
@@ -45,6 +54,43 @@ class RequestRepository {
         final v = s.data()?['role'];
         return v == 'staff' ? staffMode : UserRole.parse(v);
       });
+
+  // ---- スタッフの権限・承認（責任者のみ書き込み可）----
+  Stream<StaffAccess> watchAccess(String uid) =>
+      _db.collection('roles').doc(uid).snapshots().map((s) => s.exists
+          ? StaffAccess.fromRole(s.data()?['role'],
+              manager: s.data()?['manager'])
+          : StaffAccess.none);
+
+  /// 登録済みの全アカウント（承認待ちを含む）。責任者だけが読める。
+  Stream<List<StaffUser>> watchUsers() =>
+      _db.collection('users').snapshots().map((q) => [
+            for (final d in q.docs)
+              StaffUser(
+                  uid: d.id,
+                  email: d.data()['email'] as String? ?? '',
+                  name: d.data()['name'] as String? ?? '')
+          ]);
+
+  /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
+  /// 依頼者・編集者ともに false のときは承認を取り消す（roles/{uid} を削除）。
+  Future<void> setStaffAccess(String uid,
+      {required bool canRequest,
+      required bool canEdit,
+      required bool manager}) async {
+    final role =
+        StaffAccess.roleValue(canRequest: canRequest, canEdit: canEdit);
+    final ref = _db.collection('roles').doc(uid);
+    if (role == null) {
+      await ref.delete();
+    } else {
+      await ref.set({'role': role, 'manager': manager});
+    }
+  }
+
+  /// 全案件（スタッフは全員が閲覧できる）。
+  Stream<List<VideoRequest>> watchAllRequests() =>
+      _requests.snapshots().map((q) => _toRequests(q.docs));
 
   // ---- 通知の既読（暫定：最後に通知画面を開いた時刻）----
   // 通知ごとの既読はFigJamで未確定のため、users/{uid}.notificationsSeenAt より

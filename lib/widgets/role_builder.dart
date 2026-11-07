@@ -32,7 +32,7 @@ class RoleBuilder extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'このアカウントには役割（依頼者／編集者）がまだ設定されていません。管理者に設定を依頼してください。',
+                '承認待ちです。責任者が権限（編集者／依頼者／両方）を設定すると使えます。',
                 textAlign: TextAlign.center,
                 style: AppText.noto(16, height: 1.6),
               ),

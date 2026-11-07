@@ -4,7 +4,7 @@ import {
   initializeTestEnvironment, assertFails, assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp, collection, getDocs, query, where,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, collection, getDocs, query, where,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
@@ -18,7 +18,7 @@ before(async () => {
 });
 after(() => env.cleanup());
 
-const REQ = 'req', ED = 'ed', ED2 = 'ed2', OTHER = 'other', NOROLE = 'norole', STAFF = 'staff1';
+const REQ = 'req', ED = 'ed', ED2 = 'ed2', OTHER = 'other', NOROLE = 'norole', STAFF = 'staff1', MGR = 'mgr';
 const ctxs = new Map();
 const ctx = (uid) => { if (!ctxs.has(uid)) ctxs.set(uid, env.authenticatedContext(uid)); return ctxs.get(uid); };
 const db = (uid) => ctx(uid).firestore();
@@ -40,6 +40,8 @@ async function seed(reqData) {
     await setDoc(doc(d, 'roles', ED), { role: 'editor' });
     await setDoc(doc(d, 'roles', ED2), { role: 'editor' });
     await setDoc(doc(d, 'roles', STAFF), { role: 'staff' });
+    await setDoc(doc(d, 'roles', MGR), { role: 'staff', manager: true });
+    await setDoc(doc(d, 'users', NOROLE), { email: 'n@x.y' });
     if (reqData) await setDoc(doc(d, 'requests', 'r1'), { ...reqData, createdAt: new Date(), updatedAt: new Date() });
   });
 }
@@ -74,16 +76,17 @@ test('依頼作成: 依頼者のみ・新規依頼通知と同時', async () => 
   await assertFails(setDoc(doc(db(REQ), 'requests', 'r6'), newReq({ attachments: [] })));
 });
 
-test('閲覧: 依頼者本人と編集者のみ。担当決定後は他の編集者・無関係者は不可', async () => {
+test('閲覧: 登録済みスタッフは全案件を閲覧できる。承認前（役割なし）は不可', async () => {
   await seed(newReq());
   await assertSucceeds(getDoc(doc(db(REQ), 'requests', 'r1')));
-  await assertSucceeds(getDoc(doc(db(ED), 'requests', 'r1'))); // 担当前は編集者が閲覧可（暫定）
-  await assertFails(getDoc(doc(db(OTHER), 'requests', 'r1')));
+  await assertSucceeds(getDoc(doc(db(ED), 'requests', 'r1')));
+  await assertSucceeds(getDoc(doc(db(OTHER), 'requests', 'r1'))); // 別の依頼者も閲覧可
   await assertFails(getDoc(doc(db(NOROLE), 'requests', 'r1')));
   await seed(newReq({ editorId: ED, status: 'editing' }));
   await assertSucceeds(getDoc(doc(db(ED), 'requests', 'r1')));
-  await assertFails(getDoc(doc(db(ED2), 'requests', 'r1')));
-  await assertFails(getDocs(collection(db(OTHER), 'requests')));
+  await assertSucceeds(getDoc(doc(db(ED2), 'requests', 'r1'))); // 担当外の編集者も閲覧可
+  await assertSucceeds(getDocs(collection(db(OTHER), 'requests')));
+  await assertFails(getDocs(collection(db(NOROLE), 'requests')));
   await assertSucceeds(getDocs(query(collection(db(REQ), 'requests'), where('requesterId', '==', REQ))));
 });
 
@@ -191,13 +194,13 @@ test('Storage: 添付は依頼者本人のみ書込、動画は担当編集者�
   await assertFails(uploadBytes(ref(st(OTHER), 'uploads/req/r1/video_0-a.mp4'), bytes, mp4));
   await assertFails(uploadBytes(ref(st(ED), 'uploads/ed/r1/x.mp4'), bytes, mp4)); // 編集者は添付不可
   await assertSucceeds(getBytes(ref(st(ED), 'uploads/req/r1/video_0-a.mp4')));
-  await assertFails(getBytes(ref(st(ED2), 'uploads/req/r1/video_0-a.mp4')));
-  await assertFails(getBytes(ref(st(OTHER), 'uploads/req/r1/video_0-a.mp4')));
+  await assertSucceeds(getBytes(ref(st(ED2), 'uploads/req/r1/video_0-a.mp4'))); // スタッフは全案件を閲覧可
+  await assertFails(getBytes(ref(st(NOROLE), 'uploads/req/r1/video_0-a.mp4')));
   await assertSucceeds(uploadBytes(ref(st(ED), 'videos/r1/v1/v.mp4'), bytes, mp4));
   await assertFails(uploadBytes(ref(st(ED2), 'videos/r1/v1/v.mp4'), bytes, mp4));
   await assertFails(uploadBytes(ref(st(REQ), 'videos/r1/v1/v.mp4'), bytes, mp4));
   await assertSucceeds(getBytes(ref(st(REQ), 'videos/r1/v1/v.mp4')));
-  await assertFails(getBytes(ref(st(OTHER), 'videos/r1/v1/v.mp4')));
+  await assertFails(getBytes(ref(st(NOROLE), 'videos/r1/v1/v.mp4')));
 });
 
 test('スタッフ: 依頼の作成と、他人の依頼の受付（編集開始）の両方ができる', async () => {
@@ -208,4 +211,24 @@ test('スタッフ: 依頼の作成と、他人の依頼の受付（編集開始
   await assertSucceeds(b.commit());
   await assertFails(setDoc(doc(db(NOROLE), 'requests', 's2'), newReq({ requesterId: NOROLE })));
   await assertSucceeds(getDoc(doc(db(STAFF), 'requests', 's1')));
+});
+
+test('責任者: 他人の役割を付与・変更・取り消しできる。責任者以外・自分自身は不可', async () => {
+  await seed();
+  await assertSucceeds(setDoc(doc(db(MGR), 'roles', NOROLE), { role: 'editor', manager: false }));
+  await assertSucceeds(setDoc(doc(db(MGR), 'roles', NOROLE), { role: 'staff', manager: false }));
+  await assertSucceeds(deleteDoc(doc(db(MGR), 'roles', NOROLE)));
+  await assertFails(setDoc(doc(db(MGR), 'roles', NOROLE), { role: 'boss', manager: false }));
+  await assertFails(setDoc(doc(db(MGR), 'roles', NOROLE), { role: 'editor', manager: false, extra: 1 }));
+  await assertFails(setDoc(doc(db(MGR), 'roles', MGR), { role: 'staff', manager: false })); // 自分は不可
+  await assertFails(setDoc(doc(db(STAFF), 'roles', NOROLE), { role: 'staff', manager: false })); // 責任者以外
+  await assertFails(setDoc(doc(db(NOROLE), 'roles', NOROLE), { role: 'staff', manager: true })); // 自己昇格
+  await assertSucceeds(getDoc(doc(db(MGR), 'roles', NOROLE)));
+});
+
+test('責任者: 全アカウント（users）を読める。他の人は自分だけ', async () => {
+  await seed();
+  await assertSucceeds(getDocs(collection(db(MGR), 'users')));
+  await assertSucceeds(getDoc(doc(db(NOROLE), 'users', NOROLE)));
+  await assertFails(getDocs(collection(db(STAFF), 'users')));
 });

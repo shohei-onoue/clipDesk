@@ -12,7 +12,7 @@ import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/step_progress_card.dart';
 
-/// 進捗状況。自分が関わる動いている案件（依頼した案件＋担当・受付待ちの案件）だけを出し、
+/// 進捗状況。全員分の動いている案件だけを出し、
 /// 受付待ち・要確認・編集中・初稿確認・修正はタブのボタンで絞り込む。投稿済みは出さない。
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -34,14 +34,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   int _tab = 0;
   String? _uid;
-  Stream<List<VideoRequest>>? _asRequester;
-  Stream<List<VideoRequest>>? _asEditor;
+  Stream<List<VideoRequest>>? _all;
 
   void _init(String uid) {
     if (_uid == uid) return;
     _uid = uid;
-    _asRequester = Services.repo.watchRequester(uid);
-    _asEditor = Services.repo.watchEditor(uid);
+    _all = Services.repo.watchAllRequests();
   }
 
   @override
@@ -58,14 +56,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
               builder: (context, uid, _) {
                 _init(uid);
                 return StreamBuilder<List<VideoRequest>>(
-                  stream: _asRequester,
-                  builder: (context, a) => StreamBuilder<List<VideoRequest>>(
-                    stream: _asEditor,
-                    builder: (context, b) {
-                      final error = a.error ?? b.error;
-                      final waiting = !a.hasData && !b.hasData && error == null;
+                  stream: _all,
+                  builder: (context, a) {
+                    {
+                      final error = a.error;
+                      final waiting = !a.hasData && error == null;
                       final byId = {
-                        for (final q in [...?a.data, ...?b.data])
+                        for (final q in [...?a.data])
                           if (q.status != RequestStatus.posted) q.id: q,
                       };
                       final all = byId.values.toList()
@@ -102,9 +99,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               padding: EdgeInsets.only(bottom: r.y(10)),
                               child: StepProgressCard(
                                 request: q,
+                                // 自分の案件だけ「あなたの対応待ち」を出す（他人の案件は進行状況のみ）。
                                 role: q.requesterId == uid
                                     ? UserRole.requester
-                                    : UserRole.editor,
+                                    : q.editorId == uid
+                                        ? UserRole.editor
+                                        : null,
                                 uid: uid,
                                 onTap: () {
                                   // 詳細は、その案件で自分が担う立場で開く。
@@ -117,8 +117,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             ),
                         ],
                       );
-                    },
-                  ),
+                    }
+                  },
                 );
               },
             ),

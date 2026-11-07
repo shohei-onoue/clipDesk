@@ -443,6 +443,16 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                       ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => Navigator.of(context).pushNamed('/signup'),
+                        child: Text('スタッフ新規登録',
+                            style: AppText.noto(r.x(12),
+                                color: Colors.white,
+                                weight: FontWeight.w500,
+                                height: 1.3)),
+                      ),
                     ],
                   ),
                 ),
