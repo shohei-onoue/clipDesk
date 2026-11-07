@@ -7,7 +7,7 @@
 
 ## デザインシステム
 
-UI の作成・変更では、着手前に `docs/design-system/README.md` を読むこと。値は `docs/design-system/tokens.json`、部品の使い方は `docs/design-system/components.md`。
+UI の作成・変更では、着手前に `docs/design-system/README.md` を読むこと。値は `docs/design-system/tokens.json`、部品の使い方は `docs/design-system/components.md`、画面ごとの設計は `docs/design-system/screens.md`。
 
 - 色・余白・角丸は `lib/core/app_colors.dart` と `lib/core/app_tokens.dart` の定数だけを使い、直書きしない。
 - 文言は「です・ます」調。状態は色だけでなく語句も添える。
