@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 
 /// 進捗などの絞り込みボタン。横にスクロールでき、右端が見切れる位置には
@@ -10,11 +11,11 @@ class FilterChipsRow extends StatelessWidget {
   const FilterChipsRow({
     super.key,
     this.selected = 0,
-    this.idleColor = Colors.white,
-    this.selectedTextColor = Colors.white,
+    this.idleColor = AppColors.bg,
     this.onChanged,
     this.labels = defaultLabels,
     this.counts,
+    this.wrap = false,
   });
 
   static const defaultLabels = [
@@ -32,25 +33,36 @@ class FilterChipsRow extends StatelessWidget {
   final List<int>? counts;
 
   final int selected;
+
+  /// true なら折り返して並べる（デザインシステムの Chip は flex-wrap・間隔 space-2）。
+  final bool wrap;
+
+  /// チップが載る面の色（右端のぼかしに使う）。
   final Color idleColor;
-  final Color selectedTextColor;
   final ValueChanged<int>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    if (wrap) {
+      return Wrap(
+        spacing: r.x(AppSpace.s2),
+        runSpacing: r.y(AppSpace.s2),
+        children: [for (var i = 0; i < labels.length; i++) _chip(r, i)],
+      );
+    }
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: r.y(10)),
+      padding: EdgeInsets.symmetric(vertical: r.y(AppSpace.s2)),
       child: Stack(
         children: [
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             // 右端の余白：最後のボタンがぼかしに隠れないようにする。
-            padding: EdgeInsets.only(right: r.x(36)),
+            padding: EdgeInsets.only(right: r.x(AppSpace.s8)),
             child: Row(
               children: [
                 for (var i = 0; i < labels.length; i++) ...[
-                  if (i > 0) SizedBox(width: r.x(8)),
+                  if (i > 0) SizedBox(width: r.x(AppSpace.s2)),
                   _chip(r, i),
                 ],
               ],
@@ -60,7 +72,7 @@ class FilterChipsRow extends StatelessWidget {
             top: 0,
             bottom: 0,
             right: 0,
-            width: r.x(32),
+            width: r.x(AppSpace.s8),
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -89,21 +101,22 @@ class FilterChipsRow extends StatelessWidget {
         child: Container(
           height: r.y(44),
           constraints: BoxConstraints(minWidth: r.x(80)),
-          padding: EdgeInsets.symmetric(horizontal: r.x(14)),
+          padding: EdgeInsets.symmetric(horizontal: r.x(AppSpace.s4)),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: on ? AppColors.blue : idleColor,
-            border: Border.all(color: AppColors.ink, width: on ? 3 : 1),
-            borderRadius: BorderRadius.circular(r.x(16)),
+            color: Colors.transparent,
+            // 選択中は brand の2px枠。未選択は line-strong の細い枠。語句「✓」も添える。
+            border: Border.all(
+                color: on ? AppColors.blue : AppColors.lineStrong,
+                width: on ? 2 : 1),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: ExcludeSemantics(
             child: Text(
               text,
-              style: AppText.noto(
-                r.x(15),
-                color: on ? selectedTextColor : AppColors.ink,
-                height: 19.5 / 15,
-              ),
+              style: AppText.body(r,
+                  color: on ? AppColors.blue : AppColors.ink,
+                  weight: FontWeight.w700),
             ),
           ),
         ),

@@ -30,6 +30,7 @@ flutter:
     - assets/video_web.mp4
     - assets/voice.mp3
     - assets/navigater.png
+    - assets/menu/
   fonts:
     - family: NotoSansJP
       fonts:

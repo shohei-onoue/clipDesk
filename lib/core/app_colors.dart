@@ -9,8 +9,11 @@ class AppColors {
   static const Color ink = Color(0xFF1A1D20);
   static const Color amber = Color(0xFFD97706);
 
-  /// 期限超過など、強い警告。
-  static const Color danger = Color(0xFFB91C1C);
+  /// 期限超過など、強い警告（tokens.json の danger。必ず語句を併記する）。
+  static const Color danger = Color(0xFFB3261E);
+
+  /// 注意・要確認の文字とアイコン（tokens.json の warn）。surface 上で使える。
+  static const Color warn = Color(0xFF8A4B00);
   static const Color stepBorder = Color(0xFF738095);
   static const Color stepGrey = Color(0xFF435169);
   static const Color hint = Color(0xFF8795AB);

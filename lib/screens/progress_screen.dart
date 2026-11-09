@@ -85,7 +85,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             labels: _labels,
                             counts: counts,
                             idleColor: AppColors.bg,
-                            selectedTextColor: AppColors.bg,
                             onChanged: (i) => setState(() => _tab = i),
                           ),
                           if (error != null)

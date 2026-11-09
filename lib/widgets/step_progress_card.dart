@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
@@ -11,7 +12,9 @@ import 'status_style.dart';
 enum StepState { done, current, pending }
 
 /// 「進捗確認カード」: 依頼名・納期・担当・誰の対応待ちか + 主線4段階の進捗。
-/// 自分の対応が必要な依頼は、枠と現在の段階を警告色（amber）で強調する。
+/// 自分の対応が必要な依頼は、枠をaccent（塗り専用の色）で強調し、語句「あなたの対応待ち」を添える。
+/// デザインシステム（docs/design-system）：カードは surface-200・radius-lg・余白 space-4、
+/// 文字色に amber は使わない（注意の文字は warn）。
 class StepProgressCard extends StatelessWidget {
   const StepProgressCard({
     super.key,
@@ -64,6 +67,7 @@ class StepProgressCard extends StatelessWidget {
     final r = context.r;
     final steps = _steps;
     final mine = _mine;
+    // 現在の段階の枠。要対応は accent、それ以外は brand。
     final accent = mine ? AppColors.amber : AppColors.blue;
     final action = role == null ? null : myActionLabel(request, role!);
     final waiting = role == null ? null : waitingLabel(request, role!);
@@ -73,85 +77,61 @@ class StepProgressCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: r.x(8), vertical: r.y(12)),
+          padding: EdgeInsets.all(r.x(AppSpace.s4)),
           decoration: BoxDecoration(
-            color: mine ? const Color(0xFFFFF7EA) : Colors.white,
-            border: Border.all(color: accent, width: mine ? 3 : 2),
-            borderRadius: BorderRadius.circular(r.x(16)),
+            color: AppColors.surface200,
+            border: Border.all(
+                color: mine ? AppColors.amber : AppColors.line,
+                width: mine ? 2 : 1),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: r.x(4)),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(title,
-                          style: AppText.noto(r.x(20), height: 1.5)),
-                    ),
-                    if (mine) ...[
-                      SizedBox(width: r.x(8)),
-                      _Badge(
-                        text: 'あなたの対応待ち',
-                        color: AppColors.amber,
-                        filled: true,
-                      ),
-                    ] else if (waiting != null) ...[
-                      SizedBox(width: r.x(8)),
-                      _Badge(
-                          text: waiting,
-                          color: AppColors.stepGrey,
-                          filled: false),
-                    ] else if (request.status == RequestStatus.posted) ...[
-                      SizedBox(width: r.x(8)),
-                      _Badge(
-                          text: '完了', color: AppColors.stepGrey, filled: false),
-                    ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Text(title, style: AppText.h3(r))),
+                  if (mine) ...[
+                    SizedBox(width: r.x(AppSpace.s2)),
+                    const _Tag(text: 'あなたの対応待ち', accent: true),
+                  ] else if (waiting != null) ...[
+                    SizedBox(width: r.x(AppSpace.s2)),
+                    _Tag(text: waiting),
+                  ] else if (request.status == RequestStatus.posted) ...[
+                    SizedBox(width: r.x(AppSpace.s2)),
+                    const _Tag(text: '完了'),
                   ],
-                ),
+                ],
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(r.x(4), r.y(2), r.x(4), 0),
-                child: Wrap(
-                  spacing: r.x(14),
-                  runSpacing: r.y(2),
-                  children: [
-                    _DueText(
-                      due: request.dueDate,
-                      now: now ?? DateTime.now(),
-                      done: request.status == RequestStatus.posted,
-                    ),
-                    Text(_assignee,
-                        style: AppText.noto(r.x(14),
-                            weight: FontWeight.w500, height: 1.5)),
-                  ],
-                ),
+              SizedBox(height: r.y(AppSpace.s1)),
+              Wrap(
+                spacing: r.x(AppSpace.s4),
+                children: [
+                  _DueText(
+                    due: request.dueDate,
+                    now: now ?? DateTime.now(),
+                    done: request.status == RequestStatus.posted,
+                  ),
+                  Text(_assignee, style: AppText.body(r)),
+                ],
               ),
               if (action != null)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(r.x(4), r.y(4), r.x(4), 0),
-                  child: Text('次にやること：$action',
-                      style: AppText.noto(r.x(14),
-                          color: AppColors.amber, height: 1.5)),
-                ),
+                Text('次にやること：$action',
+                    style: AppText.body(r,
+                        color: AppColors.warn, weight: FontWeight.w700)),
               if (isBranch(request.status) || request.approved)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(r.x(4), r.y(2), r.x(4), 0),
-                  child: Text(
-                    isBranch(request.status)
-                        ? '分岐：${request.status.label}'
-                        : '承認済み・投稿待ち',
-                    style: AppText.noto(r.x(14),
-                        color: AppColors.amber, height: 1.5),
-                  ),
+                Text(
+                  isBranch(request.status)
+                      ? '分岐：${request.status.label}'
+                      : '承認済み・投稿待ち',
+                  style: AppText.body(r, color: AppColors.warn),
                 ),
-              SizedBox(height: r.y(10)),
+              SizedBox(height: r.y(AppSpace.s3)),
               Row(
                 children: [
                   for (var i = 0; i < steps.length; i++) ...[
-                    if (i > 0) SizedBox(width: r.x(8)),
+                    if (i > 0) SizedBox(width: r.x(AppSpace.s2)),
                     Expanded(
                       flex: steps[i].$2 == StepState.current ? 69 : 65,
                       child: _Step(
@@ -170,7 +150,7 @@ class StepProgressCard extends StatelessWidget {
   }
 }
 
-/// 納期。期限超過は赤、3日以内はamberで強調する。
+/// 納期。期限超過は danger、3日以内は warn で強調し、必ず語句（超過・残り）を併記する。
 class _DueText extends StatelessWidget {
   const _DueText({required this.due, required this.now, required this.done});
 
@@ -183,7 +163,7 @@ class _DueText extends StatelessWidget {
     final r = context.r;
     final days = daysUntilDue(due, now);
     var color = AppColors.ink;
-    var weight = FontWeight.w500;
+    var weight = FontWeight.w400;
     var suffix = '';
     if (days != null && !done) {
       if (days < 0) {
@@ -191,11 +171,11 @@ class _DueText extends StatelessWidget {
         weight = FontWeight.w700;
         suffix = '（${-days}日超過）';
       } else if (days == 0) {
-        color = AppColors.amber;
+        color = AppColors.warn;
         weight = FontWeight.w700;
         suffix = '（今日まで）';
       } else if (days <= 3) {
-        color = AppColors.amber;
+        color = AppColors.warn;
         weight = FontWeight.w700;
         suffix = '（残り$days日）';
       } else {
@@ -203,31 +183,31 @@ class _DueText extends StatelessWidget {
       }
     }
     return Text('納期 ${dateText(due)}$suffix',
-        style:
-            AppText.noto(r.x(14), color: color, weight: weight, height: 1.5));
+        style: AppText.body(r, color: color, weight: weight));
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text, required this.color, required this.filled});
+/// タグ（radius-sm・label）。accent は塗りで、上の文字は on-accent（ink）。
+class _Tag extends StatelessWidget {
+  const _Tag({required this.text, this.accent = false});
 
   final String text;
-  final Color color;
-  final bool filled;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: r.x(10), vertical: r.y(3)),
+      padding: EdgeInsets.symmetric(
+          horizontal: r.x(AppSpace.s2), vertical: r.y(AppSpace.s1)),
       decoration: BoxDecoration(
-        color: filled ? color : Colors.transparent,
-        border: Border.all(color: color, width: 1.5),
-        borderRadius: BorderRadius.circular(r.x(12)),
+        color: accent ? AppColors.amber : Colors.transparent,
+        border: accent ? null : Border.all(color: AppColors.lineStrong),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(text,
-          style: AppText.noto(r.x(13),
-              color: filled ? Colors.white : color, height: 1.4)),
+          style: AppText.label(r,
+              color: accent ? AppColors.onAmber : AppColors.inkMuted)),
     );
   }
 }
@@ -245,21 +225,23 @@ class _Step extends StatelessWidget {
     final done = state == StepState.done;
     final current = state == StepState.current;
 
+    // 状態は色だけでなく語句（✓／現在／未到達）でも示す。
     final top = done ? '✓' : (current ? '現在' : '未到達');
-    final topColor =
-        done ? Colors.white : (current ? accent : AppColors.stepGrey);
-    final bottomColor = done ? Colors.white : AppColors.ink;
+    final topColor = done
+        ? AppColors.onBlue
+        : (current ? AppColors.ink : AppColors.inkMuted);
+    final bottomColor = done ? AppColors.onBlue : AppColors.ink;
 
     return Container(
       height: r.y(57),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: done ? AppColors.blue : Colors.white,
+        color: done ? AppColors.blue : AppColors.surface200,
         border: Border.all(
-          color: current ? accent : AppColors.stepBorder,
+          color: current ? accent : AppColors.lineStrong,
           width: current ? 3 : 1,
         ),
-        borderRadius: BorderRadius.circular(r.x(6)),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -267,10 +249,13 @@ class _Step extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(top,
-                style: AppText.noto(r.x(14), color: topColor, height: 1.5)),
-            SizedBox(height: r.y(4)),
+                style: AppText.body(r,
+                    color: topColor,
+                    weight: current ? FontWeight.w700 : FontWeight.w400)),
+            SizedBox(height: r.y(AppSpace.s1)),
             Text(label,
-                style: AppText.noto(r.x(14), color: bottomColor, height: 1.5)),
+                style: AppText.body(r,
+                    color: bottomColor, weight: FontWeight.w700)),
           ],
         ),
       ),

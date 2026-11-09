@@ -72,7 +72,6 @@ class _RequestListScreenState extends State<RequestListScreen> {
                           FilterChipsRow(
                             selected: _filter,
                             idleColor: AppColors.bg,
-                            selectedTextColor: AppColors.bg,
                             onChanged: (i) => setState(() => _filter = i),
                           ),
                           if (snap.hasError)
