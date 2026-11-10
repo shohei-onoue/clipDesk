@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="done_outline">
+<mask id="mask0_0_70" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+<rect id="Bounding box" width="40" height="40" fill="#D9D9D9"/>
+</mask>
+<g mask="url(#mask0_0_70)">
+<path id="done_outline_2" d="M15.875 29.9446L34.3471 11.4721L32.3612 9.5L15.8613 25.9862L7.65292 17.7638L5.66667 19.75L15.875 29.9446ZM15.875 33.875L1.75 19.75L7.65292 13.8333L15.875 22.0554L32.3471 5.56958L38.2917 11.4583L15.875 33.875Z" fill="#1C1B1F"/>
+</g>
+</g>
+</svg>

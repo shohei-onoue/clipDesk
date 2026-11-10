@@ -6,7 +6,7 @@ import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 
-/// 進捗リング（円グラフ）。中央に文字を表示する。
+/// 進捗リング（円グラフ、ダーク背景用）。進んだ分は accent、中央に文字を表示する。
 class ProgressRing extends StatelessWidget {
   const ProgressRing({super.key, required this.value, required this.label});
 
@@ -24,7 +24,7 @@ class ProgressRing extends StatelessWidget {
       child: CustomPaint(
         painter: _RingPainter(value, r.x(5)),
         child: Center(
-          child: Text(label, style: AppText.noto(r.x(16), height: 20.8 / 16)),
+          child: Text(label, style: AppText.dark(r.x(16), height: 20.8 / 16)),
         ),
       ),
     );
@@ -43,13 +43,13 @@ class _RingPainter extends CustomPainter {
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = AppColors.ink;
+      ..color = AppColors.white.withValues(alpha: 0.55);
     canvas.drawCircle(rect.center, size.width / 2 - 0.5, track);
 
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
-      ..color = AppColors.blue;
+      ..color = AppColors.amber;
     canvas.drawArc(
       rect.deflate(stroke / 2),
       -math.pi / 2,

@@ -6,6 +6,7 @@ import '../data/services.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/filter_chips_row.dart';
 import '../widgets/list_helpers.dart';
@@ -46,13 +47,15 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
+      bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '進捗状況', background: AppColors.bg),
+          const AppHeader(title: '進捗状況'),
           Expanded(
             child: RoleBuilder(
+              dark: true,
               builder: (context, uid, _) {
                 _init(uid);
                 return StreamBuilder<List<VideoRequest>>(
@@ -84,15 +87,19 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             selected: _tab,
                             labels: _labels,
                             counts: counts,
-                            idleColor: AppColors.bg,
+                            idleColor: AppColors.ink,
+                            dark: true,
                             onChanged: (i) => setState(() => _tab = i),
                           ),
                           if (error != null)
-                            emptyText(context, '読み込みに失敗しました：$error'),
+                            emptyTextDark(context,
+                                'エラー：読み込みに失敗しました（$error）。通信を確認して、もう一度開いてください'),
                           if (waiting)
-                            const Center(child: CircularProgressIndicator())
+                            const Center(
+                                child: CircularProgressIndicator(
+                                    color: AppColors.white))
                           else if (shown.isEmpty)
-                            emptyText(context, '該当する案件はありません'),
+                            emptyTextDark(context, '該当する案件はありません'),
                           for (final q in shown)
                             Padding(
                               padding: EdgeInsets.only(bottom: r.y(10)),

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import 'progress_ring.dart';
 
-/// 依頼カード（リング / 依頼名 / 担当・納期 / 状態タグ）。
+/// 依頼カード（ダーク背景用。リング / 依頼名 / 担当・納期 / 状態タグ）。
 class RequestCard extends StatelessWidget {
   const RequestCard({
     super.key,
@@ -15,7 +16,7 @@ class RequestCard extends StatelessWidget {
     required this.meta,
     required this.tag,
     this.tagColor = AppColors.blue,
-    this.tagTextColor = AppColors.bg,
+    this.tagTextColor = AppColors.white,
     this.onTap,
   });
 
@@ -38,8 +39,8 @@ class RequestCard extends StatelessWidget {
           constraints: BoxConstraints(minHeight: r.y(92)),
           padding: EdgeInsets.all(r.x(14)),
           decoration: BoxDecoration(
-            color: AppColors.bg,
-            border: Border.all(color: AppColors.ink),
+            color: AppColors.white.withValues(alpha: 0.08),
+            border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(r.x(15)),
           ),
           child: Row(
@@ -51,23 +52,24 @@ class RequestCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: AppText.noto(r.x(16), height: 20.8 / 16)),
+                        style: AppText.dark(r.x(16), height: 20.8 / 16)),
                     SizedBox(height: r.y(4)),
                     Text(meta,
-                        style: AppText.noto(r.x(14),
-                            weight: FontWeight.w500, height: 18.2 / 14)),
+                        style: AppText.dark(r.x(14),
+                            weight: FontWeight.w400,
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            height: 18.2 / 14)),
                     SizedBox(height: r.y(4)),
                     Container(
                       padding: EdgeInsets.symmetric(
-                          horizontal: r.x(16), vertical: r.y(5)),
+                          horizontal: r.x(8), vertical: r.y(4)),
                       decoration: BoxDecoration(
                         color: tagColor,
-                        border: Border.all(color: AppColors.ink),
-                        borderRadius: BorderRadius.circular(r.x(16)),
+                        borderRadius: BorderRadius.circular(r.x(AppRadius.sm)),
                       ),
                       child: Text(tag,
-                          style: AppText.noto(r.x(15),
-                              color: tagTextColor, height: 19.5 / 15)),
+                          style: AppText.noto(r.x(12),
+                              color: tagTextColor, height: 16 / 12)),
                     ),
                   ],
                 ),

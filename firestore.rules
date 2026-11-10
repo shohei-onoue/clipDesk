@@ -39,7 +39,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['role', 'manager'])
         && request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.role
         && request.resource.data.manager == get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.manager;
-      allow delete: if isManager() && request.auth.uid != uid;
+      // 削除は、管理者本人の分も可（自分の情報を消す場合）。
+      allow delete: if isManager();
     }
 
     // 招待（責任者がメールで招待した人の権限）。ID はメールアドレス（小文字）。
@@ -63,6 +64,10 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isManager());
       allow write: if signedIn() && request.auth.uid == uid
         && !('role' in request.resource.data);
+      // 責任者は、自分以外のスタッフの名前・メールアドレスを直し、情報を削除できる。
+      allow update: if isManager() && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email']);
+      allow delete: if isManager() && request.auth.uid != uid;
     }
 
     function canRead(req) {
@@ -84,7 +89,6 @@ service cloud.firestore {
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.brief.purpose.size() > 0
-        && request.resource.data.brief.structure.size() > 0
         && request.resource.data.brief.deliveryTerms.size() > 0
         && request.resource.data.dueDate is timestamp
         && request.resource.data.attachments is list
@@ -106,7 +110,6 @@ service cloud.firestore {
             && resource.data.status == 'needsInfo'
             && request.resource.data.status == 'pending'
             && request.resource.data.brief.purpose.size() > 0
-            && request.resource.data.brief.structure.size() > 0
             && request.resource.data.brief.deliveryTerms.size() > 0
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['title', 'brief', 'dueDate', 'reviewReason', 'status', 'updatedAt']))

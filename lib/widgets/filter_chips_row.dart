@@ -11,11 +11,12 @@ class FilterChipsRow extends StatelessWidget {
   const FilterChipsRow({
     super.key,
     this.selected = 0,
-    this.idleColor = AppColors.bg,
+    this.idleColor = AppColors.white,
     this.onChanged,
     this.labels = defaultLabels,
     this.counts,
     this.wrap = false,
+    this.dark = false,
   });
 
   static const defaultLabels = [
@@ -36,6 +37,9 @@ class FilterChipsRow extends StatelessWidget {
 
   /// true なら折り返して並べる（デザインシステムの Chip は flex-wrap・間隔 space-2）。
   final bool wrap;
+
+  /// ダーク背景の画面では true（選択は blue、未選択は nightLineStrong の枠と明るい文字）。
+  final bool dark;
 
   /// チップが載る面の色（右端のぼかしに使う）。
   final Color idleColor;
@@ -107,7 +111,11 @@ class FilterChipsRow extends StatelessWidget {
             color: Colors.transparent,
             // 選択中は brand の2px枠。未選択は line-strong の細い枠。語句「✓」も添える。
             border: Border.all(
-                color: on ? AppColors.blue : AppColors.lineStrong,
+                color: on
+                    ? AppColors.blue
+                    : (dark
+                        ? AppColors.white.withValues(alpha: 0.55)
+                        : AppColors.ink.withValues(alpha: 0.55)),
                 width: on ? 2 : 1),
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
@@ -115,7 +123,9 @@ class FilterChipsRow extends StatelessWidget {
             child: Text(
               text,
               style: AppText.body(r,
-                  color: on ? AppColors.blue : AppColors.ink,
+                  color: on
+                      ? AppColors.blue
+                      : (dark ? AppColors.white : AppColors.ink),
                   weight: FontWeight.w700),
             ),
           ),

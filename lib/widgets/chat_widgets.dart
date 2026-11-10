@@ -4,7 +4,7 @@ import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 
-/// アシスタントの発言（アバター + 名前 + 吹き出し）。
+/// アシスタントの発言（アバター + 名前 + 吹き出し。ダーク背景用）。
 class AssistantMessage extends StatelessWidget {
   const AssistantMessage({
     super.key,
@@ -27,7 +27,7 @@ class AssistantMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     final style =
-        AppText.noto(r.x(18), weight: FontWeight.w400, height: 27 / 18);
+        AppText.dark(r.x(18), weight: FontWeight.w400, height: 27 / 18);
     final body = lines != null
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,16 +54,19 @@ class AssistantMessage extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(bottom: r.y(4)),
                     child: Text('ナビゲーター',
-                        style: AppText.noto(r.x(14), height: 18.2 / 14)),
+                        style: AppText.dark(r.x(14),
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            height: 18.2 / 14)),
                   ),
                 Container(
                   width: fixedWidth ? r.x(280.8) : null,
                   padding: EdgeInsets.symmetric(
                       horizontal: r.x(16), vertical: r.y(14)),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: AppColors.ink),
-                    borderRadius: BorderRadius.circular(r.x(16)),
+                    color: AppColors.white.withValues(alpha: 0.08),
+                    border: Border.all(
+                        color: AppColors.white.withValues(alpha: 0.16)),
+                    borderRadius: BorderRadius.circular(r.x(15)),
                   ),
                   child: body,
                 ),
@@ -88,7 +91,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// 自分の発言（青い吹き出し・右寄せ）。
+/// 自分の発言（青い吹き出し・右寄せ。塗りの上の文字は on-brand）。
 class MyMessage extends StatelessWidget {
   const MyMessage(this.text, {super.key});
 
@@ -105,11 +108,13 @@ class MyMessage extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: r.x(20), vertical: r.y(10)),
           decoration: BoxDecoration(
             color: AppColors.blue,
-            borderRadius: BorderRadius.circular(r.x(16)),
+            borderRadius: BorderRadius.circular(r.x(15)),
           ),
           child: Text(text,
-              style:
-                  AppText.noto(r.x(18), color: Colors.white, height: 27 / 18)),
+              style: AppText.noto(r.x(18),
+                  weight: FontWeight.w400,
+                  color: AppColors.white,
+                  height: 27 / 18)),
         ),
       ),
     );
@@ -129,19 +134,19 @@ class AppChip extends StatelessWidget {
     return Semantics(
       button: true,
       child: InkWell(
-        borderRadius: BorderRadius.circular(r.x(16)),
+        borderRadius: BorderRadius.circular(r.x(12)),
         onTap: onTap,
         child: Container(
-          constraints: BoxConstraints(minHeight: r.y(48)),
-          padding: EdgeInsets.symmetric(horizontal: r.x(20)),
+          constraints: BoxConstraints(minHeight: r.x(36)),
+          padding: EdgeInsets.symmetric(horizontal: r.x(14)),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: AppColors.ink),
-            borderRadius: BorderRadius.circular(r.x(16)),
+            color: AppColors.white.withValues(alpha: 0.08),
+            border: Border.all(color: AppColors.white.withValues(alpha: 0.55)),
+            borderRadius: BorderRadius.circular(r.x(12)),
           ),
           child: Center(
             widthFactor: 1,
-            child: Text(label, style: AppText.noto(r.x(16), height: 20.8 / 16)),
+            child: Text(label, style: AppText.dark(r.x(14), height: 20 / 14)),
           ),
         ),
       ),
@@ -149,11 +154,17 @@ class AppChip extends StatelessWidget {
   }
 }
 
-/// 下寄せで並べ、あふれたらスクロールできる領域。
+/// 会話を並べ、あふれたら最新の内容を表示するスクロール領域。
+/// [alignTop] が true の場合、短い会話も上端から並べる。
 class BottomAlignedScroll extends StatelessWidget {
-  const BottomAlignedScroll({super.key, required this.children});
+  const BottomAlignedScroll({
+    super.key,
+    required this.children,
+    this.alignTop = false,
+  });
 
   final List<Widget> children;
+  final bool alignTop;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +177,8 @@ class BottomAlignedScroll extends StatelessWidget {
           constraints:
               BoxConstraints(minHeight: c.maxHeight - r.y(4) - r.y(12)),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment:
+                alignTop ? MainAxisAlignment.start : MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: children,
           ),

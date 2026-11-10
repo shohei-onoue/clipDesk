@@ -144,6 +144,8 @@ class _LoginScreenState extends State<LoginScreen>
     final password = _password.text;
     if (email.isEmpty || password.isEmpty) {
       _showError('メールアドレスとパスワードを入力してください');
+      // 押した操作の中で鳴らす（iPhone Safari でも再生できる）。
+      _playErrorVoice();
       return;
     }
     FocusScope.of(context).unfocus();
@@ -194,6 +196,9 @@ class _LoginScreenState extends State<LoginScreen>
         'email': user.email,
         if (name != null && name.isNotEmpty) 'name': name,
         'updatedAt': FieldValue.serverTimestamp(),
+        // 使わなくなった項目は、ログイン時に自分の分を消す。
+        'phone': FieldValue.delete(),
+        'displayName': FieldValue.delete(),
       }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('users/${user.uid} の保存に失敗しました: $e');
@@ -269,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       // 位置は上で自分で計算するため、Scaffoldによる縮小は使わない。
       resizeToAvoidBottomInset: false,
-      backgroundColor: AppColors.loginBg,
+      backgroundColor: AppColors.ink,
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) {
@@ -304,41 +309,50 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             if (!_showForm)
               Positioned(
-                top: r.y(475),
-                left: r.x(115),
-                width: r.x(160),
+                // 下線の下に、文字の大きさに合わせた距離で置く（横長でも行間が変わらない）。
+                top: introTitleCenterY(size.height) +
+                    introLineGap(size.width) +
+                    r.x(77),
+                // 画面の左右中央に置く。
+                left: 0,
+                right: 0,
                 height: r.y(50),
-                child: AnimatedBuilder(
-                  animation: _intro,
-                  builder: (context, child) {
-                    final alpha = ((_time.value - IntroPainter.fadeStart) /
-                            IntroPainter.fadeLen)
-                        .clamp(0.0, 1.0);
-                    return ExcludeSemantics(
-                      excluding: alpha == 0,
-                      child: ExcludeFocus(
+                child: Center(
+                    child: SizedBox(
+                  width: r.x(160),
+                  height: r.y(50),
+                  child: AnimatedBuilder(
+                    animation: _intro,
+                    builder: (context, child) {
+                      final alpha = ((_time.value - IntroPainter.fadeStart) /
+                              IntroPainter.fadeLen)
+                          .clamp(0.0, 1.0);
+                      return ExcludeSemantics(
                         excluding: alpha == 0,
-                        child: IgnorePointer(
-                          ignoring: alpha == 0,
-                          child: Opacity(opacity: alpha, child: child),
+                        child: ExcludeFocus(
+                          excluding: alpha == 0,
+                          child: IgnorePointer(
+                            ignoring: alpha == 0,
+                            child: Opacity(opacity: alpha, child: child),
+                          ),
                         ),
+                      );
+                    },
+                    child: ElevatedButton(
+                      onPressed: _openForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.blue,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
                       ),
-                    );
-                  },
-                  child: ElevatedButton(
-                    onPressed: _openForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.blue,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.zero,
+                      child: Text('ログインする',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: AppText.noto(r.x(13),
+                              color: Colors.white, height: 1.3)),
                     ),
-                    child: Text('ログインする',
-                        maxLines: 1,
-                        softWrap: false,
-                        style: AppText.noto(r.x(13),
-                            color: Colors.white, height: 1.3)),
                   ),
-                ),
+                )),
               ),
             Positioned(
               top: r.y(14),
@@ -357,93 +371,115 @@ class _LoginScreenState extends State<LoginScreen>
                 curve: Curves.easeOut,
                 // キーボードが出ていないときは、タイトルを消す前（オープニング最後の「Clip Desk」の下）と同じ位置。
                 top: visibleTop,
-                left: r.x(24),
-                width: r.x(342),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(r.x(2), 0, r.x(2), r.y(24)),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _Field(
-                        hint: 'メールアドレス',
-                        height: fieldHeight,
-                        controller: _email,
-                        focusNode: _emailFocus,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      SizedBox(height: r.y(14)),
-                      _Field(
-                        hint: 'パスワード',
-                        height: fieldHeight,
-                        controller: _password,
-                        focusNode: _passwordFocus,
-                        obscure: !_showPassword,
-                        suffix: IconButton(
-                          tooltip: _showPassword ? 'パスワードを隠す' : 'パスワードを表示',
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints.tightFor(
-                              width: r.x(44), height: fieldHeight),
-                          iconSize: r.x(22),
-                          color: AppColors.hint,
-                          icon: Icon(_showPassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined),
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
-                        ),
-                      ),
-                      SizedBox(height: r.y(14)),
-                      SizedBox(
-                        height: fieldHeight,
-                        child: ElevatedButton(
-                          onPressed: _busy ? null : _login,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.blue,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(r.x(6))),
+                // 画面の左右中央に置く（広い画面でも中央）。
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SizedBox(
+                    width: r.x(342),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(r.x(2), 0, r.x(2), r.y(24)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _Field(
+                            hint: 'メールアドレス',
+                            height: fieldHeight,
+                            controller: _email,
+                            focusNode: _emailFocus,
+                            keyboardType: TextInputType.emailAddress,
                           ),
-                          child: Text('ログイン',
-                              style: AppText.noto(r.x(13),
-                                  color: Colors.white, height: 1.3)),
-                        ),
-                      ),
-                      SizedBox(height: r.y(14)),
-                      GestureDetector(
-                        onTap: () => setState(() => _keep = !_keep),
-                        child: Padding(
-                          padding: EdgeInsets.only(top: r.y(10)),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: r.x(20),
-                                height: r.x(20),
-                                decoration: BoxDecoration(
-                                  // チェック時は、ログインボタンと同じ青色で塗る。
-                                  color: _keep ? AppColors.blue : null,
-                                  border: Border.all(
-                                      color: Colors.white, width: 1.5),
-                                  borderRadius: BorderRadius.circular(r.x(2)),
-                                ),
-                                child: _keep
-                                    ? Icon(Icons.check,
-                                        size: r.x(16), color: Colors.white)
-                                    : null,
+                          SizedBox(height: r.y(14)),
+                          _Field(
+                            hint: 'パスワード',
+                            height: fieldHeight,
+                            controller: _password,
+                            focusNode: _passwordFocus,
+                            obscure: !_showPassword,
+                            suffix: IconButton(
+                              tooltip: _showPassword ? 'パスワードを隠す' : 'パスワードを表示',
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints.tightFor(
+                                  width: r.x(44), height: fieldHeight),
+                              iconSize: r.x(22),
+                              color: AppColors.ink.withValues(alpha: 0.5),
+                              icon: Icon(_showPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined),
+                              onPressed: () => setState(
+                                  () => _showPassword = !_showPassword),
+                            ),
+                          ),
+                          SizedBox(height: r.y(14)),
+                          SizedBox(
+                            height: fieldHeight,
+                            child: ElevatedButton(
+                              onPressed: _busy ? null : _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.blue,
+                                foregroundColor: Colors.white,
+                                // ログイン中は黒（ink）にして、文字の代わりに回るアイコンを出す。
+                                disabledBackgroundColor: AppColors.ink,
+                                disabledForegroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(r.x(6))),
                               ),
-                              SizedBox(width: r.x(8)),
-                              Text('ログイン状態を維持する',
-                                  style: AppText.noto(r.x(12),
-                                      weight: FontWeight.w500,
-                                      color: Colors.white,
-                                      height: 1.3)),
-                            ],
+                              child: _busy
+                                  ? SizedBox(
+                                      width: r.x(20),
+                                      height: r.x(20),
+                                      child: const CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white),
+                                    )
+                                  : Text('ログイン',
+                                      style: AppText.noto(r.x(13),
+                                          color: Colors.white, height: 1.3)),
+                            ),
                           ),
-                        ),
+                          SizedBox(height: r.y(14)),
+                          GestureDetector(
+                            onTap: () => setState(() => _keep = !_keep),
+                            child: Padding(
+                              padding: EdgeInsets.only(top: r.y(10)),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: r.x(20),
+                                    height: r.x(20),
+                                    decoration: BoxDecoration(
+                                      // チェック時は、ログインボタンと同じ青色で塗る。
+                                      color: _keep ? AppColors.blue : null,
+                                      border: Border.all(
+                                          color: _keep
+                                              ? AppColors.blue
+                                              : AppColors.white,
+                                          width: 1.5),
+                                      borderRadius:
+                                          BorderRadius.circular(r.x(2)),
+                                    ),
+                                    child: _keep
+                                        ? Icon(Icons.check,
+                                            size: r.x(16), color: Colors.white)
+                                        : null,
+                                  ),
+                                  SizedBox(width: r.x(8)),
+                                  Text('ログイン状態を維持する',
+                                      style: AppText.noto(r.x(12),
+                                          weight: FontWeight.w500,
+                                          color: Colors.white,
+                                          height: 1.3)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -524,7 +560,9 @@ class _Field extends StatelessWidget {
         fillColor: Colors.white,
         hintText: hint,
         hintStyle: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
-            weight: FontWeight.w400, color: AppColors.hint, height: 1.3),
+            weight: FontWeight.w400,
+            color: AppColors.ink.withValues(alpha: 0.5),
+            height: 1.3),
         suffixIcon: suffix,
         contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),
         border: OutlineInputBorder(

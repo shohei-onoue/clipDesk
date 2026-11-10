@@ -18,15 +18,14 @@ class RequestStateException implements Exception {
 
 /// 責任者の承認画面に出す、登録済みアカウント。
 class StaffUser {
-  const StaffUser(
-      {required this.uid,
-      required this.email,
-      required this.name,
-      this.phone = ''});
+  const StaffUser({
+    required this.uid,
+    required this.email,
+    required this.name,
+  });
   final String uid;
   final String email;
   final String name;
-  final String phone;
 }
 
 /// 依頼・指示書・動画・通知の保存と状態更新。
@@ -81,8 +80,7 @@ class RequestRepository {
               StaffUser(
                   uid: d.id,
                   email: d.data()['email'] as String? ?? '',
-                  name: d.data()['name'] as String? ?? '',
-                  phone: d.data()['phone'] as String? ?? '')
+                  name: d.data()['name'] as String? ?? '')
           ]);
 
   /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
@@ -99,6 +97,23 @@ class RequestRepository {
     } else {
       await ref.set({'role': role, 'manager': manager});
     }
+  }
+
+  /// スタッフの名前・メールアドレス（users/{uid} の表示用の値）を直す。責任者だけ。
+  Future<void> updateStaffProfile(String uid,
+          {required String name, required String email}) =>
+      _db
+          .collection('users')
+          .doc(uid)
+          .set({'name': name, 'email': email}, SetOptions(merge: true));
+
+  /// スタッフ情報の削除：権限（roles）と登録情報（users）を消す。責任者だけ（ルールでも拒否）。
+  /// 同じメールアドレスの招待が残っていれば、それも消す。
+  Future<void> deleteStaff(String uid, {String email = ''}) async {
+    // 権限（roles）は最後に消す。自分自身を消す場合、先に消すと以降の削除が権限エラーになる。
+    if (email.trim().isNotEmpty) await cancelInvite(email);
+    await _db.collection('users').doc(uid).delete();
+    await _db.collection('roles').doc(uid).delete();
   }
 
   // ---- 招待（責任者がメールで招待 → 本人が登録フォームで登録）----
@@ -223,11 +238,12 @@ class RequestRepository {
     required DateTime dueDate,
     required List<UploadFile> videos,
     required List<UploadFile> references,
+    void Function(int done, int total)? onProgress,
   }) async {
     final ref = _requests.doc(requestId);
     if ((await ref.get()).exists) return; // 送信済み（再試行）
-    final attachments =
-        await _uploadAttachments(requesterId, requestId, videos, references);
+    final attachments = await _uploadAttachments(
+        requesterId, requestId, videos, references, onProgress);
     final batch = _db.batch();
     batch.set(ref, {
       'requesterId': requesterId,
@@ -258,14 +274,22 @@ class RequestRepository {
   }
 
   Future<List<Attachment>> _uploadAttachments(String uid, String requestId,
-      List<UploadFile> videos, List<UploadFile> refs) async {
+      List<UploadFile> videos, List<UploadFile> refs,
+      [void Function(int done, int total)? onProgress]) async {
     final out = <Attachment>[];
+    final total = videos.length + refs.length;
     Future<void> up(UploadFile f, String kind, int i) async {
       final path = 'uploads/$uid/$requestId/${kind}_$i-${_safe(f.name)}';
-      await _storage.upload(path, f,
-          contentType:
-              StorageService.contentTypeFor(f.name, video: kind == 'video'));
+      final type =
+          StorageService.contentTypeFor(f.name, video: kind == 'video');
+      try {
+        await _storage.upload(path, f, contentType: type);
+      } catch (e) {
+        // どのファイルで止まったかが分かるように、名前と種類を添える。
+        throw StateError('${f.name}（$type）を保存できませんでした：$e');
+      }
       out.add(Attachment(name: f.name, path: path, size: f.size, kind: kind));
+      onProgress?.call(out.length, total);
     }
 
     for (var i = 0; i < videos.length; i++) {

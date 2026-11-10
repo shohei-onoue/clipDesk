@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'firebase_options.dart';
 import 'screens/brief_confirm_screen.dart';
@@ -10,6 +11,8 @@ import 'screens/delivery_library_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/request_detail_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/staff_invite_screen.dart';
+import 'screens/requester_home_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/register_screen.dart';
@@ -33,6 +36,14 @@ class ClipDeskApp extends StatelessWidget {
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
+      // 日付選択（カレンダー）などの標準部品を日本語にする。
+      locale: const Locale('ja'),
+      supportedLocales: const [Locale('ja')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       // 招待メールのリンクから開いたときは、登録フォームから始める。
       initialRoute: kIsWeb &&
               FirebaseAuth.instance.isSignInWithEmailLink(Uri.base.toString())
@@ -42,9 +53,11 @@ class ClipDeskApp extends StatelessWidget {
         '/': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/staff': (_) => const StaffAdminScreen(),
+        '/staff/invite': (_) => const StaffInviteScreen(),
         '/menu': (_) => const MenuScreen(),
         '/progress': (_) => const ProgressScreen(),
         '/home': (_) => const HomeScreen(),
+        '/requester': (_) => const RequesterHomeScreen(),
         '/drawer': (_) => const RequestListScreen(),
         '/chat': (_) => const ChatScreen(),
         '/brief': (_) => const BriefConfirmScreen(),

@@ -17,6 +17,9 @@ dependencies:
   firebase_storage: ^14.0.1
   file_picker: ^13.3.2
   url_launcher: ^6.3.3
+  flutter_svg: ^2.3.2
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -31,6 +34,7 @@ flutter:
     - assets/voice.mp3
     - assets/navigater.png
     - assets/menu/
+    - assets/icons/
   fonts:
     - family: NotoSansJP
       fonts:

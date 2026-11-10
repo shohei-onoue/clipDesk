@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="upload">
+<mask id="mask0_0_67" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+<rect id="Bounding box" width="40" height="40" fill="#D9D9D9"/>
+</mask>
+<g mask="url(#mask0_0_67)">
+<path id="upload_2" d="M18.6112 26.8612V12.0279L13.8333 16.8054L11.8612 14.8054L20 6.66667L28.1388 14.8054L26.1667 16.8054L21.3888 12.0279V26.8612H18.6112ZM9.44458 33.3333C8.69458 33.3333 8.04403 33.0579 7.49292 32.5071C6.94208 31.956 6.66667 31.3054 6.66667 30.5554V24.9167H9.44458V30.5554H30.5554V24.9167H33.3333V30.5554C33.3333 31.3054 33.0579 31.956 32.5071 32.5071C31.956 33.0579 31.3054 33.3333 30.5554 33.3333H9.44458Z" fill="#1C1B1F"/>
+</g>
+</g>
+</svg>

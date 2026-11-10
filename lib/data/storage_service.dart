@@ -54,6 +54,7 @@ class StorageService {
       'png' => 'image/png',
       'jpg' || 'jpeg' => 'image/jpeg',
       'pdf' => 'application/pdf',
+      'mp3' => 'audio/mpeg',
       'mp4' => 'video/mp4',
       'mov' => 'video/quicktime',
       _ => 'application/octet-stream',

@@ -4,6 +4,7 @@ import '../core/app_colors.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/notice_card.dart';
@@ -36,13 +37,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
+      bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '通知', background: AppColors.bg),
+          const AppHeader(title: '通知'),
           Expanded(
             child: RoleBuilder(
+              dark: true,
               builder: (context, uid, role) => UnreadBuilder(
                 uid: uid,
                 role: role,
@@ -51,7 +54,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   return ListView(
                     padding: EdgeInsets.all(r.x(10)),
                     children: [
-                      if (list.isEmpty) emptyText(context, '通知はありません'),
+                      if (list.isEmpty) emptyTextDark(context, '通知はありません'),
                       for (final n in list)
                         Padding(
                           padding: EdgeInsets.only(bottom: r.y(8)),
@@ -59,13 +62,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             text: unreadIds.contains(n.id)
                                 ? '【新着】${n.message}'
                                 : n.message,
-                            // 既読は枠とベルを灰色にして、新着と区別する。
+                            // 既読は枠とベルを暗くして、新着と区別する（新着は語句【新着】も付く）。
                             borderColor: unreadIds.contains(n.id)
                                 ? AppColors.amber
-                                : AppColors.stepBorder,
+                                : AppColors.white.withValues(alpha: 0.16),
                             bellColor: unreadIds.contains(n.id)
                                 ? AppColors.amber
-                                : AppColors.stepBorder,
+                                : AppColors.white.withValues(alpha: 0.7),
                             onTap: () {
                               _markSeen();
                               openRequest(context, n.requestId);

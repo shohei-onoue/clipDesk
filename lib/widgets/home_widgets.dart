@@ -10,53 +10,8 @@ import '../domain/video_request.dart';
 import 'status_style.dart';
 
 // デザインシステム（docs/design-system/components.md）のホーム用部品：
-// AppBar／TopTabs／EmptyCard／StatusTag／ProgressBar／RequestCard（グリッド用）／TabBar。
-
-/// AppBar：brand 塗り、タイトルは中央、アイコンボタンには label を付ける。
-/// 状態バーの下まで brand を敷くため、上側の SafeArea をここで持つ。
-class HomeAppBar extends StatelessWidget {
-  const HomeAppBar({super.key, required this.title, this.onMenu});
-
-  final String title;
-  final VoidCallback? onMenu;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    final side = r.x(AppSpace.s6 + AppSpace.s6); // 48：左右を同じ幅にして中央を保つ
-    return ColoredBox(
-      color: AppColors.blue,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: r.y(56),
-          child: Row(
-            children: [
-              SizedBox(width: r.x(AppSpace.s1)),
-              SizedBox(
-                width: side,
-                height: side,
-                child: IconButton(
-                  tooltip: 'メニューを開く',
-                  onPressed:
-                      onMenu ?? () => Scaffold.maybeOf(context)?.openDrawer(),
-                  icon: Icon(Icons.menu,
-                      size: r.x(AppSpace.s6), color: AppColors.onBlue),
-                ),
-              ),
-              Expanded(
-                child: Text(title,
-                    textAlign: TextAlign.center,
-                    style: AppText.h2(r, color: AppColors.onBlue)),
-              ),
-              SizedBox(width: side + r.x(AppSpace.s1)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+// TopTabs／EmptyCard／StatusTag／ProgressBar／RequestCard（グリッド用）。ダークテイスト。
+// AppBar は AppHeader、下のバーは AppBottomBar を使う。
 
 /// TopTabs：2〜3項目。選択中は brand の文字と4pxの下線、他は ink-muted。
 class TopTabs extends StatelessWidget {
@@ -75,9 +30,10 @@ class TopTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface200,
-        border: Border(bottom: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        color: AppColors.ink,
+        border: Border(
+            bottom: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
       ),
       child: Row(
         children: [
@@ -105,8 +61,8 @@ class TopTabs extends StatelessWidget {
                       child: Text(items[i],
                           style: AppText.body(r,
                               color: i == active
-                                  ? AppColors.blue
-                                  : AppColors.inkMuted,
+                                  ? AppColors.white
+                                  : AppColors.white.withValues(alpha: 0.7),
                               weight: FontWeight.w700)),
                     ),
                   ),
@@ -127,7 +83,7 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: AppText.h3(context.r));
+      Text(text, style: AppText.h3(context.r, color: AppColors.white));
 }
 
 /// EmptyCard：該当がないときの枠。理由と次の操作を短く書く。
@@ -143,11 +99,13 @@ class EmptyCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.x(AppSpace.s4)),
       decoration: BoxDecoration(
-        color: AppColors.surface200,
-        border: Border.all(color: AppColors.line),
+        color: AppColors.white.withValues(alpha: 0.08),
+        border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      child: Text(text, style: AppText.body(r, color: AppColors.inkMuted)),
+      child: Text(text,
+          style:
+              AppText.body(r, color: AppColors.white.withValues(alpha: 0.7))),
     );
   }
 }
@@ -173,23 +131,23 @@ class SelectField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.label(r)),
+        Text(label, style: AppText.label(r, color: AppColors.white)),
         SizedBox(height: r.y(AppSpace.s1)),
         Container(
           height: r.y(48),
           padding: EdgeInsets.symmetric(horizontal: r.x(AppSpace.s3)),
           decoration: BoxDecoration(
-            color: AppColors.surface200,
-            border: Border.all(color: AppColors.lineStrong),
+            color: AppColors.white.withValues(alpha: 0.08),
+            border: Border.all(color: AppColors.white.withValues(alpha: 0.55)),
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               isExpanded: true,
               value: value,
-              dropdownColor: AppColors.surface200,
-              style: AppText.body(r),
-              icon: const Icon(Icons.expand_more, color: AppColors.ink),
+              dropdownColor: AppColors.white.withValues(alpha: 0.08),
+              style: AppText.body(r, color: AppColors.white),
+              icon: const Icon(Icons.expand_more, color: AppColors.white),
               items: [
                 for (var i = 0; i < options.length; i++)
                   DropdownMenuItem(value: i, child: Text(options[i])),
@@ -217,7 +175,7 @@ class StatusTag extends StatelessWidget {
         text: s.label,
         fill: tagColor(s),
         onFill:
-            tagColor(s) == AppColors.amber ? AppColors.onAmber : AppColors.onBlue,
+            tagColor(s) == AppColors.amber ? AppColors.ink : AppColors.white,
       );
 
   @override
@@ -229,12 +187,16 @@ class StatusTag extends StatelessWidget {
           horizontal: r.x(AppSpace.s2), vertical: r.y(AppSpace.s1)),
       decoration: BoxDecoration(
         color: fill,
-        border: filled ? null : Border.all(color: AppColors.lineStrong),
+        border: filled
+            ? null
+            : Border.all(color: AppColors.white.withValues(alpha: 0.55)),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Text(text,
           style: AppText.label(r,
-              color: filled ? (onFill ?? AppColors.ink) : AppColors.inkMuted)),
+              color: filled
+                  ? (onFill ?? AppColors.ink)
+                  : AppColors.white.withValues(alpha: 0.7))),
     );
   }
 }
@@ -252,10 +214,12 @@ class ProgressBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: Stack(
         children: [
-          Container(height: r.y(AppSpace.s2), color: AppColors.surface300),
+          Container(
+              height: r.y(AppSpace.s2),
+              color: AppColors.white.withValues(alpha: 0.16)),
           FractionallySizedBox(
             widthFactor: value.clamp(0.0, 1.0),
-            child: Container(height: r.y(AppSpace.s2), color: AppColors.blue),
+            child: Container(height: r.y(AppSpace.s2), color: AppColors.amber),
           ),
         ],
       ),
@@ -294,17 +258,18 @@ class HomeRequestCard extends StatelessWidget {
     final r = context.r;
     final mine = needsMyAction(request, role);
     final done = request.status == RequestStatus.posted;
-    final days = done ? null : daysUntilDue(request.dueDate, now ?? DateTime.now());
-    var dueColor = AppColors.ink;
+    final days =
+        done ? null : daysUntilDue(request.dueDate, now ?? DateTime.now());
+    var dueColor = AppColors.white;
     var dueWeight = FontWeight.w400;
     var dueSuffix = '';
     if (days != null) {
       if (days < 0) {
-        dueColor = AppColors.danger;
+        dueColor = AppColors.amber;
         dueWeight = FontWeight.w700;
         dueSuffix = '（${-days}日超過）';
       } else if (days <= 3) {
-        dueColor = AppColors.warn;
+        dueColor = AppColors.amber;
         dueWeight = FontWeight.w700;
         dueSuffix = days == 0 ? '（今日まで）' : '（残り$days日）';
       }
@@ -317,9 +282,11 @@ class HomeRequestCard extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(r.x(AppSpace.s3)),
           decoration: BoxDecoration(
-            color: AppColors.surface200,
+            color: AppColors.white.withValues(alpha: 0.08),
             border: Border.all(
-                color: mine ? AppColors.amber : AppColors.line,
+                color: mine
+                    ? AppColors.amber
+                    : AppColors.white.withValues(alpha: 0.16),
                 width: mine ? 2 : 1),
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
@@ -329,7 +296,8 @@ class HomeRequestCard extends StatelessWidget {
               Text(request.brief.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.body(r, weight: FontWeight.w700)),
+                  style: AppText.body(r,
+                      color: AppColors.white, weight: FontWeight.w700)),
               SizedBox(height: r.y(AppSpace.s2)),
               Wrap(
                 spacing: r.x(AppSpace.s1),
@@ -340,22 +308,26 @@ class HomeRequestCard extends StatelessWidget {
                     const StatusTag(
                         text: 'あなたの対応待ち',
                         fill: AppColors.amber,
-                        onFill: AppColors.onAmber),
+                        onFill: AppColors.ink),
                 ],
               ),
               SizedBox(height: r.y(AppSpace.s2)),
               Row(
                 children: [
-                  Expanded(child: ProgressBar(value: progressValue(request.status))),
+                  Expanded(
+                      child: ProgressBar(value: progressValue(request.status))),
                   SizedBox(width: r.x(AppSpace.s2)),
-                  Text(progressText(request), style: AppText.label(r)),
+                  Text(progressText(request),
+                      style: AppText.label(r, color: AppColors.white)),
                 ],
               ),
               SizedBox(height: r.y(AppSpace.s2)),
               Text('納期 ${dateText(request.dueDate)}$dueSuffix',
-                  style: AppText.bodySm(r, color: dueColor).copyWith(
-                      fontWeight: dueWeight)),
-              Text(_assignee, style: AppText.bodySm(r)),
+                  style: AppText.bodySm(r, color: dueColor)
+                      .copyWith(fontWeight: dueWeight)),
+              Text(_assignee,
+                  style: AppText.bodySm(r,
+                      color: AppColors.white.withValues(alpha: 0.7))),
             ],
           ),
         ),
@@ -392,145 +364,5 @@ class RequestGrid extends StatelessWidget {
       ));
     }
     return Column(children: rows);
-  }
-}
-
-class HomeTabItem {
-  const HomeTabItem({
-    required this.label,
-    required this.icon,
-    this.activeIcon,
-    this.badge = 0,
-    this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final IconData? activeIcon;
-
-  /// 未読などの件数。0なら出さない。
-  final int badge;
-  final VoidCallback? onTap;
-}
-
-/// TabBar：4項目＋中央の主操作（brand 塗りの丸。画面に1つ）。
-/// 現在地は塗りアイコン＋太字＋ink、他は ink-muted。
-class HomeTabBar extends StatelessWidget {
-  const HomeTabBar({
-    super.key,
-    required this.left,
-    required this.right,
-    required this.center,
-    this.activeLeft,
-  });
-
-  final List<HomeTabItem> left;
-  final List<HomeTabItem> right;
-  final HomeTabItem center;
-
-  /// 現在地（left の位置）。
-  final int? activeLeft;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface200,
-        border: Border(top: BorderSide(color: AppColors.line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: r.y(64),
-          child: Row(
-            children: [
-              for (var i = 0; i < left.length; i++)
-                Expanded(child: _Tab(item: left[i], active: i == activeLeft)),
-              Expanded(child: _Center(item: center)),
-              for (final t in right)
-                Expanded(child: _Tab(item: t, active: false)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  const _Tab({required this.item, required this.active});
-
-  final HomeTabItem item;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    final color = active ? AppColors.ink : AppColors.inkMuted;
-    return Semantics(
-      button: true,
-      selected: active,
-      label: item.badge > 0 ? '${item.label} 未読${item.badge}件' : item.label,
-      child: InkWell(
-        onTap: item.onTap,
-        child: ExcludeSemantics(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Badge(
-                isLabelVisible: item.badge > 0,
-                backgroundColor: AppColors.amber,
-                textColor: AppColors.onAmber,
-                label: Text(item.badge > 99 ? '99+' : '${item.badge}'),
-                child: Icon(
-                    active ? (item.activeIcon ?? item.icon) : item.icon,
-                    size: r.x(AppSpace.s6),
-                    color: color),
-              ),
-              SizedBox(height: r.y(AppSpace.s1)),
-              Text(item.label,
-                  style: AppText.label(r, color: color).copyWith(
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Center extends StatelessWidget {
-  const _Center({required this.item});
-
-  final HomeTabItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Semantics(
-      button: true,
-      label: item.label,
-      child: InkWell(
-        onTap: item.onTap,
-        child: ExcludeSemantics(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: r.x(AppSpace.s8 + AppSpace.s2),
-                height: r.x(AppSpace.s8 + AppSpace.s2),
-                decoration: const BoxDecoration(
-                    color: AppColors.blue, shape: BoxShape.circle),
-                child: Icon(item.icon,
-                    size: r.x(AppSpace.s6), color: AppColors.onBlue),
-              ),
-              Text(item.label,
-                  style: AppText.label(r, color: AppColors.blue)),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -12,10 +12,12 @@ import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
 import '../widgets/video_player_dialog.dart';
+import '../widgets/app_icon.dart';
 
 /// 案件詳細。依頼者は「動画承認」、編集者は「依頼確認／動画アップロード」を
 /// この画面から行う（役割と状態で操作を出し分ける）。
@@ -26,26 +28,30 @@ class RequestDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
+      bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '案件詳細', background: AppColors.bg),
+          const AppHeader(title: '案件詳細'),
           Expanded(
             child: RoleBuilder(
+              dark: true,
               builder: (context, uid, role) => StreamBuilder<VideoRequest?>(
                 stream: Services.repo.watchRequest(requestId),
                 builder: (context, snap) {
                   if (snap.hasError) {
                     // 権限のない案件は読み取りが拒否される。
-                    return const Center(child: Text('この案件を表示できません'));
+                    return const _Notice('エラー：この案件を表示できません。権限を確認してください');
                   }
                   if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.white));
                   }
                   final req = snap.data;
                   if (req == null) {
-                    return const Center(child: Text('案件が見つかりません'));
+                    return const _Notice('この案件は見つかりません');
                   }
                   return _Body(request: req, uid: uid, role: role);
                 },
@@ -99,18 +105,34 @@ class _BodyState extends State<_Body> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
+        backgroundColor: AppColors.white.withValues(alpha: 0.08),
+        title: Text(title, style: AppText.dark(18)),
         content: TextField(
             controller: c,
             autofocus: true,
             maxLines: 4,
-            decoration: InputDecoration(hintText: hint)),
+            style: AppText.dark(15, weight: FontWeight.w400),
+            cursorColor: AppColors.white,
+            decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: AppText.dark(15,
+                    weight: FontWeight.w400,
+                    color: AppColors.white.withValues(alpha: 0.7)),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                        color: AppColors.white.withValues(alpha: 0.55))),
+                focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.blue)))),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('キャンセル',
+                  style: AppText.dark(14,
+                      color: AppColors.white.withValues(alpha: 0.7)))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('送信')),
+              child:
+                  Text('送信', style: AppText.dark(14, color: AppColors.white))),
         ],
       ),
     );
@@ -210,7 +232,7 @@ class _BodyState extends State<_Body> {
       padding: EdgeInsets.all(r.x(10)),
       children: [
         _Card(children: [
-          Text(q.brief.title, style: AppText.noto(r.x(20), height: 1.5)),
+          Text(q.brief.title, style: AppText.dark(r.x(20), height: 1.5)),
           _Row('進捗', q.statusLabel),
           _Row('納期', dateText(q.dueDate)),
           if (q.status == RequestStatus.needsInfo && q.reviewReason != null)
@@ -227,12 +249,12 @@ class _BodyState extends State<_Body> {
         ],
         SizedBox(height: r.y(10)),
         _Card(children: [
-          Text('指示書', style: AppText.noto(r.x(16))),
+          Text('指示書', style: AppText.dark(r.x(16))),
           if (q.brief.videoType.isNotEmpty) _Row('動画の種類', q.brief.videoType),
           if (q.brief.platform.isNotEmpty) _Row('投稿先', q.brief.platform),
           if (q.brief.audience.isNotEmpty) _Row('視聴者', q.brief.audience),
           _Row('目的', q.brief.purpose),
-          _Row('構成', q.brief.structure),
+          if (q.brief.structure.isNotEmpty) _Row('構成', q.brief.structure),
           _Row('納品条件', q.brief.deliveryTerms),
           for (var i = 0; i < q.brief.scenes.length; i++)
             _Row('場面${i + 1}',
@@ -240,7 +262,7 @@ class _BodyState extends State<_Body> {
         ]),
         SizedBox(height: r.y(10)),
         _Card(children: [
-          Text('添付資料', style: AppText.noto(r.x(16))),
+          Text('添付資料', style: AppText.dark(r.x(16))),
           // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
           StreamBuilder<StaffAccess>(
             stream: Services.repo.watchAccess(widget.uid),
@@ -251,16 +273,22 @@ class _BodyState extends State<_Body> {
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(a.kind == 'video'
-                        ? Icons.play_circle_outline
-                        : Icons.attach_file),
+                    textColor: AppColors.white,
+                    iconColor: AppColors.white,
+                    leading: a.kind == 'video'
+                        ? const Icon(Icons.play_circle_outline)
+                        : const AppIcon(AppIcons.attachFile,
+                            size: 24, color: AppColors.white),
                     title: Text(a.name),
                     subtitle: !canDownload && a.kind != 'video'
-                        ? const Text('ダウンロードは編集者のみ')
+                        ? Text('ダウンロードは編集者のみ',
+                            style: TextStyle(
+                                color: AppColors.white.withValues(alpha: 0.7)))
                         : null,
                     trailing: canDownload
                         ? IconButton(
                             tooltip: 'ダウンロード',
+                            color: AppColors.white,
                             icon: const Icon(Icons.download),
                             onPressed: () => _download(a.path),
                           )
@@ -305,20 +333,29 @@ class _Submissions extends StatelessWidget {
       builder: (context, snap) {
         final subs = snap.data ?? const <Submission>[];
         return _Card(children: [
-          Text('提出された動画', style: AppText.noto(r.x(16))),
-          if (subs.isEmpty) const Text('まだ提出されていません'),
+          Text('提出された動画', style: AppText.dark(r.x(16))),
+          if (subs.isEmpty)
+            Padding(
+                padding: EdgeInsets.only(top: r.y(6)),
+                child: Text('まだ提出されていません',
+                    style: AppText.dark(r.x(14), weight: FontWeight.w400))),
           for (final s in subs.reversed)
             ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
+              textColor: AppColors.white,
+              iconColor: AppColors.white,
               leading: const Icon(Icons.play_circle_outline),
               title: Text(
                   '${s.version == 1 ? '初稿' : '修正動画'}（v${s.version}）${s.version == request.approvedVersion ? '　承認済み' : ''}'),
-              subtitle: Text(s.name),
+              subtitle: Text(s.name,
+                  style:
+                      TextStyle(color: AppColors.white.withValues(alpha: 0.7))),
               // 完成品のダウンロードは依頼者権限のスタッフだけ。
               trailing: (access?.canRequest ?? false)
                   ? IconButton(
                       tooltip: 'ダウンロード',
+                      color: AppColors.white,
                       icon: const Icon(Icons.download),
                       onPressed: () async {
                         final url = await Services.repo.downloadUrl(s.path);
@@ -346,9 +383,9 @@ class _Card extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.x(14)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.ink),
-        borderRadius: BorderRadius.circular(r.x(16)),
+        color: AppColors.white.withValues(alpha: 0.08),
+        border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
+        borderRadius: BorderRadius.circular(r.x(15)),
       ),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: children),
@@ -372,10 +409,12 @@ class _Row extends StatelessWidget {
           SizedBox(
               width: r.x(80),
               child: Text(label,
-                  style: AppText.noto(r.x(14), color: AppColors.stepGrey))),
+                  style: AppText.dark(r.x(14),
+                      weight: FontWeight.w400,
+                      color: AppColors.white.withValues(alpha: 0.7)))),
           Expanded(
               child: Text(value,
-                  style: AppText.noto(r.x(14), weight: FontWeight.w500))),
+                  style: AppText.dark(r.x(14), weight: FontWeight.w400))),
         ],
       ),
     );
@@ -393,10 +432,10 @@ class _Btn extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     return Material(
-      color: busy ? Colors.grey : color,
-      borderRadius: BorderRadius.circular(r.x(20)),
+      color: busy ? AppColors.white.withValues(alpha: 0.16) : color,
+      borderRadius: BorderRadius.circular(r.x(15)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(r.x(20)),
+        borderRadius: BorderRadius.circular(r.x(15)),
         onTap: busy ? null : onTap,
         child: SizedBox(
           height: r.y(56),
@@ -407,12 +446,32 @@ class _Btn extends StatelessWidget {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2, color: AppColors.white))
+                // 塗りの上の文字：brand は on-brand、accent は on-accent。
                 : Text(label,
-                    style: AppText.noto(r.x(16), color: Colors.white)),
+                    style: AppText.noto(r.x(16),
+                        color: color == AppColors.amber
+                            ? AppColors.ink
+                            : AppColors.white)),
           ),
         ),
       ),
     );
   }
+}
+
+/// 中央に置く短い案内（ダーク背景用）。
+class _Notice extends StatelessWidget {
+  const _Notice(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: AppText.dark(14, weight: FontWeight.w400)),
+        ),
+      );
 }

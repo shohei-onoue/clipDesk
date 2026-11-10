@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/night_theme.dart';
 import '../data/services.dart';
+import '../widgets/app_header.dart';
 
 /// スタッフの登録フォーム。責任者からの招待メールのリンクから開く。
 /// 名前とパスワードを決めて登録すると、招待された権限がそのまま付く。
@@ -19,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
   final _email =
       TextEditingController(text: Uri.base.queryParameters['email'] ?? '');
-  final _phone = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -28,7 +29,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _name.dispose();
     _email.dispose();
-    _phone.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -66,7 +66,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'email': user.email ?? email,
           'name': name,
-          'phone': _phone.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
         // 招待された権限を、自分の権限にする。招待が無ければ承認待ちのまま。
@@ -89,64 +88,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     InputDecoration deco(String label) =>
         InputDecoration(labelText: label, border: const OutlineInputBorder());
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.bg,
-        automaticallyImplyLeading: false,
-        title: Text('スタッフ登録', style: AppText.noto(18)),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Text('招待ありがとうございます。名前とパスワードを決めて登録してください。次回からはこのパスワードでログインします。',
-                    style: AppText.noto(14, height: 1.6)),
-                const SizedBox(height: 16),
-                TextField(controller: _name, decoration: deco('名前')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: deco('メールアドレス（招待されたもの）')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    decoration: deco('電話番号')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: _password,
-                    obscureText: true,
-                    decoration: deco('パスワード（6文字以上）')),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!,
-                      style: AppText.noto(14, color: AppColors.danger)),
-                ],
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    style:
-                        FilledButton.styleFrom(backgroundColor: AppColors.blue),
-                    child: _busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : Text('登録する',
-                            style: AppText.noto(16, color: Colors.white)),
+    return Theme(
+      data: nightTheme,
+      child: Scaffold(
+        backgroundColor: AppColors.ink,
+        body: SafeArea(
+          child: Column(children: [
+            const AppHeader(title: 'スタッフ登録'),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      Text(
+                          '招待ありがとうございます。名前とパスワードを決めて登録してください。次回からはこのパスワードでログインします。',
+                          style: AppText.dark(14,
+                              weight: FontWeight.w400, height: 1.6)),
+                      const SizedBox(height: 16),
+                      TextField(controller: _name, decoration: deco('名前')),
+                      const SizedBox(height: 12),
+                      TextField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: deco('メールアドレス（招待されたもの）')),
+                      const SizedBox(height: 12),
+                      TextField(
+                          controller: _password,
+                          obscureText: true,
+                          decoration: deco('パスワード（6文字以上）')),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text('エラー：$_error',
+                            style: AppText.dark(14,
+                                weight: FontWeight.w400,
+                                color: AppColors.amber)),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: _busy ? null : _submit,
+                          style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.blue,
+                              foregroundColor: AppColors.white),
+                          child: _busy
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: AppColors.white))
+                              : Text('登録する',
+                                  style:
+                                      AppText.noto(16, color: AppColors.white)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ]),
         ),
       ),
     );

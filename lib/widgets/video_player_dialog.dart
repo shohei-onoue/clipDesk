@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../core/app_colors.dart';
+import '../core/app_text.dart';
 import '../data/services.dart';
 
 /// Storage上の動画を再生するダイアログ。
@@ -57,15 +59,22 @@ class _VideoDialogState extends State<_VideoDialog> {
   Widget build(BuildContext context) {
     final c = _c;
     return AlertDialog(
-      title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      backgroundColor: AppColors.white.withValues(alpha: 0.08),
+      title: Text(widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.dark(18)),
       content: SizedBox(
         width: 480,
         child: _error != null
-            ? Text('動画を再生できません：$_error')
+            ? Text('エラー：動画を再生できません（$_error）。通信を確認して、もう一度開いてください',
+                style: AppText.dark(14, weight: FontWeight.w400))
             : c == null
                 ? const SizedBox(
                     height: 120,
-                    child: Center(child: CircularProgressIndicator()))
+                    child: Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.white)))
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -76,6 +85,8 @@ class _VideoDialogState extends State<_VideoDialog> {
                       ValueListenableBuilder<VideoPlayerValue>(
                         valueListenable: c,
                         builder: (_, v, __) => IconButton(
+                          tooltip: v.isPlaying ? '一時停止' : '再生',
+                          color: AppColors.white,
                           icon: Icon(
                               v.isPlaying ? Icons.pause : Icons.play_arrow),
                           onPressed: () => v.isPlaying ? c.pause() : c.play(),
@@ -87,7 +98,8 @@ class _VideoDialogState extends State<_VideoDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる')),
+            child:
+                Text('閉じる', style: AppText.dark(14, color: AppColors.white))),
       ],
     );
   }

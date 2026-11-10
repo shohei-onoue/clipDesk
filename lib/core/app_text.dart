@@ -23,6 +23,20 @@ class AppText {
         letterSpacing: letterSpacing,
       );
 
+  /// ダーク背景の画面用。[noto] と同じ引数で、色の既定だけ surface200（明るい文字）。
+  static TextStyle dark(
+    double size, {
+    FontWeight weight = FontWeight.w700,
+    Color color = AppColors.white,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      noto(size,
+          weight: weight,
+          color: color,
+          height: height,
+          letterSpacing: letterSpacing);
+
   // --- デザインシステム（tokens.json の type）。サイズは画面幅に合わせて r で拡縮する。 ---
 
   /// h2：セクション見出し 20/30。
@@ -39,8 +53,10 @@ class AppText {
       noto(r.x(14), weight: weight, color: color, height: 24 / 14);
 
   /// body-sm：補足・ヒント 12/20。
-  static TextStyle bodySm(Responsive r, {Color color = AppColors.inkMuted}) =>
-      noto(r.x(12), weight: FontWeight.w400, color: color, height: 20 / 12);
+  static TextStyle bodySm(Responsive r, {Color? color}) => noto(r.x(12),
+      weight: FontWeight.w400,
+      color: color ?? AppColors.ink.withValues(alpha: 0.7),
+      height: 20 / 12);
 
   /// label：タグ・ラベル 12/16 太字。
   static TextStyle label(Responsive r, {Color color = AppColors.ink}) =>

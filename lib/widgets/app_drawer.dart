@@ -6,8 +6,9 @@ import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import 'app_icon.dart';
 
-/// 左から出る青いドロワー。幅は画面の 350/390。
+/// 左から出るドロワー（ダークテイスト）。幅は画面の 350/390。ink→brand のグラデーションの面に、項目を縦に並べる。
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -31,29 +32,44 @@ class AppDrawer extends StatelessWidget {
             height: r.y(490),
             padding: EdgeInsets.symmetric(vertical: r.y(16)),
             decoration: BoxDecoration(
-              color: AppColors.blue,
-              border: Border.all(color: AppColors.ink),
-              borderRadius: BorderRadius.circular(r.x(16)),
+              // メイン画面のカードと同じ、ink から brand へ流れるグラデーション。
+              gradient: const LinearGradient(
+                begin: Alignment(-0.3, -1),
+                end: Alignment(0.3, 1),
+                colors: [
+                  AppColors.ink,
+                  AppColors.ink,
+                  AppColors.blue,
+                  AppColors.blue
+                ],
+                stops: [0, 0.6, 0.95, 1],
+              ),
+              border:
+                  Border.all(color: AppColors.white.withValues(alpha: 0.16)),
+              borderRadius: BorderRadius.circular(r.x(15)),
             ),
             child: Column(
               children: [
-                _Tile(Icons.apps, 'メイン', () => _go(context, '/menu')),
-                _Tile(Icons.home_outlined, 'ホーム', () => _go(context, '/home')),
+                _Tile(AppIcons.menu, 'メイン', () => _go(context, '/menu')),
+                _Tile(AppIcons.viewCozy, 'ホーム', () => _go(context, '/home')),
                 StreamBuilder<UserRole?>(
                   stream: Services.uid == null
                       ? null
                       : Services.repo.watchRole(Services.uid!),
                   builder: (context, snap) => snap.data == UserRole.requester
-                      ? _Tile(Icons.add_circle_outline, '新しい依頼',
+                      ? _Tile(AppIcons.addCircle, '新しい依頼',
                           () => _go(context, '/chat'))
                       : const SizedBox.shrink(),
                 ),
-                _Tile(Icons.notifications_none, '通知',
+                _Tile(AppIcons.notifications, '通知',
                     () => _go(context, '/notifications')),
-                _Tile(Icons.video_library_outlined, '納品ライブラリ',
+                _Tile(AppIcons.systemUpdateAlt, '納品ライブラリ',
                     () => _go(context, '/library')),
                 const Spacer(),
-                _Tile(Icons.logout, 'ログアウト', () async {
+                Divider(
+                    color: AppColors.white.withValues(alpha: 0.16),
+                    height: r.y(1)),
+                _Tile(AppIcons.logout, 'ログアウト', () async {
                   await FirebaseAuth.instance.signOut();
                   if (context.mounted) _go(context, '/');
                 }),
@@ -69,7 +85,7 @@ class AppDrawer extends StatelessWidget {
 class _Tile extends StatelessWidget {
   const _Tile(this.icon, this.label, this.onTap);
 
-  final IconData icon;
+  final AppIcons icon;
   final String label;
   final VoidCallback? onTap;
 
@@ -86,12 +102,14 @@ class _Tile extends StatelessWidget {
             children: [
               SizedBox(
                 width: r.x(40),
-                child: Icon(icon, size: r.x(24), color: Colors.white),
+                child: AppIcon(icon, size: r.x(28), color: AppColors.white),
               ),
               Text(
                 label,
                 style: AppText.noto(r.x(16),
-                    color: Colors.white, height: 20.8 / 16),
+                    weight: FontWeight.w400,
+                    color: AppColors.white,
+                    height: 20.8 / 16),
               ),
             ],
           ),

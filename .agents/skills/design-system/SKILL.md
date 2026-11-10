@@ -27,11 +27,15 @@ UIを作る・直すときの手順と規則。詳細は `docs/design-system/` �
 
 | 種類 | 置き場所 | 例 |
 |---|---|---|
-| 色 | `lib/core/app_colors.dart` | `bg`(=surface-100)、`surface200`、`blue`(=brand)、`ink`、`inkMuted`、`amber`(=accent)、`warn`、`danger`、`line`、`lineStrong` |
+| 色 | `lib/core/app_colors.dart` | 4色だけ：`ink`、`amber`、`blue`、`white`。薄い面・線・補足は `white.withValues(alpha: …)`（面8%・線16%・枠55%・補足70%）で作る。他の色は足さない |
 | 文字 | `lib/core/app_text.dart` | `h1`〜`h3`、`body`、`bodySm`、`label` |
 | 余白・角丸 | `lib/core/app_tokens.dart` | `AppSpace.s1`〜、`AppRadius.sm/md/lg` |
 
 `Color(0x…)` や数値の直書きはしない。
+
+## ダークテイスト（ホーム以外の全画面）
+
+ログイン・オープニング以外の全画面（ホームを含む）は、背景 `AppColors.ink`、文字 `surface200`、カード `nightSurface`（枠 `nightLine`、角丸15）、AppBar は `AppHeader`（下端が accent の線、ボタンは左端・右端、タイトルは中央）。標準ウィジェットは `Theme(data: nightTheme)` で包む。文字は `AppText.dark(...)`。詳細は `docs/design-system/README.md` の「ダークテイスト」。下部は共通の `AppBottomBar`（ホーム／新規依頼または進捗状況／納品ライブラリ）。画面は全幅に広げ、寸法の比率だけ幅430pxで頭打ち（`Responsive`）。
 
 ## 規則の要点
 
@@ -43,7 +47,7 @@ UIを作る・直すときの手順と規則。詳細は `docs/design-system/` �
 - **余白**：`space` の段のみ。カードの内側は `space-4`、セクション間は `space-6`〜`space-8`、左右は `space-4`。
 - **区切り**：枠線（`line`）。入力・ボタンの枠は `line-strong`。影は、ドラッグ中とメニューだけ。
 - **角丸**：タグ `sm`、ボタン・入力 `md`、カード `lg`。
-- **アイコン**：意味のある操作には語句か `label` を付ける。タップ領域は40px以上。
+- **アイコン**：Figma icon_list の SVG を `AppIcon(AppIcons.xxx)` で使う（`assets/icons/`）。選択中は塗り版。意味のある操作には語句か `label` を付ける。タップ領域は40px以上。
 
 ## 部品の早見（詳細は components.md）
 

@@ -105,7 +105,6 @@ void main() {
           containsAll([
             'title',
             'purpose',
-            'structure',
             'deliveryTerms',
             'video',
             'dueDate'

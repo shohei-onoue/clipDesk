@@ -26,6 +26,7 @@ service firebase.storage {
       allow write: if hasRole('requester') && request.auth.uid == uid && sizeOk()
         && (request.resource.contentType.matches('video/.*')
           || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('audio/.*')
           || request.resource.contentType == 'application/pdf'
           || request.resource.contentType == 'application/octet-stream');
       allow read: if signedIn() && (

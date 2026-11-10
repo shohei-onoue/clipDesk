@@ -120,6 +120,15 @@ double introTitleSize(double w) => _titleSize(w);
 /// 同じく、タイトルの縦の中心（画面の高さ h に対する実寸）。
 double introTitleCenterY(double h) => _titleY(h);
 
+/// タイトルの中心から下線までの距離。
+double introLineGap(double w) => _lineGap(w);
+
+/// タイトルからサブタイトル・下線までの距離。
+/// 文字の大きさ（幅に比例）に比例させ、画面が横長になっても行間が変わらないようにする。
+/// 基準は 390×844 の画面での距離（高さの 7%、11.5%）。
+double _subGap(double w) => 844 * 0.07 * _titleSize(w) / _titleSize(390);
+double _lineGap(double w) => 844 * 0.115 * _titleSize(w) / _titleSize(390);
+
 /// 最終画面のタイトル（OLDROOKIE / Clip Desk 共通）の文字サイズ。
 /// 幅の80%に収めた OLDROOKIE の大きさ（390px幅で約58px）。
 double _titleSize(double w) => _fitted('OLDROOKIE', w * 0.8, 0.08);
@@ -449,7 +458,7 @@ class IntroPainter extends CustomPainter {
       _text(
         _subtitle,
         w * 0.5,
-        _titleY(h) + h * 0.07,
+        _titleY(h) + _subGap(w),
         tw,
         0.1,
         paintFor: sub ?? paintFor,
@@ -487,7 +496,7 @@ class IntroPainter extends CustomPainter {
       lockup(strokeP, thinP, 'Clip Desk');
       _c.restore();
       _c.drawRect(
-        Rect.fromLTWH(left, _titleY(h) + h * 0.115, tw * lineP, 3),
+        Rect.fromLTWH(left, _titleY(h) + _lineGap(w), tw * lineP, 3),
         Paint()..color = Colors.white,
       );
     }
@@ -526,7 +535,7 @@ class IntroPainter extends CustomPainter {
     _text(
       _subtitle,
       w * 0.5,
-      _titleY(h) + h * 0.07,
+      _titleY(h) + _subGap(w),
       tw,
       0.1,
       paintFor: thin,
@@ -535,7 +544,7 @@ class IntroPainter extends CustomPainter {
     );
     // ラインは、白い塗りが透明になる間にすでに伸びきっている。
     _c.drawRect(
-      Rect.fromLTWH((w - tw) * 0.5, _titleY(h) + h * 0.115, tw, 3),
+      Rect.fromLTWH((w - tw) * 0.5, _titleY(h) + _lineGap(w), tw, 3),
       Paint()..color = Colors.white.withValues(alpha: fade),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../domain/request_status.dart';
@@ -38,7 +39,16 @@ String? noticeText(List<VideoRequest> all, UserRole role) {
 void openRequest(BuildContext context, String id) =>
     Navigator.of(context).pushNamed('/request', arguments: id);
 
-Widget emptyText(BuildContext context, String text) => Padding(
+Widget emptyText(BuildContext context, String text,
+        {Color color = AppColors.ink}) =>
+    Padding(
       padding: EdgeInsets.symmetric(vertical: context.r.y(24)),
-      child: Center(child: Text(text, style: AppText.noto(context.r.x(15)))),
+      child: Center(
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: AppText.noto(context.r.x(15), color: color))),
     );
+
+/// ダーク背景の画面用の空表示。
+Widget emptyTextDark(BuildContext context, String text) =>
+    emptyText(context, text, color: AppColors.white);

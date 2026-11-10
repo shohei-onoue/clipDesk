@@ -6,6 +6,7 @@ import '../data/services.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/request_card.dart';
@@ -21,13 +22,15 @@ class DeliveryLibraryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
+      bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '納品ライブラリ', background: AppColors.bg),
+          const AppHeader(title: '納品ライブラリ'),
           Expanded(
             child: RoleBuilder(
+              dark: true,
               builder: (context, uid, role) =>
                   StreamBuilder<List<VideoRequest>>(
                 stream: role == UserRole.editor
@@ -42,10 +45,11 @@ class DeliveryLibraryScreen extends StatelessWidget {
                     padding: EdgeInsets.all(r.x(10)),
                     children: [
                       if (snap.hasError)
-                        emptyText(context, '読み込みに失敗しました：${snap.error}')
+                        emptyTextDark(context,
+                            'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください')
                       else if (posted.isEmpty &&
                           snap.connectionState != ConnectionState.waiting)
-                        emptyText(context, '投稿済の動画はまだありません'),
+                        emptyTextDark(context, '投稿済の動画はまだありません'),
                       for (final q in posted)
                         Padding(
                           padding: EdgeInsets.only(bottom: r.y(10)),

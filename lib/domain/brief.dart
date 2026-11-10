@@ -91,7 +91,6 @@ class BriefValidation {
     final errors = <String, String>{};
     if (brief.title.trim().isEmpty) errors['title'] = '依頼名を入力してください';
     if (brief.purpose.trim().isEmpty) errors['purpose'] = '目的を入力してください';
-    if (brief.structure.trim().isEmpty) errors['structure'] = '構成を入力してください';
     if (brief.deliveryTerms.trim().isEmpty) {
       errors['deliveryTerms'] = '納品条件を入力してください';
     }

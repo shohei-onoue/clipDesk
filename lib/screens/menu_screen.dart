@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
@@ -7,14 +8,16 @@ import '../data/services.dart';
 import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_header.dart';
 import '../widgets/role_builder.dart';
+import '../widgets/app_icon.dart';
 
 /// ログイン後のメイン画面（Figma 268:879「main_screen」）。
-/// 「依頼者ページ」「編集者ページ」「依頼一覧」「利用者登録」のカードから各画面へ進む。
+/// 「依頼者ページ」「編集者ページ」「依頼一覧」「スタッフ管理」のカードから各画面へ進む。
 /// カードは付与された権限に応じて出す（依頼者／編集者／両方、責任者はスタッフ管理も）。暫定仕様（FigJamで未確定）。
 /// - 依頼者ページ → /home（依頼者の立場）、編集者ページ → /home（編集者の立場）
 /// - 依頼一覧 → /progress（動いている案件を全員分）
-/// - 利用者登録 → /staff（責任者だけ）
+/// - スタッフ管理 → /staff（責任者だけ）
 /// 選んだ立場は [RequestRepository.staffMode] に保持し、roles/{uid} が 'staff' のとき使う。
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -34,9 +37,21 @@ class MenuScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const _MenuAppBar(),
+            AppHeader(
+              title: 'ホーム',
+              leadingIcon: AppIcons.logout,
+              leadingTooltip: 'ログアウト',
+              onLeading: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (_) => false);
+                }
+              },
+            ),
             Expanded(
               child: RoleBuilder(
+                dark: true,
                 builder: (context, uid, role) => StreamBuilder<StaffAccess>(
                   stream: Services.repo.watchAccess(uid),
                   builder: (context, snap) {
@@ -51,7 +66,7 @@ class MenuScreen extends StatelessWidget {
                           fit: BoxFit.cover,
                           textLeft: 10,
                           onTap: () =>
-                              _go(context, UserRole.requester, '/home'),
+                              _go(context, UserRole.requester, '/requester'),
                         ),
                       if (a.canEdit)
                         _MenuCard(
@@ -75,28 +90,36 @@ class MenuScreen extends StatelessWidget {
                       ),
                       if (a.manager)
                         _MenuCard(
-                          ruby: 'りようしゃとうろく',
-                          title: '利用者登録',
+                          ruby: '',
+                          title: 'スタッフ管理',
+                          // ルビは「管理」の真上だけに付ける。
+                          parts: const [('スタッフ', null), ('管理', 'かんり')],
                           image: 'assets/menu/staff.png',
                           imageBox: const Rect.fromLTWH(13, 0, 147, 125),
                           fit: BoxFit.cover,
-                          textLeft: 19,
+                          textLeft: 10,
                           onTap: () => _go(context, null, '/staff'),
                         ),
                     ];
-                    return SingleChildScrollView(
-                      child: Padding(
-                        // アプリバーとの間 95、カード群の上下 35（Figma の余白）。
-                        padding: EdgeInsets.only(
-                            top: r.y(95 + 35), bottom: r.y(35 + 24)),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              for (var i = 0; i < cards.length; i++) ...[
-                                if (i > 0) SizedBox(height: r.y(40)),
-                                cards[i],
-                              ],
-                            ],
+                    // アプリバーより下の領域の中央に置く。収まらない画面ではスクロールする。
+                    return LayoutBuilder(
+                      builder: (context, box) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: box.maxHeight),
+                          child: Center(
+                            child: Padding(
+                              // カード群の上下 35（Figma の余白）。
+                              padding: EdgeInsets.symmetric(vertical: r.y(35)),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (var i = 0; i < cards.length; i++) ...[
+                                    if (i > 0) SizedBox(height: r.y(40)),
+                                    cards[i],
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -107,62 +130,6 @@ class MenuScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// アプリバー：高さ65、戻る（24）・タイトル（24）・メニュー（40）。
-class _MenuAppBar extends StatelessWidget {
-  const _MenuAppBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Container(
-      height: r.y(65),
-      color: AppColors.ink,
-      child: Stack(
-        children: [
-          // 戻る：アイコン24を x=13 に置く（タップ領域は48）。
-          Positioned(
-            left: r.x(13 - 12),
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: IconButton(
-                tooltip: '戻る',
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: Icon(Icons.arrow_back_ios_new,
-                    size: r.x(24), color: AppColors.surface200),
-              ),
-            ),
-          ),
-          Positioned(
-            left: r.x(45),
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Text('Menu',
-                  style: AppText.noto(r.x(24),
-                      weight: FontWeight.w400, color: AppColors.surface200)),
-            ),
-          ),
-          // メニュー：アイコン40を x=339 に置く。
-          Positioned(
-            left: r.x(339 - 4),
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: IconButton(
-                tooltip: 'メニューを開く',
-                onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
-                icon: Icon(Icons.menu,
-                    size: r.x(40), color: AppColors.surface200),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -179,7 +146,11 @@ class _MenuCard extends StatelessWidget {
     required this.fit,
     required this.textLeft,
     required this.onTap,
+    this.parts,
   });
+
+  /// 文字ごとにルビを付けたいときの分割（本文, ルビ）。ルビが null の部分は付けない。
+  final List<(String, String?)>? parts;
 
   final String ruby;
   final String title;
@@ -237,14 +208,35 @@ class _MenuCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(ruby,
-                          style: AppText.noto(r.x(14),
-                              weight: FontWeight.w400,
-                              color: AppColors.surface200)),
-                      Text(title,
-                          style: AppText.noto(r.x(24),
-                              weight: FontWeight.w400,
-                              color: AppColors.surface200)),
+                      if (parts == null) ...[
+                        Text(ruby,
+                            style: AppText.noto(r.x(14),
+                                weight: FontWeight.w400,
+                                color: AppColors.white)),
+                        Text(title,
+                            style: AppText.noto(r.x(24),
+                                weight: FontWeight.w400,
+                                color: AppColors.white)),
+                      ] else
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final (text, rb) in parts!)
+                              Column(
+                                children: [
+                                  // ルビの無い部分も同じ高さの空きを取り、文字の高さをそろえる。
+                                  Text(rb ?? ' ',
+                                      style: AppText.noto(r.x(14),
+                                          weight: FontWeight.w400,
+                                          color: AppColors.white)),
+                                  Text(text,
+                                      style: AppText.noto(r.x(24),
+                                          weight: FontWeight.w400,
+                                          color: AppColors.white)),
+                                ],
+                              ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

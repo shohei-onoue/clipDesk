@@ -50,7 +50,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(
         tester
-            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.send))
+            .widget<IconButton>(find.byWidgetPredicate(
+                (widget) => widget is IconButton && widget.tooltip == '回答を送信'))
             .onPressed,
         isNull);
     await tester.tap(find.byTooltip('ファイルを添付'));
@@ -62,7 +63,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '秋の会社紹介');
     await tester.pump();
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.send));
+    await tester.tap(find.byTooltip('回答を送信'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('会社紹介'));
     await tester.pumpAndSettle();
@@ -76,24 +77,29 @@ void main() {
           .writeAsBytes(data!.buffer.asUint8List());
       image.dispose();
     });
-    await tester.tap(find.byTooltip('選択肢を表示'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Instagram リール').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '地域の20〜30代');
-    await tester.pump();
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.send));
+    await tester.tap(find.text('Instagram'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('認知を広げたい'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('導入 → 紹介 → まとめ'));
+    await tester.tap(find.text('30秒'));
     await tester.pumpAndSettle();
-    final delivery = find.text('30秒・縦型9:16・MP4・字幕あり・BGMおまかせ');
-    await tester.ensureVisible(delivery);
-    await tester.tap(delivery);
+    // 決定済みの「30秒」をタップすると、メニューで選び直せる（チャットは増えない）。
+    final before = find.byType(Text).evaluate().length;
+    await tester.tap(find.text('30秒'));
     await tester.pumpAndSettle();
-    expect(find.text('動画を追加'), findsOneWidget);
-    expect(find.text('添付を完了'), findsNothing);
+    await tester.tap(find.text('60秒'));
+    await tester.pumpAndSettle();
+    expect(find.text('30秒'), findsNothing);
+    expect(find.text('60秒'), findsOneWidget);
+    expect(find.byType(Text).evaluate().length, before);
+    expect(find.text('縦型'), findsOneWidget);
+    await tester.tap(find.text('縦型'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('あり'));
+    await tester.pumpAndSettle();
+    // 希望納期は、添付の前に聞く。
+    expect(find.text('希望納期を選んでください。'), findsOneWidget);
+    expect(find.text('納期を選ぶ'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
