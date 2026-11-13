@@ -65,6 +65,26 @@ class _ChatScreenState extends State<ChatScreen> {
   /// 確認画面から戻って1項目だけ直している間は、直し終えたら review に戻る。
   bool _fixing = false;
 
+  final _scroll = ScrollController();
+
+  /// 最新のナビゲーターの質問バブル。これを画面の上端に出す。
+  final _latestKey = GlobalKey();
+  int _shownCount = 0;
+
+  /// 質問が増えたら、最新の質問が画面トップに来るようスクロールする。
+  void _scrollToLatestQuestion() {
+    if (_msgs.length == _shownCount) return;
+    _shownCount = _msgs.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _latestKey.currentContext;
+      if (!mounted || ctx == null) return;
+      Scrollable.ensureVisible(ctx,
+          alignment: 0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut);
+    });
+  }
+
   RequestDraft get d => _draft!;
 
   @override
@@ -89,6 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _input.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -467,6 +488,22 @@ class _ChatScreenState extends State<ChatScreen> {
             onSurface: AppColors.white,
           ),
           dialogTheme: const DialogThemeData(backgroundColor: AppColors.ink),
+          // 「キャンセル」「OK」はテキストボタンではなく、枠付き／塗りのボタンにする。
+          datePickerTheme: DatePickerThemeData(
+            cancelButtonStyle: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.white,
+              side: BorderSide(
+                  color: AppColors.white.withValues(alpha: 0.55)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.lg)),
+            ),
+            confirmButtonStyle: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: AppColors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.lg)),
+            ),
+          ),
         ),
         child: child!,
       ),
@@ -581,6 +618,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }.contains(_step);
     final freeInput = textStep || _awaitText;
     final options = _options();
+    final lastQuestion = _msgs.lastIndexWhere((m) => !m.mine);
+    _scrollToLatestQuestion();
     return Scaffold(
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
@@ -591,13 +630,19 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: BottomAlignedScroll(
                 alignTop: true,
+                latestOnTop: true,
+                controller: _scroll,
                 children: [
                   for (var i = 0; i < _msgs.length; i++)
-                    _ChatBubble(_msgs[i],
-                        onTap:
-                            _msgs[i].mine && _msgs[i].step != null && !_picking
-                                ? (at) => _editAnswer(i, at)
-                                : null),
+                    KeyedSubtree(
+                      key: i == lastQuestion ? _latestKey : null,
+                      child: _ChatBubble(_msgs[i],
+                          onTap: _msgs[i].mine &&
+                                  _msgs[i].step != null &&
+                                  !_picking
+                              ? (at) => _editAnswer(i, at)
+                              : null),
+                    ),
                   if (_picking)
                     Padding(
                       padding: const EdgeInsets.all(12),

@@ -66,6 +66,16 @@ class AppBottomBar extends StatelessWidget {
       route: '/progress',
       size: 40);
 
+  /// 依頼者ページ用：「ホーム」（メイン画面へ）と「新規」だけ。
+  static const requesterItems = [
+    BarItem(
+        label: 'ホーム',
+        icon: AppIcons.viewCozy,
+        route: '/menu',
+        replaceToHome: true),
+    _add,
+  ];
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -112,8 +122,13 @@ class AppBottomBar extends StatelessWidget {
               // 効果が見えるよう、少し待ってから移動する。
               await Future<void>.delayed(const Duration(milliseconds: 220));
               if (it.replaceToHome) {
-                nav.pushNamedAndRemoveUntil(
-                    it.route, (route) => route.settings.name == '/menu');
+                // メイン画面（/menu）は1つだけ残し、それ以外は閉じる。
+                if (it.route == '/menu') {
+                  nav.pushNamedAndRemoveUntil(it.route, (route) => false);
+                } else {
+                  nav.pushNamedAndRemoveUntil(
+                      it.route, (route) => route.settings.name == '/menu');
+                }
               } else {
                 nav.pushNamed(it.route);
               }

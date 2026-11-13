@@ -16,8 +16,8 @@ import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
 
-/// 依頼者ページ（Figma 290:123「home_screen」）。
-/// メイン画面の「依頼者ページ」から開く。依頼を2列の「進捗カード」で並べる。
+/// 依頼者ページ（Figma 290:123「home_screen」）。編集者の立場では「編集依頼リスト」として使う。
+/// メイン画面の「依頼者ページ」「編集者ページ」から開く。依頼を2列の「進捗カード」で並べる。
 /// カード：上に動画のサムネイルと状態バッジ、下に題名・概要・進捗バー・編集担当。
 class RequesterHomeScreen extends StatelessWidget {
   const RequesterHomeScreen({super.key});
@@ -25,21 +25,36 @@ class RequesterHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final uid = Services.uid;
+    return StreamBuilder<UserRole?>(
+      stream: uid == null ? null : Services.repo.watchRole(uid),
+      builder: (context, roleSnap) {
+        final editor = roleSnap.data == UserRole.editor;
+        return _scaffold(context, r, editor);
+      },
+    );
+  }
+
+  Widget _scaffold(BuildContext context, Responsive r, bool editor) {
     return Scaffold(
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
-      bottomNavigationBar: const AppBottomBar(homeRoute: '/requester'),
+      // 依頼者は「ホーム」「新規」だけ。編集者は役割に合わせた既定のバー。
+      bottomNavigationBar:
+          AppBottomBar(items: editor ? null : AppBottomBar.requesterItems),
       body: SafeArea(
         child: Column(
           children: [
-            const AppHeader(title: '依頼者ページ'),
+            AppHeader(title: editor ? '編集依頼リスト' : '依頼中リスト'),
             Expanded(
               child: RoleBuilder(
                 dark: true,
                 builder: (context, uid, role) =>
                     StreamBuilder<List<VideoRequest>>(
-                  stream: Services.repo.watchRequester(uid),
+                  stream: editor
+                      ? Services.repo.watchEditor(uid)
+                      : Services.repo.watchRequester(uid),
                   builder: (context, snap) {
                     if (snap.hasError) {
                       return Center(
@@ -53,14 +68,17 @@ class RequesterHomeScreen extends StatelessWidget {
                           child: CircularProgressIndicator(
                               color: AppColors.white));
                     }
-                    final list = sortForHome(snap.data!, UserRole.requester);
+                    final list = sortForHome(snap.data!,
+                        editor ? UserRole.editor : UserRole.requester);
                     if (list.isEmpty) {
                       return Padding(
                         padding: EdgeInsets.all(r.x(14)),
-                        child: const Align(
+                        child: Align(
                             alignment: Alignment.topCenter,
                             child: EmptyCard(
-                                text: '依頼はまだありません。下の「＋」から新しい依頼を作れます')),
+                                text: editor
+                                    ? '編集の依頼はまだありません'
+                                    : '依頼はまだありません。下の「＋」から新しい依頼を作れます')),
                       );
                     }
                     return Align(
@@ -80,6 +98,7 @@ class RequesterHomeScreen extends StatelessWidget {
                           itemCount: list.length,
                           itemBuilder: (context, i) => ProgressCard(
                             request: list[i],
+                            editor: editor,
                             onTap: () => openRequest(context, list[i].id),
                           ),
                         ),
@@ -98,14 +117,22 @@ class RequesterHomeScreen extends StatelessWidget {
 
 /// 進捗カード（174×292、角丸10）。状態バッジは語句つき。
 class ProgressCard extends StatelessWidget {
-  const ProgressCard({super.key, required this.request, this.onTap});
+  const ProgressCard(
+      {super.key, required this.request, this.onTap, this.editor = false});
 
   final VideoRequest request;
+
+  /// 編集者の立場。未受付のバッジを「新規依頼」にする。
+  final bool editor;
   final VoidCallback? onTap;
 
-  /// Figma の4種のバッジ：依頼中／編集中／確認／完了。
+  /// Figma の4種のバッジ：依頼済（編集者側は新規依頼）／編集中／確認／完了。
   (String, Color, bool) get _badge => switch (request.status) {
-        RequestStatus.pending => ('依頼中', AppColors.amber, true),
+        RequestStatus.pending => (
+            editor ? '新規依頼' : '依頼済',
+            AppColors.amber,
+            true
+          ),
         RequestStatus.editing || RequestStatus.revision => (
             '編集中',
             AppColors.blue,
@@ -218,7 +245,7 @@ class ProgressCard extends StatelessWidget {
                       SizedBox(
                         height: r.x(26),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Text('編集担当',
                                 style: AppText.noto(r.x(12), height: 1.3)),

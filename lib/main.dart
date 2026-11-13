@@ -56,7 +56,9 @@ class ClipDeskApp extends StatelessWidget {
         '/staff/invite': (_) => const StaffInviteScreen(),
         '/menu': (_) => const MenuScreen(),
         '/progress': (_) => const ProgressScreen(),
-        '/home': (_) => const HomeScreen(),
+        // ホームは依頼者ページのUIに差し替え中。元のホーム画面は '/home_old' に残している。
+        '/home': (_) => const RequesterHomeScreen(),
+        '/home_old': (_) => const HomeScreen(),
         '/requester': (_) => const RequesterHomeScreen(),
         '/drawer': (_) => const RequestListScreen(),
         '/chat': (_) => const ChatScreen(),

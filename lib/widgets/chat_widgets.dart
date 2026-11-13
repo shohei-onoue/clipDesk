@@ -161,17 +161,27 @@ class BottomAlignedScroll extends StatelessWidget {
     super.key,
     required this.children,
     this.alignTop = false,
+    this.controller,
+    this.latestOnTop = false,
   });
 
   final List<Widget> children;
   final bool alignTop;
+
+  /// スクロール位置を外から操作するためのコントローラー。
+  final ScrollController? controller;
+
+  /// true の場合、上から下へ並べ、末尾に1画面分の余白を足す。
+  /// 最新の項目を画面の上端までスクロールできるようにするため。
+  final bool latestOnTop;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
     return LayoutBuilder(
       builder: (context, c) => SingleChildScrollView(
-        reverse: true,
+        controller: controller,
+        reverse: !latestOnTop,
         padding: EdgeInsets.fromLTRB(r.x(20), r.y(4), r.x(20), r.y(12)),
         child: ConstrainedBox(
           constraints:
@@ -180,7 +190,10 @@ class BottomAlignedScroll extends StatelessWidget {
             mainAxisAlignment:
                 alignTop ? MainAxisAlignment.start : MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
+            children: [
+              ...children,
+              if (latestOnTop) SizedBox(height: c.maxHeight),
+            ],
           ),
         ),
       ),

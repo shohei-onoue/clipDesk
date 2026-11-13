@@ -85,6 +85,10 @@ void main() {
     await tester.pumpAndSettle();
     // 決定済みの「30秒」をタップすると、メニューで選び直せる（チャットは増えない）。
     final before = find.byType(Text).evaluate().length;
+    // 最新の質問が画面トップに来るため、過去の回答は上へスクロールして出す。
+    await tester.drag(
+        find.byType(SingleChildScrollView).first, const Offset(0, 400));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('30秒'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('60秒'));

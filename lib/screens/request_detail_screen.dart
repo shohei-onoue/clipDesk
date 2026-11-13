@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
@@ -76,6 +77,13 @@ class _Body extends StatefulWidget {
 
 class _BodyState extends State<_Body> {
   bool _busy = false;
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
 
   VideoRequest get q => widget.request;
   bool get _isEditor => widget.role == UserRole.editor;
@@ -149,6 +157,31 @@ class _BodyState extends State<_Body> {
     );
   }
 
+  /// 画面上部のお知らせ。状態を語句で伝える。
+  String _notice() {
+    switch (q.status) {
+      case RequestStatus.pending:
+        return _isEditor
+            ? '新しい依頼です。内容を確認して、編集を開始してください。'
+            : '依頼済みです。編集者の受付を待っています。';
+      case RequestStatus.needsInfo:
+        return q.reviewReason == null
+            ? '要確認：編集者から確認があります。'
+            : '要確認：${q.reviewReason}';
+      case RequestStatus.editing:
+        return '編集中です。';
+      case RequestStatus.review:
+        if (q.approved) return '承認済みです。編集者の投稿を待っています。';
+        return _isEditor ? '提出済みです。依頼者の確認を待っています。' : '編集者よりアップされた動画を確認してください。';
+      case RequestStatus.revision:
+        return q.revisionNote == null
+            ? '修正の依頼があります。'
+            : '修正の依頼：${q.revisionNote}';
+      case RequestStatus.posted:
+        return '投稿済みです。';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -208,42 +241,77 @@ class _BodyState extends State<_Body> {
           Navigator.of(context).pushNamed('/chat', arguments: d);
         }));
       }
-      if (s == RequestStatus.review && !q.approved) {
-        actions.addAll([
-          _Btn(
-              '承認する',
-              AppColors.blue,
-              _busy,
-              () => _run(() => repo.approve(requestId: q.id, uid: widget.uid),
-                  done: '承認しました。編集者へ通知しました')),
-          _Btn('修正を依頼', AppColors.amber, _busy, () async {
-            final t = await _askText('修正指示', '直してほしい点');
-            if (t == null) return;
-            await _run(
-                () => repo.requestRevision(
-                    requestId: q.id, uid: widget.uid, instruction: t),
-                done: '修正指示を送りました');
-          }),
-        ]);
-      }
     }
 
+    // 依頼者の動画確認（承認／修正依頼）。Figma の「修正の依頼」欄とボタン2つ。
+    final reviewing = !_isEditor && s == RequestStatus.review && !q.approved;
+
     return ListView(
-      padding: EdgeInsets.all(r.x(10)),
+      padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
       children: [
-        _Card(children: [
-          Text(q.brief.title, style: AppText.dark(r.x(20), height: 1.5)),
-          _Row('進捗', q.statusLabel),
-          _Row('納期', dateText(q.dueDate)),
-          if (q.status == RequestStatus.needsInfo && q.reviewReason != null)
-            _Row('確認事項', q.reviewReason!),
-          if (q.status == RequestStatus.revision && q.revisionNote != null)
-            _Row('修正指示', q.revisionNote!),
-          if (q.status == RequestStatus.review && q.approved)
-            _Row('承認', '承認済み。編集者の投稿を待っています'),
-        ]),
+        _NoticeBar(_notice()),
+        SizedBox(height: r.x(16)),
+        Text(q.brief.title, style: AppText.dark(r.x(20), height: 1.5)),
+        SizedBox(height: r.x(10)),
+        _MediaPreview(request: q),
+        if (reviewing) ...[
+          SizedBox(height: r.x(16)),
+          Text('修正の依頼', style: AppText.dark(r.x(16), height: 26 / 16)),
+          SizedBox(height: r.x(6)),
+          TextField(
+            controller: _note,
+            minLines: 8,
+            maxLines: 8,
+            enabled: !_busy,
+            style:
+                AppText.dark(r.x(14), weight: FontWeight.w400, height: 20 / 14),
+            cursorColor: AppColors.white,
+            decoration: InputDecoration(
+              hintText: '修正してほしい内容を入力',
+              hintStyle: AppText.dark(r.x(14),
+                  weight: FontWeight.w400,
+                  color: AppColors.white.withValues(alpha: 0.7)),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: r.x(12), vertical: r.x(10)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: BorderSide(
+                      color: AppColors.white.withValues(alpha: 0.55))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: const BorderSide(color: AppColors.white)),
+            ),
+          ),
+          SizedBox(height: r.x(20)),
+          Row(children: [
+            Expanded(
+              child: _Btn('修正依頼', AppColors.white, _busy, () async {
+                final t = _note.text.trim();
+                if (t.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('エラー：修正してほしい内容を入力してください')));
+                  return;
+                }
+                await _run(
+                    () => repo.requestRevision(
+                        requestId: q.id, uid: widget.uid, instruction: t),
+                    done: '修正指示を送りました');
+              }),
+            ),
+            SizedBox(width: r.x(10)),
+            Expanded(
+              child: _Btn(
+                  '承認する',
+                  AppColors.blue,
+                  _busy,
+                  () => _run(
+                      () => repo.approve(requestId: q.id, uid: widget.uid),
+                      done: '承認しました。編集者へ通知しました')),
+            ),
+          ]),
+        ],
         if (actions.isNotEmpty) ...[
-          SizedBox(height: r.y(10)),
+          SizedBox(height: r.y(16)),
           for (final a in actions)
             Padding(padding: EdgeInsets.only(bottom: r.y(8)), child: a),
         ],
@@ -431,14 +499,21 @@ class _Btn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final radius = BorderRadius.circular(AppRadius.md);
+    // 塗りの上の文字：blue の上は white、white の上は amber、amber の上は ink。
+    final fg = color == AppColors.blue
+        ? AppColors.white
+        : color == AppColors.white
+            ? AppColors.amber
+            : AppColors.ink;
     return Material(
       color: busy ? AppColors.white.withValues(alpha: 0.16) : color,
-      borderRadius: BorderRadius.circular(r.x(15)),
+      borderRadius: radius,
       child: InkWell(
-        borderRadius: BorderRadius.circular(r.x(15)),
+        borderRadius: radius,
         onTap: busy ? null : onTap,
         child: SizedBox(
-          height: r.y(56),
+          height: r.x(48),
           width: double.infinity,
           child: Center(
             child: busy
@@ -447,14 +522,150 @@ class _Btn extends StatelessWidget {
                     height: 22,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: AppColors.white))
-                // 塗りの上の文字：brand は on-brand、accent は on-accent。
                 : Text(label,
-                    style: AppText.noto(r.x(16),
-                        color: color == AppColors.amber
-                            ? AppColors.ink
-                            : AppColors.white)),
+                    textAlign: TextAlign.center,
+                    style: AppText.noto(r.x(14), color: fg, height: 20 / 14)),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 画面上部のお知らせ（琥珀の枠）。
+class _NoticeBar extends StatelessWidget {
+  const _NoticeBar(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: r.x(49)),
+      padding: EdgeInsets.symmetric(horizontal: r.x(14), vertical: r.x(12)),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.08),
+        border: Border.all(color: AppColors.amber, width: 2),
+        borderRadius: BorderRadius.circular(r.x(15)),
+      ),
+      child: Text(text, style: AppText.dark(r.x(14), height: 21 / 14)),
+    );
+  }
+}
+
+/// 動画のサムネイル（再生ボタン）と、納期・長さ・担当・用途の情報カード。
+class _MediaPreview extends StatelessWidget {
+  const _MediaPreview({required this.request});
+  final VideoRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    final b = request.brief;
+    // 納品条件の先頭が長さ（例：「30秒・縦型・字幕あり」）。
+    final length =
+        b.deliveryTerms.isEmpty ? '未設定' : b.deliveryTerms.split('・').first;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          StreamBuilder<List<Submission>>(
+            stream: Services.repo.watchSubmissions(request.id),
+            builder: (context, snap) {
+              final subs = snap.data ?? const <Submission>[];
+              // 提出済みの最新の動画を優先し、なければ依頼時の動画を再生する。
+              final video = subs.isNotEmpty
+                  ? (
+                      path: subs.last.path,
+                      name: '${b.title} v${subs.last.version}'
+                    )
+                  : request.attachments
+                      .where((a) => a.kind == 'video')
+                      .map((a) => (path: a.path, name: a.name))
+                      .firstOrNull;
+              return Semantics(
+                button: true,
+                label: video == null ? '再生できる動画がありません' : '動画を再生する',
+                child: GestureDetector(
+                  onTap: video == null
+                      ? null
+                      : () => showVideoDialog(context,
+                          path: video.path, title: video.name),
+                  child: Container(
+                    width: r.x(94),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    child: Text(video == null ? '動画なし' : '▶\n再生する',
+                        textAlign: TextAlign.center,
+                        style: AppText.noto(r.x(16),
+                            weight: FontWeight.w400,
+                            color: video == null
+                                ? AppColors.white.withValues(alpha: 0.7)
+                                : AppColors.white,
+                            height: 25 / 16)),
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(width: r.x(10)),
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.all(r.x(14)),
+              decoration: BoxDecoration(
+                color: AppColors.white.withValues(alpha: 0.08),
+                border:
+                    Border.all(color: AppColors.white.withValues(alpha: 0.16)),
+                borderRadius: BorderRadius.circular(r.x(15)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _InfoRow('納期', dateText(request.dueDate)),
+                  _InfoRow('長さ', length),
+                  _InfoRow('担当', request.editorId == null ? '未定' : '決定済'),
+                  _InfoRow('用途', b.platform.isEmpty ? '未設定' : b.platform),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: r.x(4)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: AppText.dark(r.x(12),
+                  weight: FontWeight.w400,
+                  color: AppColors.white.withValues(alpha: 0.7),
+                  height: 20 / 12)),
+          SizedBox(width: r.x(8)),
+          Flexible(
+            child: Text(value,
+                textAlign: TextAlign.right,
+                style: AppText.dark(r.x(14),
+                    weight: FontWeight.w400, height: 20 / 14)),
+          ),
+        ],
       ),
     );
   }
