@@ -69,11 +69,16 @@ class VideoRequest {
     required this.submissionCount,
     required this.approvedVersion,
     required this.createdAt,
+    this.approvedAt,
+    this.editorName,
   });
 
   final String id;
   final String requesterId;
   final String? editorId;
+
+  /// 担当編集者の名前（編集を開始した編集者のログイン名）。未記録の古い依頼は null。
+  final String? editorName;
   final RequestStatus status;
   final Brief brief;
   final DateTime? dueDate;
@@ -89,6 +94,9 @@ class VideoRequest {
   /// 承認済みの動画の版。未承認は null。
   final int? approvedVersion;
   final DateTime? createdAt;
+
+  /// 承認した日時。承認前は null。
+  final DateTime? approvedAt;
 
   bool get approved => approvedVersion != null;
 
@@ -117,6 +125,8 @@ class VideoRequest {
       submissionCount: (m['submissionCount'] as num?)?.toInt() ?? 0,
       approvedVersion: (m['approvedVersion'] as num?)?.toInt(),
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
+      approvedAt: (m['approvedAt'] as Timestamp?)?.toDate(),
+      editorName: m['editorName'] as String?,
     );
   }
 }
@@ -127,7 +137,8 @@ enum NotificationType {
   revisionRequested,
   approved,
   needsInfo,
-  resubmitted;
+  resubmitted,
+  cancelled;
 
   static NotificationType? parse(Object? v) {
     for (final t in values) {

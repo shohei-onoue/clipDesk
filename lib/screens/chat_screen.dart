@@ -67,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   final _scroll = ScrollController();
 
-  /// 最新のナビゲーターの質問バブル。これを画面の上端に出す。
+  /// 最新のナビゲーターの発言（連続していれば最初の1つ）のバブル。これを画面の上端に出す。
   final _latestKey = GlobalKey();
   int _shownCount = 0;
 
@@ -492,8 +492,7 @@ class _ChatScreenState extends State<ChatScreen> {
           datePickerTheme: DatePickerThemeData(
             cancelButtonStyle: OutlinedButton.styleFrom(
               foregroundColor: AppColors.white,
-              side: BorderSide(
-                  color: AppColors.white.withValues(alpha: 0.55)),
+              side: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg)),
             ),
@@ -618,7 +617,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }.contains(_step);
     final freeInput = textStep || _awaitText;
     final options = _options();
-    final lastQuestion = _msgs.lastIndexWhere((m) => !m.mine);
+    // ナビゲーターが連続して話すときは、連続の最初のメッセージを画面トップに出す。
+    var lastQuestion = _msgs.lastIndexWhere((m) => !m.mine);
+    while (lastQuestion > 0 && !_msgs[lastQuestion - 1].mine) {
+      lastQuestion--;
+    }
     _scrollToLatestQuestion();
     return Scaffold(
       backgroundColor: AppColors.ink,
@@ -626,7 +629,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            AppHeader(title: d.original == null ? '指示' : '指示書の修正'),
+            AppHeader(title: d.original == null ? '指示作成' : '指示書の修正'),
             Expanded(
               child: BottomAlignedScroll(
                 alignTop: true,
@@ -708,9 +711,10 @@ class _ChatScreenState extends State<ChatScreen> {
               onAttach: _picking || d.original != null ? null : _attachments,
               // 添付を選んでいる間は、入力欄を「完了」ボタンにする（動画が1つ以上で押せる）。
               attaching: _step == _Step.video || _step == _Step.review,
-              onDone: _picking || (_step == _Step.video && d.videos.isEmpty)
-                  ? null
-                  : _complete,
+              onDone:
+                  _picking || (_step == _Step.video && d.attachmentCount == 0)
+                      ? null
+                      : _complete,
             ),
           ],
         ),

@@ -95,7 +95,9 @@ test('編集開始: 編集者のみ・自分を担当にする', async () => {
   await assertFails(updateDoc(doc(db(REQ), 'requests', 'r1'), { status: 'editing', editorId: REQ, updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED2, updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED, title: 'x', updatedAt: serverTimestamp() }));
-  await assertSucceeds(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED, updatedAt: serverTimestamp() }));
+  // 編集担当の名前（編集を開始した編集者のログイン名）も一緒に保存できる。
+  await assertFails(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED, editorName: 'x', approvedVersion: 1, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED, editorName: '山田', updatedAt: serverTimestamp() }));
   // 他の編集者はもう開始できない
   await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', editorId: ED2, reviewReason: 'x', reviewRound: 1, updatedAt: serverTimestamp() }));
 });

@@ -16,10 +16,14 @@ class RequestDraft {
   /// 要確認からの再送信時: 元の依頼（添付は変更しない）。
   VideoRequest? original;
 
-  int get videoCount => original != null
-      ? original!.attachments.where((a) => a.kind == 'video').length
-      : videos.length;
+  /// 添付の数。動画・画像・BGM・資料のどれでも1件として数える。
+  int get attachmentCount => original != null
+      ? original!.attachments.length
+      : videos.length + references.length;
 
   Map<String, String> validate(DateTime now) => BriefValidation.validate(
-      brief: brief, dueDate: dueDate, videoCount: videoCount, now: now);
+      brief: brief,
+      dueDate: dueDate,
+      attachmentCount: attachmentCount,
+      now: now);
 }

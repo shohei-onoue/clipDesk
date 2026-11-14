@@ -16,4 +16,7 @@ class AppColors {
 
   /// 白（暗い面の上の文字・カード面）。
   static const Color white = Color(0xFFF5F5F5);
+
+  /// 通知の件数バッジ専用の赤（利用者の指示。4色の例外。ほかの用途には使わない）。
+  static const Color badgeRed = Color(0xFFD32F2F);
 }

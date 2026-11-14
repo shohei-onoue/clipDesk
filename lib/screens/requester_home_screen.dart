@@ -6,6 +6,7 @@ import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_drawer.dart';
@@ -16,8 +17,8 @@ import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
 
-/// 依頼者ページ（Figma 290:123「home_screen」）。編集者の立場では「編集依頼リスト」として使う。
-/// メイン画面の「依頼者ページ」「編集者ページ」から開く。依頼を2列の「進捗カード」で並べる。
+/// 依頼者ページ（Figma 290:123「home_screen」）。画面のタイトルは「ダッシュボード」。
+/// メイン画面の「依頼者ページ」「編集者ダッシュボード」から開く。依頼を2列の「進捗カード」で並べる。
 /// カード：上に動画のサムネイルと状態バッジ、下に題名・概要・進捗バー・編集担当。
 class RequesterHomeScreen extends StatelessWidget {
   const RequesterHomeScreen({super.key});
@@ -40,13 +41,19 @@ class RequesterHomeScreen extends StatelessWidget {
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
-      // 依頼者は「ホーム」「新規」だけ。編集者は役割に合わせた既定のバー。
-      bottomNavigationBar:
-          AppBottomBar(items: editor ? null : AppBottomBar.requesterItems),
+      // 権限に合わせて：ホーム／新規（依頼者権限）／ライブラリ／登録スタッフ（責任者）。
+      bottomNavigationBar: StreamBuilder<StaffAccess>(
+        stream: Services.uid == null
+            ? null
+            : Services.repo.watchAccess(Services.uid!),
+        builder: (context, snap) => AppBottomBar(
+            items: AppBottomBar.dashboardItems(snap.data ?? StaffAccess.none)),
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            AppHeader(title: editor ? '編集依頼リスト' : '依頼中リスト'),
+            // 依頼者・編集者どちらの立場でも、タイトルは「ダッシュボード」。
+            const AppHeader(title: 'ダッシュボード'),
             Expanded(
               child: RoleBuilder(
                 dark: true,
@@ -250,7 +257,11 @@ class ProgressCard extends StatelessWidget {
                             Text('編集担当',
                                 style: AppText.noto(r.x(12), height: 1.3)),
                             SizedBox(width: r.x(20)),
-                            Text(request.editorId == null ? '未定' : '決定済',
+                            Text(
+                                request.editorName ??
+                                    (request.editorId == null ? '未定' : '決定済'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: AppText.noto(r.x(14), height: 1.3)),
                           ],
                         ),

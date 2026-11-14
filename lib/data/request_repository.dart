@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../domain/brief.dart';
 import '../domain/request_status.dart';
@@ -187,6 +188,18 @@ class RequestRepository {
           SetOptions(merge: true));
 
   // ---- 読み取り ----
+
+  /// スタッフの表示名。読む権限がない（自分と責任者以外）ときは null。
+  Future<String?> userName(String uid) async {
+    try {
+      final d = await _db.collection('users').doc(uid).get();
+      final name = (d.data()?['name'] as String?)?.trim();
+      return name == null || name.isEmpty ? null : name;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Stream<List<VideoRequest>> watchRequester(String uid) => _requests
       .where('requesterId', isEqualTo: uid)
       .snapshots()
@@ -397,6 +410,7 @@ class RequestRepository {
     if (reason.trim().isEmpty) {
       throw RequestStateException('確認したい内容（理由）を入力してください');
     }
+    final name = await _displayName(uid);
     await _transition(
       requestId: requestId,
       uid: uid,
@@ -405,6 +419,8 @@ class RequestRepository {
       update: (r) => {
         'reviewReason': reason.trim(),
         'editorId': r.editorId ?? uid,
+        // 担当がまだ決まっていないときだけ、この編集者を担当として名前も残す。
+        if (r.editorId == null && name != null) 'editorName': name,
         'reviewRound': r.reviewRound + 1,
       },
       notification: (r) => _Notice(
@@ -418,14 +434,33 @@ class RequestRepository {
 
   /// 編集を開始する。担当編集者の決定方法は未確定のため、暫定で最初に
   /// 編集を開始した編集者を担当とする。
-  Future<void> startEditing({required String requestId, required String uid}) =>
-      _transition(
-        requestId: requestId,
-        uid: uid,
-        role: UserRole.editor,
-        action: RequestAction.startEditing,
-        update: (r) => {'editorId': uid},
-      );
+  Future<void> startEditing(
+      {required String requestId, required String uid}) async {
+    final name = await _displayName(uid);
+    await _transition(
+      requestId: requestId,
+      uid: uid,
+      role: UserRole.editor,
+      action: RequestAction.startEditing,
+      // 編集を開始した人のログイン名を、編集担当として残す。
+      update: (r) => {'editorId': uid, if (name != null) 'editorName': name},
+    );
+  }
+
+  /// ログイン中のスタッフの表示名。プロフィールの名前 → 認証の表示名 → メールの順。
+  Future<String?> _displayName(String uid) async {
+    final profile = await userName(uid);
+    if (profile != null) return profile;
+    try {
+      final u = FirebaseAuth.instance.currentUser;
+      final n = u?.displayName?.trim();
+      if (n != null && n.isNotEmpty) return n;
+      final mail = u?.email;
+      return mail?.split('@').first;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// 初稿・修正動画を保存して提出する。保存に失敗した場合は状態も通知も変えない。
   Future<void> submitVideo({
@@ -485,6 +520,43 @@ class RequestRepository {
         action: RequestAction.markPosted,
         update: (r) => {'postedAt': FieldValue.serverTimestamp()},
       );
+
+  /// 依頼者が、承認前の依頼を取り消す（完全に削除する）。元には戻せない。
+  /// 提出動画・修正指示の記録も一緒に消す。担当の編集者がいれば通知する。
+  /// Storage に保存した添付・動画のファイルは、ここでは消さない。
+  Future<void> cancelRequest(
+      {required String requestId, required String uid}) async {
+    final ref = _requests.doc(requestId);
+    final snap = await ref.get();
+    if (!snap.exists) throw RequestStateException('依頼が見つかりません');
+    final r = _Snapshot.from(snap);
+    if (r.requesterId != uid) {
+      throw RequestStateException('依頼者本人だけが取り消せます');
+    }
+    if (r.status == RequestStatus.posted || r.approvedVersion != null) {
+      throw RequestStateException('承認後の依頼は取り消せません');
+    }
+    final subs = await ref.collection('submissions').get();
+    final revs = await ref.collection('revisions').get();
+    final batch = _db.batch();
+    for (final d in [...subs.docs, ...revs.docs]) {
+      batch.delete(d.reference);
+    }
+    batch.delete(ref);
+    final editor = r.editorId;
+    if (editor != null) {
+      batch.set(_notifications.doc('${requestId}_cancelled'), {
+        'requestId': requestId,
+        'type': NotificationType.cancelled.name,
+        'audience': 'user',
+        'recipientId': editor,
+        'actorId': uid,
+        'message': '依頼が取り消されました：${r.title}',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
 
   // ---- 共通 ----
 

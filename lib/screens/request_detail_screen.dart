@@ -19,6 +19,8 @@ import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
 import '../widgets/video_player_dialog.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/detail_widgets.dart';
+import '../widgets/voice_message_dialog.dart';
 
 /// 案件詳細。依頼者は「動画承認」、編集者は「依頼確認／動画アップロード」を
 /// この画面から行う（役割と状態で操作を出し分ける）。
@@ -34,7 +36,7 @@ class RequestDetailScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '案件詳細'),
+          const AppHeader(title: '詳細'),
           Expanded(
             child: RoleBuilder(
               dark: true,
@@ -108,42 +110,58 @@ class _BodyState extends State<_Body> {
     }
   }
 
-  Future<String?> _askText(String title, String hint) {
-    final c = TextEditingController();
-    return showDialog<String>(
+  /// メッセージ入力（キーボード／音声）。キャンセルや空なら null。
+  Future<String?> _askText(String title, String hint) async {
+    final t = await showVoiceMessageDialog(context, title: title, hint: hint);
+    return t == null || t.isEmpty ? null : t;
+  }
+
+  /// 依頼の取り消し（削除）。確認のあと、承認前の自分の依頼だけ消せる。
+  Future<void> _cancelRequest() async {
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.white.withValues(alpha: 0.08),
-        title: Text(title, style: AppText.dark(18)),
-        content: TextField(
-            controller: c,
-            autofocus: true,
-            maxLines: 4,
-            style: AppText.dark(15, weight: FontWeight.w400),
-            cursorColor: AppColors.white,
-            decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: AppText.dark(15,
-                    weight: FontWeight.w400,
-                    color: AppColors.white.withValues(alpha: 0.7)),
-                enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(
-                        color: AppColors.white.withValues(alpha: 0.55))),
-                focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.blue)))),
+        backgroundColor: AppColors.ink,
+        shape: RoundedRectangleBorder(
+            side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
+            borderRadius: BorderRadius.circular(AppRadius.lg)),
+        title: Text('この依頼を取り消しますか？', style: AppText.dark(18)),
+        content: Text('取り消すと依頼は削除され、元に戻せません。担当の編集者がいれば通知します。',
+            style: AppText.dark(14, weight: FontWeight.w400, height: 1.5)),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('キャンセル',
-                  style: AppText.dark(14,
-                      color: AppColors.white.withValues(alpha: 0.7)))),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child:
-                  Text('送信', style: AppText.dark(14, color: AppColors.white))),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.white,
+              side: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
+              minimumSize: const Size(96, 44),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+            ),
+            child: const Text('いいえ'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.amber,
+              foregroundColor: AppColors.ink,
+              minimumSize: const Size(96, 44),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+            ),
+            child: const Text('取り消す'),
+          ),
         ],
       ),
     );
+    if (ok != true || !mounted) return;
+    final nav = Navigator.of(context);
+    await _run(() async {
+      await Services.repo.cancelRequest(requestId: q.id, uid: widget.uid);
+      // 依頼は削除されたので、ダッシュボードへ戻る。
+      nav.pushNamedAndRemoveUntil(
+          '/home', (route) => route.settings.name == '/menu');
+    }, done: '依頼を取り消しました');
   }
 
   Future<void> _pickAndSubmit() async {
@@ -190,30 +208,14 @@ class _BodyState extends State<_Body> {
     final actions = <Widget>[];
 
     if (_isEditor) {
-      if (s == RequestStatus.pending) {
-        actions.addAll([
-          _Btn(
-              '編集を開始',
-              AppColors.blue,
-              _busy,
-              () => _run(
-                  () => repo.startEditing(requestId: q.id, uid: widget.uid),
-                  done: '編集を開始しました')),
-          _Btn('要確認にする（理由を添えて差し戻し）', AppColors.amber, _busy, () async {
-            final reason = await _askText('確認したい内容', '不明点・確認事項');
-            if (reason == null) return;
-            await _run(
-                () => repo.askForInfo(
-                    requestId: q.id, uid: widget.uid, reason: reason),
-                done: '依頼者へ差し戻しました');
-          }),
-        ]);
-      }
       if (s == RequestStatus.editing || s == RequestStatus.revision) {
-        actions.add(_Btn(s == RequestStatus.revision ? '修正動画を提出' : '初稿動画を提出',
-            AppColors.blue, _busy, _pickAndSubmit));
+        actions.add(DetailButton(
+            s == RequestStatus.revision ? '修正動画を提出' : '初稿動画を提出',
+            AppColors.blue,
+            _busy,
+            _pickAndSubmit));
         if (s == RequestStatus.editing) {
-          actions.add(_Btn('要確認にする', AppColors.amber, _busy, () async {
+          actions.add(DetailButton('要確認にする', AppColors.amber, _busy, () async {
             final reason = await _askText('確認したい内容', '不明点・確認事項');
             if (reason == null) return;
             await _run(
@@ -224,7 +226,7 @@ class _BodyState extends State<_Body> {
         }
       }
       if (s == RequestStatus.review && q.approved) {
-        actions.add(_Btn(
+        actions.add(DetailButton(
             '投稿完了にする',
             AppColors.blue,
             _busy,
@@ -233,7 +235,7 @@ class _BodyState extends State<_Body> {
       }
     } else {
       if (s == RequestStatus.needsInfo) {
-        actions.add(_Btn('指示書を修正して再送信', AppColors.amber, _busy, () {
+        actions.add(DetailButton('指示書を修正して再送信', AppColors.amber, _busy, () {
           final d = RequestDraft(requestId: q.id)
             ..brief = q.brief
             ..dueDate = q.dueDate
@@ -243,17 +245,38 @@ class _BodyState extends State<_Body> {
       }
     }
 
+    // 納品条件の先頭が長さ（例：「30秒・縦型・字幕あり」）。
+    final length = q.brief.deliveryTerms.isEmpty
+        ? '未設定'
+        : q.brief.deliveryTerms.split('・').first;
+    // 編集を開始した編集者のログイン名。古い依頼で名前がないときは語句で示す。
+    final editorLabel = q.editorName ?? (q.editorId == null ? '未定' : '決定済');
+
+    // 依頼者本人は、承認前（投稿済みでない）なら依頼を取り消せる。
+    final canCancel = !_isEditor &&
+        q.requesterId == widget.uid &&
+        s != RequestStatus.posted &&
+        !q.approved;
+
+    // 編集者の受付待ちの依頼：画面下の「編集開始」「内容確認」。
+    final intake = _isEditor && s == RequestStatus.pending;
+
     // 依頼者の動画確認（承認／修正依頼）。Figma の「修正の依頼」欄とボタン2つ。
     final reviewing = !_isEditor && s == RequestStatus.review && !q.approved;
 
-    return ListView(
+    final list = ListView(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
       children: [
-        _NoticeBar(_notice()),
+        NoticeBar(_notice()),
         SizedBox(height: r.x(16)),
         Text(q.brief.title, style: AppText.dark(r.x(20), height: 1.5)),
         SizedBox(height: r.x(10)),
-        _MediaPreview(request: q),
+        DetailCard(children: [
+          InfoRow('納期', dateText(q.dueDate)),
+          InfoRow('長さ', length),
+          InfoRow('担当', editorLabel),
+          InfoRow('用途', q.brief.platform.isEmpty ? '未設定' : q.brief.platform),
+        ]),
         if (reviewing) ...[
           SizedBox(height: r.x(16)),
           Text('修正の依頼', style: AppText.dark(r.x(16), height: 26 / 16)),
@@ -285,7 +308,7 @@ class _BodyState extends State<_Body> {
           SizedBox(height: r.x(20)),
           Row(children: [
             Expanded(
-              child: _Btn('修正依頼', AppColors.white, _busy, () async {
+              child: DetailButton('修正依頼', AppColors.white, _busy, () async {
                 final t = _note.text.trim();
                 if (t.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -300,7 +323,7 @@ class _BodyState extends State<_Body> {
             ),
             SizedBox(width: r.x(10)),
             Expanded(
-              child: _Btn(
+              child: DetailButton(
                   '承認する',
                   AppColors.blue,
                   _busy,
@@ -316,20 +339,21 @@ class _BodyState extends State<_Body> {
             Padding(padding: EdgeInsets.only(bottom: r.y(8)), child: a),
         ],
         SizedBox(height: r.y(10)),
-        _Card(children: [
+        DetailCard(children: [
           Text('指示書', style: AppText.dark(r.x(16))),
-          if (q.brief.videoType.isNotEmpty) _Row('動画の種類', q.brief.videoType),
-          if (q.brief.platform.isNotEmpty) _Row('投稿先', q.brief.platform),
-          if (q.brief.audience.isNotEmpty) _Row('視聴者', q.brief.audience),
-          _Row('目的', q.brief.purpose),
-          if (q.brief.structure.isNotEmpty) _Row('構成', q.brief.structure),
-          _Row('納品条件', q.brief.deliveryTerms),
+          if (q.brief.videoType.isNotEmpty)
+            DetailRow('動画の種類', q.brief.videoType),
+          if (q.brief.platform.isNotEmpty) DetailRow('投稿先', q.brief.platform),
+          if (q.brief.audience.isNotEmpty) DetailRow('視聴者', q.brief.audience),
+          DetailRow('目的', q.brief.purpose),
+          if (q.brief.structure.isNotEmpty) DetailRow('構成', q.brief.structure),
+          DetailRow('納品条件', q.brief.deliveryTerms),
           for (var i = 0; i < q.brief.scenes.length; i++)
-            _Row('場面${i + 1}',
+            DetailRow('場面${i + 1}',
                 '${q.brief.scenes[i].title}\n${q.brief.scenes[i].instruction}'),
         ]),
         SizedBox(height: r.y(10)),
-        _Card(children: [
+        DetailCard(children: [
           Text('添付資料', style: AppText.dark(r.x(16))),
           // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
           StreamBuilder<StaffAccess>(
@@ -376,8 +400,42 @@ class _BodyState extends State<_Body> {
         ]),
         SizedBox(height: r.y(10)),
         _Submissions(request: q, uid: widget.uid),
+        if (canCancel) ...[
+          SizedBox(height: r.x(16)),
+          DetailButton('依頼を取り消す', AppColors.amber, _busy, _cancelRequest),
+        ],
       ],
     );
+    if (!intake) return list;
+    return Column(children: [
+      Expanded(child: list),
+      Padding(
+        padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
+        child: Row(children: [
+          Expanded(
+            child: DetailButton(
+                '編集開始',
+                AppColors.blue,
+                _busy,
+                () => _run(
+                    () => repo.startEditing(requestId: q.id, uid: widget.uid),
+                    done: '編集を開始しました')),
+          ),
+          SizedBox(width: r.x(10)),
+          Expanded(
+            child: DetailButton('内容確認', AppColors.white, _busy, () async {
+              final message =
+                  await _askText('依頼者へのメッセージ', '確認したい内容を入力（音声でも入力できます）');
+              if (message == null) return;
+              await _run(
+                  () => repo.askForInfo(
+                      requestId: q.id, uid: widget.uid, reason: message),
+                  done: '依頼者へ通知しました');
+            }),
+          ),
+        ]),
+      ),
+    ]);
   }
 }
 
@@ -400,7 +458,7 @@ class _Submissions extends StatelessWidget {
       stream: Services.repo.watchSubmissions(request.id),
       builder: (context, snap) {
         final subs = snap.data ?? const <Submission>[];
-        return _Card(children: [
+        return DetailCard(children: [
           Text('提出された動画', style: AppText.dark(r.x(16))),
           if (subs.isEmpty)
             Padding(
@@ -436,237 +494,6 @@ class _Submissions extends StatelessWidget {
             ),
         ]);
       },
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  const _Card({required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(r.x(14)),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
-        borderRadius: BorderRadius.circular(r.x(15)),
-      ),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, children: children),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value);
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Padding(
-      padding: EdgeInsets.only(top: r.y(6)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: r.x(80),
-              child: Text(label,
-                  style: AppText.dark(r.x(14),
-                      weight: FontWeight.w400,
-                      color: AppColors.white.withValues(alpha: 0.7)))),
-          Expanded(
-              child: Text(value,
-                  style: AppText.dark(r.x(14), weight: FontWeight.w400))),
-        ],
-      ),
-    );
-  }
-}
-
-class _Btn extends StatelessWidget {
-  const _Btn(this.label, this.color, this.busy, this.onTap);
-  final String label;
-  final Color color;
-  final bool busy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    final radius = BorderRadius.circular(AppRadius.md);
-    // 塗りの上の文字：blue の上は white、white の上は amber、amber の上は ink。
-    final fg = color == AppColors.blue
-        ? AppColors.white
-        : color == AppColors.white
-            ? AppColors.amber
-            : AppColors.ink;
-    return Material(
-      color: busy ? AppColors.white.withValues(alpha: 0.16) : color,
-      borderRadius: radius,
-      child: InkWell(
-        borderRadius: radius,
-        onTap: busy ? null : onTap,
-        child: SizedBox(
-          height: r.x(48),
-          width: double.infinity,
-          child: Center(
-            child: busy
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.white))
-                : Text(label,
-                    textAlign: TextAlign.center,
-                    style: AppText.noto(r.x(14), color: fg, height: 20 / 14)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 画面上部のお知らせ（琥珀の枠）。
-class _NoticeBar extends StatelessWidget {
-  const _NoticeBar(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(minHeight: r.x(49)),
-      padding: EdgeInsets.symmetric(horizontal: r.x(14), vertical: r.x(12)),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.amber, width: 2),
-        borderRadius: BorderRadius.circular(r.x(15)),
-      ),
-      child: Text(text, style: AppText.dark(r.x(14), height: 21 / 14)),
-    );
-  }
-}
-
-/// 動画のサムネイル（再生ボタン）と、納期・長さ・担当・用途の情報カード。
-class _MediaPreview extends StatelessWidget {
-  const _MediaPreview({required this.request});
-  final VideoRequest request;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    final b = request.brief;
-    // 納品条件の先頭が長さ（例：「30秒・縦型・字幕あり」）。
-    final length =
-        b.deliveryTerms.isEmpty ? '未設定' : b.deliveryTerms.split('・').first;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          StreamBuilder<List<Submission>>(
-            stream: Services.repo.watchSubmissions(request.id),
-            builder: (context, snap) {
-              final subs = snap.data ?? const <Submission>[];
-              // 提出済みの最新の動画を優先し、なければ依頼時の動画を再生する。
-              final video = subs.isNotEmpty
-                  ? (
-                      path: subs.last.path,
-                      name: '${b.title} v${subs.last.version}'
-                    )
-                  : request.attachments
-                      .where((a) => a.kind == 'video')
-                      .map((a) => (path: a.path, name: a.name))
-                      .firstOrNull;
-              return Semantics(
-                button: true,
-                label: video == null ? '再生できる動画がありません' : '動画を再生する',
-                child: GestureDetector(
-                  onTap: video == null
-                      ? null
-                      : () => showVideoDialog(context,
-                          path: video.path, title: video.name),
-                  child: Container(
-                    width: r.x(94),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: Text(video == null ? '動画なし' : '▶\n再生する',
-                        textAlign: TextAlign.center,
-                        style: AppText.noto(r.x(16),
-                            weight: FontWeight.w400,
-                            color: video == null
-                                ? AppColors.white.withValues(alpha: 0.7)
-                                : AppColors.white,
-                            height: 25 / 16)),
-                  ),
-                ),
-              );
-            },
-          ),
-          SizedBox(width: r.x(10)),
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(r.x(14)),
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.08),
-                border:
-                    Border.all(color: AppColors.white.withValues(alpha: 0.16)),
-                borderRadius: BorderRadius.circular(r.x(15)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _InfoRow('納期', dateText(request.dueDate)),
-                  _InfoRow('長さ', length),
-                  _InfoRow('担当', request.editorId == null ? '未定' : '決定済'),
-                  _InfoRow('用途', b.platform.isEmpty ? '未設定' : b.platform),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.label, this.value);
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: r.x(4)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: AppText.dark(r.x(12),
-                  weight: FontWeight.w400,
-                  color: AppColors.white.withValues(alpha: 0.7),
-                  height: 20 / 12)),
-          SizedBox(width: r.x(8)),
-          Flexible(
-            child: Text(value,
-                textAlign: TextAlign.right,
-                style: AppText.dark(r.x(14),
-                    weight: FontWeight.w400, height: 20 / 14)),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -55,7 +55,7 @@ class AppDrawer extends StatelessWidget {
             ),
             _NotificationTile(
                 onTap: () => _go(context, '/notifications'), uid: uid),
-            _Tile(AppIcons.systemUpdateAlt, '納品ライブラリ',
+            _Tile(AppIcons.systemUpdateAlt, 'ライブラリ',
                 () => _go(context, '/library')),
             // 設定画面はまだないため、押すとドロワーを閉じるだけ。
             _Tile(AppIcons.settings, '設定', () => Navigator.of(context).pop()),

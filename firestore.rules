@@ -138,7 +138,7 @@ service cloud.firestore {
             && request.resource.data.status == 'editing'
             && request.resource.data.editorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['editorId', 'status', 'updatedAt']))
+                .hasOnly(['editorId', 'editorName', 'status', 'updatedAt']))
           // 編集者: 受付待ち／編集中 → 要確認（理由必須）
           || (isEditor()
             && (resource.data.editorId == null || resource.data.editorId == request.auth.uid)
@@ -149,7 +149,7 @@ service cloud.firestore {
             && request.resource.data.reviewReason.size() > 0
             && request.resource.data.reviewRound == resource.data.reviewRound + 1
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['reviewReason', 'editorId', 'reviewRound', 'status', 'updatedAt']))
+                .hasOnly(['reviewReason', 'editorId', 'editorName', 'reviewRound', 'status', 'updatedAt']))
           // 編集者: 編集中／修正 → 初稿確認（動画の保存記録と同時のみ）
           || (isEditor() && resource.data.editorId == request.auth.uid
             && (resource.data.status == 'editing' || resource.data.status == 'revision')
@@ -167,7 +167,11 @@ service cloud.firestore {
                 .hasOnly(['postedAt', 'status', 'updatedAt']))
         );
 
-      allow delete: if false;
+      // 依頼者は、承認前（投稿済みでない）の自分の依頼を取り消せる（削除）。
+      allow delete: if signedIn() && isRequester()
+        && resource.data.requesterId == request.auth.uid
+        && resource.data.status != 'posted'
+        && resource.data.approvedVersion == null;
 
       // 提出動画の記録。依頼の更新と同時に、担当編集者だけが追加できる。
       match /submissions/{sid} {
@@ -178,7 +182,12 @@ service cloud.firestore {
           && request.resource.data.version == getAfter(/databases/$(database)/documents/requests/$(requestId)).data.submissionCount
           && sid == 'v' + string(request.resource.data.version)
           && request.resource.data.path.matches('videos/' + requestId + '/.*');
-        allow update, delete: if false;
+        allow update: if false;
+        // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
+        allow delete: if signedIn() && isRequester()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
       }
 
       // 修正指示の記録。依頼者が修正指示と同時にだけ追加できる。
@@ -190,7 +199,11 @@ service cloud.firestore {
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.instruction is string
           && request.resource.data.instruction.size() > 0;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if signedIn() && isRequester()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
       }
     }
 
@@ -205,7 +218,14 @@ service cloud.firestore {
         && request.resource.data.actorId == request.auth.uid
         && request.resource.data.message is string
         && request.resource.data.createdAt == request.time
-        && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.updatedAt == request.time
+        && (
+          // 依頼の取り消し：依頼者が、担当の編集者宛てに。依頼は同じ書き込みで削除される。
+          (request.resource.data.type == 'cancelled'
+            && request.resource.data.recipientId != null
+            && request.resource.data.recipientId == get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId
+            && get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+            && !existsAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)))
+          || (getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.updatedAt == request.time
         && (
           (request.resource.data.type == 'newRequest'
             && request.resource.data.audience == 'editors'
@@ -232,7 +252,7 @@ service cloud.firestore {
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.approvedVersion != null)
-        );
+        )));
       allow update, delete: if false;
     }
   }

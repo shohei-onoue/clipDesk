@@ -9,15 +9,17 @@ import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/notification_bell.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/app_icon.dart';
 
 /// ログイン後のメイン画面（Figma 268:879「main_screen」）。
-/// 「依頼者ページ」「編集者ページ」「依頼一覧」「スタッフ管理」のカードから各画面へ進む。
+/// 「依頼する」「ダッシュボード」「ライブラリ」「登録スタッフ」のカードから各画面へ進む。
 /// カードは付与された権限に応じて出す（依頼者／編集者／両方、責任者はスタッフ管理も）。暫定仕様（FigJamで未確定）。
-/// - 依頼者ページ → /home（依頼者の立場）、編集者ページ → /home（編集者の立場）
-/// - 依頼一覧 → /progress（動いている案件を全員分）
-/// - スタッフ管理 → /staff（責任者だけ）
+/// - 依頼する → /chat（チャットで指示書を作る）
+/// - ダッシュボード → /home（依頼者は自分の依頼、編集者は編集依頼を並べる。タイトルは共通）
+/// - ライブラリ → /library（承認された編集完了動画の一覧）
+/// - 登録スタッフ → /staff（責任者だけ）
 /// 選んだ立場は [RequestRepository.staffMode] に保持し、roles/{uid} が 'staff' のとき使う。
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -49,6 +51,8 @@ class MenuScreen extends StatelessWidget {
                 }
               },
             ),
+            // 未読の通知があるときだけ、アプリバーの下に通知アイコンを出す。
+            const NotificationBell(),
             Expanded(
               child: RoleBuilder(
                 dark: true,
@@ -59,41 +63,48 @@ class MenuScreen extends StatelessWidget {
                     final cards = <Widget>[
                       if (a.canRequest)
                         _MenuCard(
-                          ruby: 'いらいしゃ',
-                          title: '依頼者ページ',
+                          ruby: '',
+                          title: '依頼する',
+                          // ルビは「依頼」の真上だけに付ける。
+                          parts: const [('依頼', 'いらい'), ('する', null)],
                           image: 'assets/menu/iraisha.png',
                           imageBox: const Rect.fromLTWH(10, 5, 155, 117),
                           fit: BoxFit.cover,
                           textLeft: 10,
+                          // チャットで指示書を作る。
                           onTap: () =>
-                              _go(context, UserRole.requester, '/requester'),
+                              _go(context, UserRole.requester, '/chat'),
                         ),
-                      if (a.canEdit)
+                      if (a.canRequest || a.canEdit)
                         _MenuCard(
-                          ruby: 'へんしゅうしゃ',
-                          title: '編集者ページ',
+                          ruby: '',
+                          title: 'ダッシュボード',
                           image: 'assets/menu/henshusha.png',
                           imageBox:
                               const Rect.fromLTWH(10.29, 8, 145.499, 113.929),
                           fit: BoxFit.fill,
                           textLeft: 10,
-                          onTap: () => _go(context, UserRole.editor, '/home'),
+                          // 編集者権限があれば編集者の立場、なければ依頼者の立場で開く。
+                          onTap: () => _go(
+                              context,
+                              a.canEdit ? UserRole.editor : UserRole.requester,
+                              '/home'),
                         ),
                       _MenuCard(
-                        ruby: 'いらいいちらん',
-                        title: '依頼一覧',
+                        ruby: '',
+                        title: 'ライブラリ',
                         image: 'assets/menu/ichiran.png',
                         imageBox: const Rect.fromLTWH(8, -4, 144, 120),
                         fit: BoxFit.cover,
-                        textLeft: 33,
-                        onTap: () => _go(context, null, '/progress'),
+                        textLeft: 10,
+                        onTap: () => _go(context, null, '/library'),
                       ),
                       if (a.manager)
                         _MenuCard(
                           ruby: '',
-                          title: 'スタッフ管理',
-                          // ルビは「管理」の真上だけに付ける。
-                          parts: const [('スタッフ', null), ('管理', 'かんり')],
+                          title: '登録スタッフ',
+                          // ルビは「登録」の真上だけに付ける。
+                          parts: const [('登録', 'とうろく'), ('スタッフ', null)],
                           image: 'assets/menu/staff.png',
                           imageBox: const Rect.fromLTWH(13, 0, 147, 125),
                           fit: BoxFit.cover,
@@ -202,6 +213,7 @@ class _MenuCard extends StatelessWidget {
                 ),
                 Positioned(
                   left: w / 2 + r.x(textLeft),
+                  right: r.x(8),
                   top: 0,
                   bottom: 0,
                   child: Column(
@@ -209,33 +221,43 @@ class _MenuCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (parts == null) ...[
-                        Text(ruby,
-                            style: AppText.noto(r.x(14),
-                                weight: FontWeight.w400,
-                                color: AppColors.white)),
-                        Text(title,
-                            style: AppText.noto(r.x(24),
-                                weight: FontWeight.w400,
-                                color: AppColors.white)),
+                        if (ruby.isNotEmpty)
+                          Text(ruby,
+                              style: AppText.noto(r.x(14),
+                                  weight: FontWeight.w400,
+                                  color: AppColors.white)),
+                        // 長い題名（編集者ダッシュボード）は、枠に収まるよう縮める。
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(title,
+                              style: AppText.noto(r.x(24),
+                                  weight: FontWeight.w400,
+                                  color: AppColors.white)),
+                        ),
                       ] else
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final (text, rb) in parts!)
-                              Column(
-                                children: [
-                                  // ルビの無い部分も同じ高さの空きを取り、文字の高さをそろえる。
-                                  Text(rb ?? ' ',
-                                      style: AppText.noto(r.x(14),
-                                          weight: FontWeight.w400,
-                                          color: AppColors.white)),
-                                  Text(text,
-                                      style: AppText.noto(r.x(24),
-                                          weight: FontWeight.w400,
-                                          color: AppColors.white)),
-                                ],
-                              ),
-                          ],
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final (text, rb) in parts!)
+                                Column(
+                                  children: [
+                                    // ルビの無い部分も同じ高さの空きを取り、文字の高さをそろえる。
+                                    Text(rb ?? ' ',
+                                        style: AppText.noto(r.x(14),
+                                            weight: FontWeight.w400,
+                                            color: AppColors.white)),
+                                    Text(text,
+                                        style: AppText.noto(r.x(24),
+                                            weight: FontWeight.w400,
+                                            color: AppColors.white)),
+                                  ],
+                                ),
+                            ],
+                          ),
                         ),
                     ],
                   ),

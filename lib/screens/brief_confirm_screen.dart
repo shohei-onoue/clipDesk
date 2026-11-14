@@ -1,16 +1,20 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
+import '../data/storage_service.dart';
 import '../domain/draft.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
-import '../widgets/chat_widgets.dart';
+import '../widgets/detail_widgets.dart';
 import '../widgets/status_style.dart';
 
-/// 04 指示書確認。入力した実データを表示し、修正に戻る／送信できる。
+/// 04 指示書確認。案件詳細と同じ「詳細」のレイアウトで、入力した内容と添付ファイルを確認し、修正に戻る／送信できる。
 class BriefConfirmScreen extends StatefulWidget {
   const BriefConfirmScreen({super.key});
 
@@ -68,7 +72,9 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
         );
       }
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/requester', (_) => false);
+      // 依頼が済んだら、ダッシュボード（/home）へ。戻るとメイン画面に戻る。
+      Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home', (route) => route.settings.name == '/menu');
     } catch (e) {
       // 失敗時は送信済みにならない。同じ画面から再試行できる（同じ依頼IDで冪等）。
       if (mounted) {
@@ -123,83 +129,137 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
     final d = args;
     final errors = d.validate(DateTime.now());
     final b = d.brief;
+    // 納品条件の先頭が長さ（例：「30秒・縦型・字幕あり」）。
+    final length =
+        b.deliveryTerms.isEmpty ? '未設定' : b.deliveryTerms.split('・').first;
+    // 添付は、動画（編集する動画）→ 参考資料の順に並べる。再送信時は元の添付（変更なし）。
+    final files = d.original != null
+        ? [
+            for (final a in d.original!.attachments)
+              (
+                name: a.name,
+                size: a.size,
+                video: a.kind == 'video',
+                file: null as UploadFile?
+              )
+          ]
+        : [
+            for (final f in d.videos)
+              (name: f.name, size: f.size, video: true, file: f as UploadFile?),
+            for (final f in d.references)
+              (
+                name: f.name,
+                size: f.size,
+                video: false,
+                file: f as UploadFile?
+              ),
+          ];
     return Scaffold(
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            const AppHeader(title: '指示書確認'),
+            const AppHeader(title: '詳細'),
             Expanded(
-              child: ColoredBox(
-                color: AppColors.ink,
-                child: BottomAlignedScroll(
-                  alignTop: true,
-                  children: [
-                    AssistantMessage(
-                      fixedWidth: true,
-                      lines: [
-                        '以下の内容で依頼します。',
-                        '依頼名：${b.title}',
-                        if (b.videoType.isNotEmpty) '動画の種類：${b.videoType}',
-                        if (b.platform.isNotEmpty) '投稿先：${b.platform}',
-                        if (b.audience.isNotEmpty) '視聴者：${b.audience}',
-                        '目的：${b.purpose}',
-                        if (b.structure.isNotEmpty) '構成：${b.structure}',
-                        ..._delivery(b.deliveryTerms),
-                        '希望納期：${dateText(d.dueDate)}',
-                        if (d.original == null) ...[
-                          '動画：${d.videos.isEmpty ? 'なし' : d.videos.map((f) => f.name).join('、')}',
-                          '画像・その他の添付：${d.references.isEmpty ? 'なし' : d.references.map((f) => f.name).join('、')}',
-                        ] else
-                          '添付：${d.original!.attachments.map((a) => a.name).join('、')}（変更なし）',
-                        if (b.scenes.isNotEmpty) '場面：${b.scenes.length} つ',
-                        for (var i = 0; i < b.scenes.length; i++)
-                          '　${i + 1}. ${b.scenes[i].title}：${b.scenes[i].instruction}',
-                      ],
-                    ),
-                    if (errors.isNotEmpty)
-                      AssistantMessage(
-                        showHeader: false,
-                        fixedWidth: true,
-                        lines: [
-                          '次の項目を直してください',
-                          ...errors.values.map((e) => '・$e'),
-                        ],
-                      ),
-                    if (_error != null)
-                      AssistantMessage(
-                          showHeader: false, fixedWidth: true, text: _error!),
+              child: ListView(
+                padding:
+                    EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
+                children: [
+                  NoticeBar(d.original != null
+                      ? '内容を確認して、「再送信する」を押してください。'
+                      : '内容と添付ファイルを確認して、「依頼する」を押してください。'),
+                  SizedBox(height: r.x(16)),
+                  Text(b.title.isEmpty ? '（題名なし）' : b.title,
+                      style: AppText.dark(r.x(20), height: 1.5)),
+                  SizedBox(height: r.x(10)),
+                  DetailCard(children: [
+                    InfoRow('納期', dateText(d.dueDate)),
+                    InfoRow('長さ', length),
+                    const InfoRow('担当', '未定'),
+                    InfoRow('用途', b.platform.isEmpty ? '未設定' : b.platform),
+                  ]),
+                  if (errors.isNotEmpty) ...[
+                    SizedBox(height: r.x(12)),
+                    DetailCard(children: [
+                      Text('要確認：次の項目を直してください', style: AppText.dark(r.x(14))),
+                      for (final e in errors.values) DetailRow('・', e),
+                    ]),
                   ],
-                ),
+                  SizedBox(height: r.x(12)),
+                  DetailCard(children: [
+                    Text('指示書', style: AppText.dark(r.x(16))),
+                    if (b.videoType.isNotEmpty) DetailRow('動画の種類', b.videoType),
+                    if (b.platform.isNotEmpty) DetailRow('投稿先', b.platform),
+                    if (b.audience.isNotEmpty) DetailRow('視聴者', b.audience),
+                    DetailRow('目的', b.purpose),
+                    if (b.structure.isNotEmpty) DetailRow('構成', b.structure),
+                    for (final line in _delivery(b.deliveryTerms))
+                      DetailRow(
+                          line.split('：').first,
+                          line.contains('：')
+                              ? line.split('：').skip(1).join('：')
+                              : ''),
+                    for (var i = 0; i < b.scenes.length; i++)
+                      DetailRow('場面${i + 1}',
+                          '${b.scenes[i].title}\n${b.scenes[i].instruction}'),
+                  ]),
+                  SizedBox(height: r.x(12)),
+                  DetailCard(children: [
+                    Text('添付ファイル（${files.length}件）',
+                        style: AppText.dark(r.x(16))),
+                    if (files.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: r.x(6)),
+                        child: Text('添付はありません',
+                            style:
+                                AppText.dark(r.x(14), weight: FontWeight.w400)),
+                      ),
+                    for (final f in files)
+                      _AttachmentTile(
+                          name: f.name,
+                          size: f.size,
+                          video: f.video,
+                          file: f.file),
+                    if (d.original != null)
+                      Padding(
+                        padding: EdgeInsets.only(top: r.x(6)),
+                        child: Text('再送信では添付は変わりません',
+                            style: AppText.dark(r.x(12),
+                                weight: FontWeight.w400,
+                                color: AppColors.white.withValues(alpha: 0.7))),
+                      ),
+                  ]),
+                  if (_error != null) ...[
+                    SizedBox(height: r.x(12)),
+                    DetailCard(children: [
+                      Text(_error!,
+                          style: AppText.dark(r.x(14),
+                              weight: FontWeight.w400, height: 1.5)),
+                    ]),
+                  ],
+                ],
               ),
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.08),
-                border: Border(
-                    top: BorderSide(
-                        color: AppColors.white.withValues(alpha: 0.16))),
-              ),
-              padding: EdgeInsets.all(r.x(5)),
+            Padding(
+              padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
               child: Row(
                 children: [
                   Expanded(
-                    child: _Button(
-                        '修正する',
-                        AppColors.white.withValues(alpha: 0.08),
-                        AppColors.white,
-                        _sending ? null : () => Navigator.of(context).pop()),
+                    child: DetailButton('修正する', AppColors.white, false,
+                        () => Navigator.of(context).pop(),
+                        disabled: _sending),
                   ),
-                  SizedBox(width: r.x(8)),
+                  SizedBox(width: r.x(10)),
                   Expanded(
-                    child: _Button(
+                    child: DetailButton(
                       _sending
                           ? (_progress.isEmpty ? '送信中…' : '送信中 $_progress')
                           : (d.original != null ? '再送信する' : '依頼する'),
-                      AppColors.amber,
-                      AppColors.ink,
-                      (_sending || errors.isNotEmpty) ? null : () => _submit(d),
+                      AppColors.blue,
+                      false,
+                      () => _submit(d),
+                      disabled: _sending || errors.isNotEmpty,
                     ),
                   ),
                 ],
@@ -212,40 +272,82 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
   }
 }
 
-class _Button extends StatelessWidget {
-  const _Button(this.label, this.bg, this.fg, this.onTap);
-  final String label;
-  final Color bg;
-  final Color fg;
-  final VoidCallback? onTap;
+/// 添付1件分。画像は小さく表示し、動画・その他は名前と大きさで確認する。
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({
+    required this.name,
+    required this.size,
+    required this.video,
+    required this.file,
+  });
+
+  final String name;
+  final int size;
+  final bool video;
+
+  /// 送信前のファイル（画像のプレビュー用）。再送信時は null。
+  final UploadFile? file;
+
+  static bool _isImage(String n) {
+    final l = n.toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].any(l.endsWith);
+  }
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return Material(
-      color: onTap == null ? AppColors.white.withValues(alpha: 0.16) : bg,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-            color: onTap == null
-                ? AppColors.white.withValues(alpha: 0.16)
-                : AppColors.white.withValues(alpha: 0.55)),
-        borderRadius: BorderRadius.circular(r.x(15)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(r.x(15)),
-        onTap: onTap,
-        child: SizedBox(
-          height: r.y(66),
-          child: Center(
-            child: Text(label,
-                style: AppText.noto(r.x(16),
-                    color: onTap == null
-                        ? AppColors.white.withValues(alpha: 0.7)
-                        : fg,
-                    height: 20.8 / 16)),
+    final kind = video
+        ? '動画'
+        : _isImage(name)
+            ? '画像'
+            : name.toLowerCase().endsWith('.mp3')
+                ? 'BGM'
+                : '資料';
+    final mb = (size / 1024 / 1024).toStringAsFixed(1);
+    return Padding(
+      padding: EdgeInsets.only(top: r.x(8)),
+      child: Row(children: [
+        Container(
+          width: r.x(56),
+          height: r.x(56),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: kind == '画像' && file != null
+              ? FutureBuilder<Uint8List>(
+                  future: file!.read(),
+                  builder: (context, snap) => snap.hasData
+                      ? Image.memory(snap.data!, fit: BoxFit.cover)
+                      : const SizedBox.shrink())
+              : Icon(
+                  video
+                      ? Icons.videocam_outlined
+                      : kind == 'BGM'
+                          ? Icons.music_note_outlined
+                          : Icons.insert_drive_file_outlined,
+                  color: AppColors.white),
+        ),
+        SizedBox(width: r.x(12)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.dark(r.x(14),
+                      weight: FontWeight.w400, height: 20 / 14)),
+              Text('$kind・$mb MB',
+                  style: AppText.dark(r.x(12),
+                      weight: FontWeight.w400,
+                      color: AppColors.white.withValues(alpha: 0.7),
+                      height: 16 / 12)),
+            ],
           ),
         ),
-      ),
+      ]),
     );
   }
 }

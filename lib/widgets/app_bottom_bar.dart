@@ -4,13 +4,15 @@ import '../core/app_colors.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import 'app_icon.dart';
 
 /// 下部バーのアイコンボタン1つ分。
 class BarItem {
   const BarItem({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.materialIcon,
     this.selectedIcon,
     required this.route,
     this.size = 32,
@@ -19,7 +21,10 @@ class BarItem {
 
   /// 読み上げ・tooltip 用の語句。
   final String label;
-  final AppIcons icon;
+
+  /// Figma「icon_list」のアイコン。一覧にない用途は [materialIcon] を使う。
+  final AppIcons? icon;
+  final IconData? materialIcon;
 
   /// 選択中に使う塗りつぶし版。なければ [icon] のまま。
   final AppIcons? selectedIcon;
@@ -52,7 +57,7 @@ class AppBottomBar extends StatelessWidget {
       route: '/home',
       replaceToHome: true);
   static const _library = BarItem(
-      label: '納品ライブラリ', icon: AppIcons.systemUpdateAlt, route: '/library');
+      label: 'ライブラリ', icon: AppIcons.systemUpdateAlt, route: '/library');
   static const _add = BarItem(
       label: '新規依頼',
       icon: AppIcons.addCircle,
@@ -61,20 +66,33 @@ class AppBottomBar extends StatelessWidget {
       size: 40);
   static const _progress = BarItem(
       label: '進捗状況',
-      icon: AppIcons.calendarMonth,
-      selectedIcon: AppIcons.calendarMonthFill,
+      // Figma の icon_list に進捗用がないため Material のアイコンを使う。
+      materialIcon: Icons.pending_actions,
       route: '/progress',
       size: 40);
 
-  /// 依頼者ページ用：「ホーム」（メイン画面へ）と「新規」だけ。
-  static const requesterItems = [
-    BarItem(
-        label: 'ホーム',
-        icon: AppIcons.viewCozy,
-        route: '/menu',
-        replaceToHome: true),
-    _add,
-  ];
+  /// ダッシュボード用のバー：「ホーム」（メイン画面へ）、「新規」（依頼チャット。依頼者権限のみ）、
+  /// 「ライブラリ」（本棚）、「登録スタッフ」（責任者のみ）。
+  static List<BarItem> dashboardItems(StaffAccess a) => [
+        const BarItem(
+            label: 'ホーム',
+            icon: AppIcons.viewCozy,
+            route: '/menu',
+            replaceToHome: true),
+        if (a.canRequest) _add,
+        // 本棚・スタッフのアイコンは icon_list にないため、Material のアイコンを使う。
+        const BarItem(
+            label: 'ライブラリ',
+            materialIcon: Icons.shelves,
+            route: '/library',
+            size: 36),
+        if (a.manager)
+          const BarItem(
+              label: '登録スタッフ',
+              materialIcon: Icons.groups_outlined,
+              route: '/staff',
+              size: 36),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -216,12 +234,15 @@ class _BarButtonState extends State<_BarButton>
                   ),
                 ),
                 ExcludeSemantics(
-                  child: AppIcon(
-                      widget.selected
-                          ? (widget.item.selectedIcon ?? widget.item.icon)
-                          : widget.item.icon,
-                      size: r.x(widget.item.size),
-                      color: color),
+                  child: widget.item.materialIcon != null
+                      ? Icon(widget.item.materialIcon,
+                          size: r.x(widget.item.size), color: color)
+                      : AppIcon(
+                          widget.selected
+                              ? (widget.item.selectedIcon ?? widget.item.icon!)
+                              : widget.item.icon!,
+                          size: r.x(widget.item.size),
+                          color: color),
                 ),
               ],
             ),

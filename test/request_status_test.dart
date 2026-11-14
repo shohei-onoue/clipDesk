@@ -89,7 +89,7 @@ void main() {
           BriefValidation.validate(
               brief: ok,
               dueDate: DateTime(2026, 11, 6),
-              videoCount: 1,
+              attachmentCount: 1,
               now: now),
           isEmpty);
     });
@@ -98,22 +98,20 @@ void main() {
       final e = BriefValidation.validate(
           brief: const Brief(title: ' '),
           dueDate: null,
-          videoCount: 0,
+          attachmentCount: 0,
           now: now);
       expect(
           e.keys,
-          containsAll([
-            'title',
-            'purpose',
-            'deliveryTerms',
-            'video',
-            'dueDate'
-          ]));
+          containsAll(
+              ['title', 'purpose', 'deliveryTerms', 'video', 'dueDate']));
     });
 
     test('過去の納期は不可', () {
       final e = BriefValidation.validate(
-          brief: ok, dueDate: DateTime(2026, 11, 5), videoCount: 1, now: now);
+          brief: ok,
+          dueDate: DateTime(2026, 11, 5),
+          attachmentCount: 1,
+          now: now);
       expect(e.keys, ['dueDate']);
     });
   });

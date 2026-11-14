@@ -58,14 +58,16 @@ class _VideoDialogState extends State<_VideoDialog> {
   @override
   Widget build(BuildContext context) {
     final c = _c;
+    // 画面からはみ出さないよう、幅は画面内、動画の高さは画面の半分までに収める。
+    final screen = MediaQuery.sizeOf(context);
     return AlertDialog(
-      backgroundColor: AppColors.white.withValues(alpha: 0.08),
+      backgroundColor: AppColors.ink,
       title: Text(widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppText.dark(18)),
       content: SizedBox(
-        width: 480,
+        width: screen.width < 560 ? double.maxFinite : 480,
         child: _error != null
             ? Text('エラー：動画を再生できません（$_error）。通信を確認して、もう一度開いてください',
                 style: AppText.dark(14, weight: FontWeight.w400))
@@ -78,9 +80,13 @@ class _VideoDialogState extends State<_VideoDialog> {
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AspectRatio(
-                          aspectRatio: c.value.aspectRatio,
-                          child: VideoPlayer(c)),
+                      ConstrainedBox(
+                        constraints:
+                            BoxConstraints(maxHeight: screen.height * 0.5),
+                        child: AspectRatio(
+                            aspectRatio: c.value.aspectRatio,
+                            child: VideoPlayer(c)),
+                      ),
                       VideoProgressIndicator(c, allowScrubbing: true),
                       ValueListenableBuilder<VideoPlayerValue>(
                         valueListenable: c,

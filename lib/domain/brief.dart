@@ -80,12 +80,12 @@ class Brief {
 
 /// 必須項目・納期の検証。
 /// 具体的な必須項目と納期の制約はFigJamで未確定。暫定: 依頼名・目的・構成・
-/// 納品条件が必須、動画1件以上の添付、納期は今日以降。
+/// 納品条件が必須、添付1件以上（動画・画像・BGM・資料のどれでも可）、納期は今日以降。
 class BriefValidation {
   static Map<String, String> validate({
     required Brief brief,
     required DateTime? dueDate,
-    required int videoCount,
+    required int attachmentCount,
     required DateTime now,
   }) {
     final errors = <String, String>{};
@@ -94,7 +94,7 @@ class BriefValidation {
     if (brief.deliveryTerms.trim().isEmpty) {
       errors['deliveryTerms'] = '納品条件を入力してください';
     }
-    if (videoCount < 1) errors['video'] = '動画を添付してください';
+    if (attachmentCount < 1) errors['video'] = '動画・画像・資料のいずれかを添付してください';
     if (dueDate == null) {
       errors['dueDate'] = '納期を選択してください';
     } else {

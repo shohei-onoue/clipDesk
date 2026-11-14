@@ -210,6 +210,32 @@ void main() {
         throwsA(isA<RequestStateException>()));
   });
 
+  test('依頼の取り消し：承認前は削除され、担当の編集者へ通知。他人・承認後は拒否', () async {
+    await create();
+    // 他人は取り消せない
+    await expectLater(repo.cancelRequest(requestId: 'r1', uid: 'other'),
+        throwsA(isA<RequestStateException>()));
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.cancelRequest(requestId: 'r1', uid: 'req');
+    expect((await db.collection('requests').doc('r1').get()).exists, isFalse);
+    expect(
+        (await notes())
+            .any((n) => n['type'] == 'cancelled' && n['recipientId'] == 'ed'),
+        isTrue);
+    // 存在しない依頼
+    await expectLater(repo.cancelRequest(requestId: 'r1', uid: 'req'),
+        throwsA(isA<RequestStateException>()));
+
+    // 承認後は取り消せない
+    await create('r2');
+    await repo.startEditing(requestId: 'r2', uid: 'ed');
+    await repo.submitVideo(requestId: 'r2', uid: 'ed', file: _file('v1.mp4'));
+    await repo.approve(requestId: 'r2', uid: 'req');
+    await expectLater(repo.cancelRequest(requestId: 'r2', uid: 'req'),
+        throwsA(isA<RequestStateException>()));
+    expect((await db.collection('requests').doc('r2').get()).exists, isTrue);
+  });
+
   test('2回目の要確認でも通知は別IDで作られる', () async {
     await create();
     await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: 'a');

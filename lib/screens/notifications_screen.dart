@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
+import '../domain/video_request.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../widgets/app_drawer.dart';
@@ -71,7 +72,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 : AppColors.white.withValues(alpha: 0.7),
                             onTap: () {
                               _markSeen();
-                              openRequest(context, n.requestId);
+                              // 取り消された依頼は削除済みで、詳細を開けない。
+                              if (n.type != NotificationType.cancelled) {
+                                openRequest(context, n.requestId);
+                              }
                             },
                           ),
                         ),
