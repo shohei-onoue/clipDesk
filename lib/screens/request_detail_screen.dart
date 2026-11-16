@@ -36,7 +36,7 @@ class RequestDetailScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '詳細'),
+          const AppHeader(title: '動画確認'),
           Expanded(
             child: RoleBuilder(
               dark: true,
@@ -96,15 +96,18 @@ class _BodyState extends State<_Body> {
   }
 
   /// 多重操作を防ぎつつ実行し、失敗は画面に出す。
-  Future<void> _run(Future<void> Function() action, {String? done}) async {
-    if (_busy) return;
+  /// 成功したら true を返す。
+  Future<bool> _run(Future<void> Function() action, {String? done}) async {
+    if (_busy) return false;
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
       await action();
       if (done != null) messenger.showSnackBar(SnackBar(content: Text(done)));
+      return true;
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('失敗しました：$e')));
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -424,13 +427,16 @@ class _BodyState extends State<_Body> {
           SizedBox(width: r.x(10)),
           Expanded(
             child: DetailButton('内容確認', AppColors.white, _busy, () async {
+              final nav = Navigator.of(context);
               final message =
                   await _askText('依頼者へのメッセージ', '確認したい内容を入力（音声でも入力できます）');
               if (message == null) return;
-              await _run(
+              final sent = await _run(
                   () => repo.askForInfo(
                       requestId: q.id, uid: widget.uid, reason: message),
                   done: '依頼者へ通知しました');
+              // 送れたらダッシュボードへ戻る（フロー図：音声入力 → ダッシュボード）。
+              if (sent) nav.maybePop();
             }),
           ),
         ]),

@@ -96,7 +96,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
         backgroundColor: AppColors.ink,
         body: SafeArea(
           child: Column(children: [
-            const AppHeader(title: '指示書確認'),
+            const AppHeader(title: '依頼内容'),
             Expanded(
               child: Center(
                 child: Padding(
@@ -160,7 +160,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const AppHeader(title: '詳細'),
+            const AppHeader(title: '依頼内容'),
             Expanded(
               child: ListView(
                 padding:
