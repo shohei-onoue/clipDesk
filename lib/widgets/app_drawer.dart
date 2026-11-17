@@ -6,13 +6,21 @@ import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import 'app_icon.dart';
-import 'unread_builder.dart';
 
 /// 左から出るドロワー（Figma 291:504）。幅は 354/390、画面の高さいっぱい。
 /// ink→brand の縦グラデーションの面に、ロゴ・項目・区切り線・ログアウト・バージョンを縦に並べる。
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
+
+  /// 遷移先と立場の選び方は、メイン画面のメニュー（MenuScreen）と同じ。
+  /// メイン画面を土台に残して、選んだ画面へ進む。
+  void _open(BuildContext context, UserRole? mode, String route) {
+    if (mode != null) Services.repo.staffMode = mode;
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(route, (r) => r.settings.name == '/menu');
+  }
 
   void _go(BuildContext context, String route) {
     Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
@@ -44,27 +52,51 @@ class AppDrawer extends StatelessWidget {
                 style: AppText.noto(r.x(24),
                     color: AppColors.white, height: 32 / 24)),
             SizedBox(height: r.y(20)),
-            _Tile(AppIcons.menu, 'メイン', () => _go(context, '/menu')),
-            _Tile(AppIcons.viewCozy, 'ホーム', () => _go(context, '/home')),
-            StreamBuilder<UserRole?>(
-              stream: uid == null ? null : Services.repo.watchRole(uid),
-              builder: (context, snap) => snap.data == UserRole.requester
-                  ? _Tile(
-                      AppIcons.addCircle, '新規依頼', () => _go(context, '/chat'))
-                  : const SizedBox.shrink(),
+            // メイン画面のメニューと同じ項目・同じ出し分け（権限）・同じ遷移先。
+            StreamBuilder<StaffAccess>(
+              stream: uid == null ? null : Services.repo.watchAccess(uid),
+              builder: (context, snap) {
+                final a = snap.data ?? StaffAccess.none;
+                return Column(children: [
+                  if (a.canRequest)
+                    _Tile(
+                        AppIcon(AppIcons.addCircle,
+                            size: r.x(24), color: AppColors.white),
+                        '依頼する',
+                        () => _open(context, UserRole.requester, '/chat')),
+                  if (a.canRequest || a.canEdit)
+                    _Tile(
+                        AppIcon(AppIcons.viewCozy,
+                            size: r.x(24), color: AppColors.white),
+                        'ダッシュボード',
+                        () => _open(
+                            context,
+                            a.canEdit ? UserRole.editor : UserRole.requester,
+                            '/home')),
+                  _Tile(
+                      AppIcon(AppIcons.systemUpdateAlt,
+                          size: r.x(24), color: AppColors.white),
+                      'ライブラリ',
+                      () => _open(context, null, '/library')),
+                  if (a.manager)
+                    _Tile(
+                        Icon(Icons.group_outlined,
+                            size: r.x(24), color: AppColors.white),
+                        '登録スタッフ',
+                        () => _open(context, null, '/staff')),
+                ]);
+              },
             ),
-            _NotificationTile(
-                onTap: () => _go(context, '/notifications'), uid: uid),
-            _Tile(AppIcons.systemUpdateAlt, 'ライブラリ',
-                () => _go(context, '/library')),
-            // 設定画面はまだないため、押すとドロワーを閉じるだけ。
-            _Tile(AppIcons.settings, '設定', () => Navigator.of(context).pop()),
             const Spacer(),
+            // ログインしているユーザーの名前（users の name。なければ表示名、メールの順）。
+            _UserName(uid: uid),
             Divider(
                 color: AppColors.white.withValues(alpha: 0.16),
                 height: 1,
                 thickness: 1),
-            _Tile(AppIcons.logout, 'ログアウト', () async {
+            _Tile(
+                AppIcon(AppIcons.logout, size: r.x(24), color: AppColors.white),
+                'ログアウト', () async {
               await FirebaseAuth.instance.signOut();
               if (context.mounted) _go(context, '/');
             }),
@@ -81,39 +113,51 @@ class AppDrawer extends StatelessWidget {
   }
 }
 
-/// 「通知」：未読があれば、右端に琥珀色の件数バッジを付ける。
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.onTap, required this.uid});
-
-  final VoidCallback onTap;
+class _UserName extends StatelessWidget {
+  const _UserName({required this.uid});
   final String? uid;
 
   @override
   Widget build(BuildContext context) {
-    Widget tile(int unread) => _Tile(AppIcons.notifications, '通知', onTap,
-        badge: unread > 0 ? unread : null);
-    if (uid == null) return tile(0);
-    return StreamBuilder<UserRole?>(
-      stream: Services.repo.watchRole(uid!),
-      builder: (context, role) => role.data == null
-          ? tile(0)
-          : UnreadBuilder(
-              uid: uid!,
-              role: role.data!,
-              builder: (context, all, unread) => tile(unread.length)),
+    final r = context.r;
+    final user = FirebaseAuth.instance.currentUser;
+    final fallback = (user?.displayName?.trim().isNotEmpty ?? false)
+        ? user!.displayName!.trim()
+        : (user?.email ?? '');
+    return FutureBuilder<String?>(
+      future: uid == null ? Future.value(null) : Services.repo.userName(uid!),
+      builder: (context, snap) {
+        final name = snap.data ?? fallback;
+        if (name.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: EdgeInsets.only(bottom: r.y(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ログイン中',
+                  style: AppText.noto(r.x(12),
+                      weight: FontWeight.w400,
+                      color: AppColors.white.withValues(alpha: 0.7),
+                      height: 16 / 12)),
+              Text(name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.noto(r.x(16),
+                      color: AppColors.white, height: 24 / 16)),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile(this.icon, this.label, this.onTap, {this.badge});
+  const _Tile(this.icon, this.label, this.onTap);
 
-  final AppIcons icon;
+  final Widget icon;
   final String label;
   final VoidCallback? onTap;
-
-  /// 右端の件数バッジ。null なら出さない。
-  final int? badge;
 
   @override
   Widget build(BuildContext context) {
@@ -124,25 +168,13 @@ class _Tile extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: r.y(12)),
         child: Row(
           children: [
-            AppIcon(icon, size: r.x(24), color: AppColors.white),
+            icon,
             SizedBox(width: r.x(14)),
             Expanded(
               child: Text(label,
                   style: AppText.noto(r.x(16),
                       color: AppColors.white, height: 24 / 16)),
             ),
-            if (badge != null)
-              Container(
-                width: r.x(24),
-                height: r.x(24),
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                    color: AppColors.amber, shape: BoxShape.circle),
-                child: Text('$badge',
-                    semanticsLabel: '未読$badge件',
-                    style: AppText.noto(r.x(12),
-                        color: AppColors.ink, height: 16 / 12)),
-              ),
           ],
         ),
       ),

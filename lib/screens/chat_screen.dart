@@ -13,6 +13,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/chat_widgets.dart';
 import '../widgets/status_style.dart';
+import '../widgets/voice_message_dialog.dart';
 import '../widgets/app_icon.dart';
 
 enum _Step {
@@ -25,6 +26,7 @@ enum _Step {
   subtitle,
   video,
   due,
+  notes,
   review,
 }
 
@@ -133,6 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _Step.subtitle => '字幕は必要ですか？',
       _Step.video => '動画・画像を添付してください。複数追加できます。入力欄の左のクリップから追加してください。',
       _Step.due => '希望納期を選んでください。',
+      _Step.notes => 'その他の指示はありますか？',
       _Step.review => '内容を確認してください。',
     });
   }
@@ -206,6 +209,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _Step.orientation,
     _Step.subtitle,
     _Step.due,
+    _Step.notes,
   };
 
   /// 長さ・向き・字幕がそろっていれば、納品条件に反映する。
@@ -238,6 +242,15 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         d.dueDate = picked;
         _msgs[index] = _Msg(true, '希望納期：${dateText(picked)}', step: _Step.due);
+      });
+      return;
+    }
+    if (step == _Step.notes) {
+      final notes = await _pickNotes(at);
+      if (notes == null || !mounted) return;
+      setState(() {
+        d.brief = d.brief.copyWith(otherNotes: notes);
+        _msgs[index] = _Msg(true, _notesText(notes), step: _Step.notes);
       });
       return;
     }
@@ -309,6 +322,56 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
   }
+
+  static String _notesText(String notes) =>
+      notes.isEmpty ? 'その他指示：なし' : 'その他指示：$notes';
+
+  /// その他の指示の入力（キーボード／音声）。キャンセルや空なら null。
+  Future<String?> _askNotes() async {
+    final t = await showVoiceMessageDialog(context,
+        title: 'その他の指示', hint: 'その他の指示を入力（音声でも入力できます）', sendLabel: '決定');
+    return t == null || t.isEmpty ? null : t;
+  }
+
+  /// 回答をタップして選び直すとき：「ある」「なし」のメニュー。
+  /// 「なし」は空の文字、「あり」は入力した文字。キャンセルなら null。
+  Future<String?> _pickNotes(Offset at) async {
+    final screen = MediaQuery.sizeOf(context);
+    final picked = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+          at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
+      color: AppColors.ink,
+      shape: RoundedRectangleBorder(
+          side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
+          borderRadius: BorderRadius.circular(10)),
+      items: [
+        for (final o in const ['あり', 'なし'])
+          PopupMenuItem<String>(
+              value: o,
+              child: Text(o, style: AppText.dark(14, weight: FontWeight.w400))),
+      ],
+    );
+    if (picked == null || !mounted) return null;
+    return picked == 'なし' ? '' : _askNotes();
+  }
+
+  /// 「その他の指示」で「あり」：入力してもらい、指示書に反映して次へ。
+  Future<void> _notesYes() async {
+    final t = await _askNotes();
+    if (t == null || !mounted) return;
+    setState(() {
+      d.brief = d.brief.copyWith(otherNotes: t);
+      _me(_notesText(t), step: _Step.notes);
+      _next(_Step.video);
+    });
+  }
+
+  void _notesNo() => setState(() {
+        d.brief = d.brief.copyWith(otherNotes: '');
+        _me(_notesText(''), step: _Step.notes);
+        _next(_Step.video);
+      });
 
   /// 動画の長さを、ドラム式ピッカーで秒単位に選ぶ（1〜600秒）。キャンセルなら null。
   Future<int?> _pickSeconds(int initial) {
@@ -520,7 +583,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _enterReview();
         _say('ありがとうございます。内容を確認したら「完了」を押してください。');
       } else {
-        _next(_Step.video);
+        _next(_Step.notes);
       }
     });
   }
@@ -572,6 +635,11 @@ class _ChatScreenState extends State<ChatScreen> {
         return const [];
       case _Step.due:
         return [AppChip('納期を選ぶ', onTap: _pickDate)];
+      case _Step.notes:
+        return [
+          AppChip('あり', onTap: _notesYes),
+          AppChip('なし', onTap: _notesNo),
+        ];
       case _Step.review:
         // 直したい回答は、チャットの回答をタップして選び直す。
         return const [];

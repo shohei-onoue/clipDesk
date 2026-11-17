@@ -21,6 +21,7 @@ class Brief {
     this.structure = '',
     this.deliveryTerms = '',
     this.scenes = const [],
+    this.otherNotes = '',
   });
 
   final String title;
@@ -32,6 +33,9 @@ class Brief {
   final String deliveryTerms;
   final List<Scene> scenes;
 
+  /// その他の指示（任意。なければ空）。
+  final String otherNotes;
+
   Brief copyWith({
     String? title,
     String? videoType,
@@ -41,6 +45,7 @@ class Brief {
     String? structure,
     String? deliveryTerms,
     List<Scene>? scenes,
+    String? otherNotes,
   }) =>
       Brief(
         title: title ?? this.title,
@@ -51,6 +56,7 @@ class Brief {
         structure: structure ?? this.structure,
         deliveryTerms: deliveryTerms ?? this.deliveryTerms,
         scenes: scenes ?? this.scenes,
+        otherNotes: otherNotes ?? this.otherNotes,
       );
 
   Map<String, Object?> toMap() => {
@@ -61,6 +67,7 @@ class Brief {
         'structure': structure,
         'deliveryTerms': deliveryTerms,
         'scenes': [for (final s in scenes) s.toMap()],
+        'otherNotes': otherNotes,
       };
 
   factory Brief.fromMap(String title, Map<String, Object?> m) => Brief(
@@ -75,6 +82,7 @@ class Brief {
           for (final s in (m['scenes'] as List?) ?? const [])
             Scene.fromMap(Map<String, Object?>.from(s as Map)),
         ],
+        otherNotes: (m['otherNotes'] as String?) ?? '',
       );
 }
 

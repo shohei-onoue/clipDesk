@@ -2,9 +2,12 @@
 
 現行の画面構成を基準にした一覧です。色・部品はREADMEとcomponents、業務ルールは`../video-editing-flow.md`を参照します。表示名とルート名は別物です。実装予定を実装済みとして扱いません。
 
+**下部バー（AppBottomBar）はアイコン1つだけ：ホーム（/menu へ戻る）。**「あり」の画面すべてで共通です。
+
 | 画面・実装 | 現行の構成 | 下部バー |
 | --- | --- | --- |
 | メイン / menu_screen.dart | AppHeader「ホーム」→権限別のイラスト付きグラデーションカード。依頼者ページ／編集者ページ／依頼一覧／スタッフ管理（ルビは「管理」の上） | なし |
+| ダッシュボード / requester_home_screen.dart | AppHeader「ダッシュボード」→TopTabs（すべて・依頼・編集・確認）→2列の進捗カード。全スタッフが全案件を見られる | あり |
 | 依頼者・編集者ホーム / home_screen.dart | AppHeader→進行中・完了タブ→期限が近い依頼（進行中のみ）→担当選択・状態絞り込み→2列の依頼カード | あり |
 | 進捗状況 / progress_screen.dart | AppHeader→件数付きの進捗フィルター→StepProgressCard。投稿済を除く全員分の案件 | あり |
 | 依頼一覧・依頼確認 / request_list_screen.dart | AppHeader「List」→2列の動画カード。暗い動画領域＋白い詳細パネル＋琥珀の進捗バー | あり |

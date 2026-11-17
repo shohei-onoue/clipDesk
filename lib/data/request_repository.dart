@@ -18,15 +18,39 @@ class RequestStateException implements Exception {
 }
 
 /// 責任者の承認画面に出す、登録済みアカウント。
+/// 姓と名を、表示・保存用の1つの名前（「姓 名」）にまとめる。
+String joinName(String lastName, String firstName) =>
+    [lastName.trim(), firstName.trim()].where((e) => e.isNotEmpty).join(' ');
+
+/// 姓・名に分かれていない既存の名前を、最初の空白（半角・全角）で姓と名に分ける。
+/// 空白が無ければ、全体を姓として返す。
+(String, String) splitName(String name) {
+  final t = name.trim();
+  final i = t.indexOf(RegExp(r'[ \u3000]'));
+  if (i < 0) return (t, '');
+  return (t.substring(0, i), t.substring(i + 1).trim());
+}
+
 class StaffUser {
   const StaffUser({
     required this.uid,
     required this.email,
     required this.name,
+    this.lastName = '',
+    this.firstName = '',
   });
   final String uid;
   final String email;
+
+  /// 「姓 名」を結合した表示名（昔の登録は姓名の区別なし）。
   final String name;
+  final String lastName;
+  final String firstName;
+
+  /// 編集欄に出す姓・名。分かれていない昔の登録は、名前を空白で分けて出す。
+  (String, String) get nameParts => lastName.isNotEmpty || firstName.isNotEmpty
+      ? (lastName, firstName)
+      : splitName(name);
 }
 
 /// 依頼・指示書・動画・通知の保存と状態更新。
@@ -81,7 +105,9 @@ class RequestRepository {
               StaffUser(
                   uid: d.id,
                   email: d.data()['email'] as String? ?? '',
-                  name: d.data()['name'] as String? ?? '')
+                  name: d.data()['name'] as String? ?? '',
+                  lastName: d.data()['lastName'] as String? ?? '',
+                  firstName: d.data()['firstName'] as String? ?? '')
           ]);
 
   /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
@@ -101,12 +127,17 @@ class RequestRepository {
   }
 
   /// スタッフの名前・メールアドレス（users/{uid} の表示用の値）を直す。責任者だけ。
+  /// 姓・名を別々に保存し、結合した name も同時に更新する。
   Future<void> updateStaffProfile(String uid,
-          {required String name, required String email}) =>
-      _db
-          .collection('users')
-          .doc(uid)
-          .set({'name': name, 'email': email}, SetOptions(merge: true));
+          {required String lastName,
+          required String firstName,
+          required String email}) =>
+      _db.collection('users').doc(uid).set({
+        'lastName': lastName,
+        'firstName': firstName,
+        'name': joinName(lastName, firstName),
+        'email': email,
+      }, SetOptions(merge: true));
 
   /// スタッフ情報の削除：権限（roles）と登録情報（users）を消す。責任者だけ（ルールでも拒否）。
   /// 同じメールアドレスの招待が残っていれば、それも消す。
@@ -222,6 +253,9 @@ class RequestRepository {
             for (final d in q.docs) Submission.fromMap(d.data())
           ]..sort((a, b) => a.version.compareTo(b.version)));
 
+  /// ログイン中のユーザーの通知。自分宛て（recipientId が自分）に加え、編集者には
+  /// 新規依頼の全員向け通知（audience == 'editors'）も出す。
+  /// 新規依頼の通知は、他の編集者が担当になった・依頼が取り消された場合は一覧から外す。
   Stream<List<AppNotification>> watchNotifications(String uid, UserRole role) {
     final direct =
         _notifications.where('recipientId', isEqualTo: uid).snapshots();
@@ -229,14 +263,28 @@ class RequestRepository {
         ? _merge(direct,
             _notifications.where('audience', isEqualTo: 'editors').snapshots())
         : direct.map((q) => q.docs);
-    return merged.map((docs) {
-      final list = [
-        for (final d in docs) AppNotification.fromDoc(d.id, d.data()),
-      ]..sort((a, b) => (b.createdAt ?? DateTime.now())
-          .compareTo(a.createdAt ?? DateTime.now()));
-      return list;
+    final notes = merged.map((docs) => [
+          for (final d in docs) AppNotification.fromDoc(d.id, d.data()),
+        ]);
+    if (role != UserRole.editor) return notes.map(_sorted);
+    return _combine(notes, watchAllRequests(), (list, requests) {
+      final byId = {for (final r in requests) r.id: r};
+      bool takenByOther(AppNotification n) {
+        if (n.type != NotificationType.newRequest) return false;
+        final r = byId[n.requestId];
+        return r == null || (r.editorId != null && r.editorId != uid);
+      }
+
+      return _sorted([
+        for (final n in list)
+          if (!takenByOther(n)) n,
+      ]);
     });
   }
+
+  static List<AppNotification> _sorted(List<AppNotification> l) => l
+    ..sort((a, b) => (b.createdAt ?? DateTime.now())
+        .compareTo(a.createdAt ?? DateTime.now()));
 
   Future<String> downloadUrl(String path) => _storage.downloadUrl(path);
 
@@ -274,6 +322,7 @@ class RequestRepository {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    // 編集者全員へ。他の編集者が担当になると、その人以外の通知一覧からは消える。
     batch.set(_notifications.doc('${requestId}_new'), {
       'requestId': requestId,
       'type': NotificationType.newRequest.name,
@@ -332,13 +381,15 @@ class RequestRepository {
           'dueDate': Timestamp.fromDate(dueDate),
           'reviewReason': null,
         },
-        notification: (r) => _Notice(
-          id: '${requestId}_resubmit_${r.reviewRound}',
-          type: NotificationType.resubmitted,
-          recipientId: r.editorId,
-          audience: r.editorId == null ? 'editors' : null,
-          message: '指示書が再送信されました：${brief.title.trim()}',
-        ),
+        // 担当の編集者がいるときだけ、その人へ通知する。
+        notification: (r) => r.editorId == null
+            ? null
+            : _Notice(
+                id: '${requestId}_resubmit_${r.reviewRound}',
+                type: NotificationType.resubmitted,
+                recipientId: r.editorId,
+                message: '指示書が再送信されました：${brief.title.trim()}',
+              ),
       );
 
   /// 修正指示を送る（初稿確認 → 修正）。
@@ -379,26 +430,56 @@ class RequestRepository {
 
   /// 動画を承認する。状態は「初稿確認」のまま、承認結果だけを保存し編集者へ通知。
   /// 投稿済にはしない（投稿は編集者の操作）。
-  Future<void> approve({
+  /// 動画を承認する。承認できたら、Storageに残っている添付素材と、承認されなかった提出動画を削除し、
+  /// 承認された動画だけを残す。削除に失敗したものがあれば false（承認自体は完了している）。
+  Future<bool> approve({
     required String requestId,
     required String uid,
-  }) =>
-      _transition(
-        requestId: requestId,
-        uid: uid,
-        role: UserRole.requester,
-        action: RequestAction.approve,
-        update: (r) => {
-          'approvedVersion': r.submissionCount,
-          'approvedAt': FieldValue.serverTimestamp(),
-        },
-        notification: (r) => _Notice(
-          id: '${requestId}_approved',
-          type: NotificationType.approved,
-          recipientId: r.editorId,
-          message: '承認されました：${r.title}（投稿をお願いします）',
-        ),
-      );
+  }) async {
+    await _transition(
+      requestId: requestId,
+      uid: uid,
+      role: UserRole.requester,
+      action: RequestAction.approve,
+      update: (r) => {
+        'approvedVersion': r.submissionCount,
+        'approvedAt': FieldValue.serverTimestamp(),
+      },
+      notification: (r) => _Notice(
+        id: '${requestId}_approved',
+        type: NotificationType.approved,
+        recipientId: r.editorId,
+        message: '承認されました：${r.title}（投稿をお願いします）',
+      ),
+    );
+    return _deleteUnapprovedFiles(requestId);
+  }
+
+  /// 承認後のStorage整理：依頼時の添付素材（動画・画像・BGM・資料）と、承認されなかった提出動画を消す。
+  Future<bool> _deleteUnapprovedFiles(String requestId) async {
+    try {
+      final snap = await _requests.doc(requestId).get();
+      final data = snap.data();
+      if (data == null) return false;
+      final r = VideoRequest.fromDoc(snap.id, data);
+      if (r.approvedVersion == null) return false;
+      final paths = <String>[
+        for (final a in r.attachments) a.path,
+        for (final d
+            in (await _requests.doc(requestId).collection('submissions').get())
+                .docs)
+          if (Submission.fromMap(d.data()).version != r.approvedVersion)
+            Submission.fromMap(d.data()).path,
+      ];
+      var ok = true;
+      for (final p in paths) {
+        if (p.isNotEmpty && !await _storage.delete(p)) ok = false;
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // ---- 編集者 ----
 
@@ -444,6 +525,14 @@ class RequestRepository {
       action: RequestAction.startEditing,
       // 編集を開始した人のログイン名を、編集担当として残す。
       update: (r) => {'editorId': uid, if (name != null) 'editorName': name},
+      // 担当が決まったことを、依頼者へ知らせる。
+      notification: (r) => _Notice(
+        id: '${requestId}_assigned',
+        type: NotificationType.assigned,
+        recipientId: r.requesterId,
+        message: '担当が決まりました：${r.title}'
+            '${name == null ? '' : '（担当：$name）'}',
+      ),
     );
   }
 
@@ -568,7 +657,7 @@ class RequestRepository {
     required Map<String, Object?> Function(_Snapshot) update,
     bool Function(_Snapshot)? guard,
     void Function(Transaction, _Snapshot)? extra,
-    _Notice Function(_Snapshot)? notification,
+    _Notice? Function(_Snapshot)? notification,
   }) {
     return _db.runTransaction((tx) async {
       final ref = _requests.doc(requestId);
@@ -600,7 +689,7 @@ class RequestRepository {
         tx.set(_notifications.doc(n.id), {
           'requestId': requestId,
           'type': n.type.name,
-          'audience': n.audience ?? 'user',
+          'audience': 'user',
           'recipientId': n.recipientId,
           'actorId': uid,
           'message': n.message,
@@ -628,13 +717,11 @@ class _Notice {
     required this.type,
     required this.message,
     this.recipientId,
-    this.audience,
   });
   final String id;
   final NotificationType type;
   final String message;
   final String? recipientId;
-  final String? audience;
 }
 
 class _Snapshot {
@@ -681,6 +768,39 @@ Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _merge(
       }, onError: c.addError));
       subs.add(b.listen((q) {
         lb = q.docs;
+        emit();
+      }, onError: c.addError));
+    },
+    onCancel: () async {
+      for (final s in subs) {
+        await s.cancel();
+      }
+    },
+  );
+  return c.stream;
+}
+
+/// 2つのストリームの最新値を組み合わせる。両方に値が来てから、どちらかが変わるたびに流す。
+Stream<R> _combine<A, B, R>(Stream<A> a, Stream<B> b, R Function(A, B) f) {
+  late StreamController<R> c;
+  final subs = <StreamSubscription<Object?>>[];
+  A? la;
+  B? lb;
+  var ha = false, hb = false;
+  void emit() {
+    if (ha && hb) c.add(f(la as A, lb as B));
+  }
+
+  c = StreamController(
+    onListen: () {
+      subs.add(a.listen((v) {
+        la = v;
+        ha = true;
+        emit();
+      }, onError: c.addError));
+      subs.add(b.listen((v) {
+        lb = v;
+        hb = true;
         emit();
       }, onError: c.addError));
     },

@@ -23,22 +23,32 @@ service firebase.storage {
     // 依頼者が添付する動画・参考資料。依頼の作成前にアップロードするため、
     // 依頼者本人のフォルダにだけ書ける。編集者は担当（または未割り当て）の依頼のものだけ読める。
     match /uploads/{uid}/{requestId}/{file} {
-      allow write: if hasRole('requester') && request.auth.uid == uid && sizeOk()
+      allow create, update: if hasRole('requester') && request.auth.uid == uid && sizeOk()
         && (request.resource.contentType.matches('video/.*')
           || request.resource.contentType.matches('image/.*')
           || request.resource.contentType.matches('audio/.*')
           || request.resource.contentType == 'application/pdf'
           || request.resource.contentType == 'application/octet-stream');
+      // 承認後、依頼者が添付素材を削除する（承認された動画だけを残す）。
+      allow delete: if hasRole('requester') && request.auth.uid == uid
+        && reqExists(requestId)
+        && req(requestId).requesterId == request.auth.uid
+        && req(requestId).approvedVersion != null;
       allow read: if signedIn() && (
         request.auth.uid == uid || isStaff());
     }
 
     // 編集者が提出する初稿・修正動画。担当編集者が編集中／修正の間だけ書ける。
     match /videos/{requestId}/{version}/{file} {
-      allow write: if hasRole('editor') && reqExists(requestId) && sizeOk()
+      allow create, update: if hasRole('editor') && reqExists(requestId) && sizeOk()
         && req(requestId).editorId == request.auth.uid
         && (req(requestId).status == 'editing' || req(requestId).status == 'revision')
         && request.resource.contentType.matches('video/.*');
+      // 承認後、依頼者が、承認されなかった提出動画を削除する。承認された版は消せない。
+      allow delete: if hasRole('requester') && reqExists(requestId)
+        && req(requestId).requesterId == request.auth.uid
+        && req(requestId).approvedVersion != null
+        && version != 'v' + string(req(requestId).approvedVersion);
       allow read: if signedIn() && reqExists(requestId) && (
         req(requestId).requesterId == request.auth.uid || isStaff());
     }

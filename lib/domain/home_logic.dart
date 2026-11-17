@@ -75,6 +75,53 @@ enum HomeFilter {
   }
 }
 
+/// 「新規依頼」とみなす日数。依頼した日から数えて、この日数以内なら新規。
+const newRequestDays = 7;
+
+/// 依頼から1週間以内か（暦日で数える。依頼日時が未確定のときは新規）。
+bool isNewRequest(VideoRequest r, DateTime now) {
+  final c = r.createdAt;
+  if (c == null) return true;
+  final d = DateTime(c.year, c.month, c.day);
+  final n = DateTime(now.year, now.month, now.day);
+  return n.difference(d).inDays <= newRequestDays;
+}
+
+/// ダッシュボードのタブ。どの進捗の依頼かで分ける（暫定の対応。FigJamで未確定）。
+/// 依頼＝受付待ち・要確認、編集＝編集中・修正、確認＝初稿確認。投稿済はライブラリで見る。
+enum DashboardTab {
+  all('すべて'),
+  request('依頼'),
+  edit('編集'),
+  confirm('確認');
+
+  const DashboardTab(this.label);
+  final String label;
+
+  bool matches(VideoRequest r) => switch (this) {
+        DashboardTab.all => r.status != RequestStatus.posted,
+        DashboardTab.request => r.status == RequestStatus.pending ||
+            r.status == RequestStatus.needsInfo,
+        DashboardTab.edit => r.status == RequestStatus.editing ||
+            r.status == RequestStatus.revision,
+        DashboardTab.confirm => r.status == RequestStatus.review,
+      };
+
+  /// 該当する依頼がないときの案内。
+  String get emptyText => switch (this) {
+        DashboardTab.all => '進行中の依頼はありません',
+        DashboardTab.request => '受付待ち・要確認の依頼はありません',
+        DashboardTab.edit => '編集中・修正の依頼はありません',
+        DashboardTab.confirm => '初稿確認の依頼はありません',
+      };
+}
+
+List<VideoRequest> applyDashboardTab(List<VideoRequest> all, DashboardTab t) =>
+    [
+      for (final r in all)
+        if (t.matches(r)) r
+    ];
+
 List<VideoRequest> applyHomeFilter(
         List<VideoRequest> all, UserRole role, HomeFilter f) =>
     [

@@ -28,6 +28,12 @@ void main() {
     expect(Brief.fromMap('旧依頼', {}).platform, isEmpty);
   });
 
+  test('その他指示を保存して復元し、旧指示書は空で読み込める', () {
+    final b = const Brief(purpose: '採用').copyWith(otherNotes: 'BGMは明るく');
+    expect(Brief.fromMap('t', b.toMap()).otherNotes, 'BGMは明るく');
+    expect(Brief.fromMap('t', {}).otherNotes, isEmpty);
+  });
+
   testWidgets('入力と選択で質問が進み、空回答は送信できない', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -104,6 +110,16 @@ void main() {
     // 希望納期は、添付の前に聞く。
     expect(find.text('希望納期を選んでください。'), findsOneWidget);
     expect(find.text('納期を選ぶ'), findsOneWidget);
+    // その他の指示は、納期のあと・添付の前に「あり」「なし」で聞く。
+    await tester.tap(find.text('納期を選ぶ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('その他の指示はありますか？'), findsOneWidget);
+    await tester.tap(find.text('なし'));
+    await tester.pumpAndSettle();
+    expect(find.text('その他指示：なし'), findsOneWidget);
+    expect(find.textContaining('添付してください'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

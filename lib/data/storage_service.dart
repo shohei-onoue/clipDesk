@@ -38,6 +38,18 @@ class StorageService {
         .putData(await file.read(), SettableMetadata(contentType: contentType));
   }
 
+  /// [path] のファイルを削除する。すでに無い場合も成功とみなし、消せなかったときだけ false。
+  Future<bool> delete(String path) async {
+    try {
+      await _storage.ref(path).delete();
+      return true;
+    } on FirebaseException catch (e) {
+      return e.code == 'object-not-found';
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<String> downloadUrl(String path) =>
       _storage.ref(path).getDownloadURL();
 

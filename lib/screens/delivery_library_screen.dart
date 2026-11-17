@@ -13,8 +13,8 @@ import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/video_player_dialog.dart';
 
-/// ライブラリ（Figma 302:7489）：過去に承認された編集完了動画の一覧。
-/// 1本ずつカードにして縦に並べる。閲覧範囲は未確定のため、依頼者本人と担当編集者のみ（暫定）。
+/// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
+/// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
 class DeliveryLibraryScreen extends StatelessWidget {
   const DeliveryLibraryScreen({super.key});
 
@@ -33,14 +33,12 @@ class DeliveryLibraryScreen extends StatelessWidget {
               dark: true,
               builder: (context, uid, role) =>
                   StreamBuilder<List<VideoRequest>>(
-                stream: role == UserRole.editor
-                    ? Services.repo.watchEditor(uid)
-                    : Services.repo.watchRequester(uid),
+                stream: Services.repo.watchAllRequests(),
                 builder: (context, snap) {
-                  // 承認された動画（承認済みの確認待ち・投稿済み）を、承認が新しい順に。
+                  // 投稿済みの動画を、承認が新しい順に。
                   final approved = [
                     for (final q in snap.data ?? const <VideoRequest>[])
-                      if (q.approved) q
+                      if (q.status == RequestStatus.posted) q
                   ]..sort((a, b) => (b.approvedAt ?? DateTime(0))
                       .compareTo(a.approvedAt ?? DateTime(0)));
                   return ListView(
@@ -52,7 +50,7 @@ class DeliveryLibraryScreen extends StatelessWidget {
                             'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください')
                       else if (approved.isEmpty &&
                           snap.connectionState != ConnectionState.waiting)
-                        emptyTextDark(context, '承認された動画はまだありません'),
+                        emptyTextDark(context, '投稿済みの動画はまだありません'),
                       for (final q in approved)
                         Padding(
                           padding: EdgeInsets.only(bottom: r.x(12)),

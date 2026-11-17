@@ -6,7 +6,7 @@ import {
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, collection, getDocs, query, where,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getBytes } from 'firebase/storage';
+import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
 
 let env;
 before(async () => {
@@ -100,6 +100,14 @@ test('編集開始: 編集者のみ・自分を担当にする', async () => {
   await assertSucceeds(updateDoc(doc(db(ED), 'requests', 'r1'), { status: 'editing', editorId: ED, editorName: '山田', updatedAt: serverTimestamp() }));
   // 他の編集者はもう開始できない
   await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', editorId: ED2, reviewReason: 'x', reviewRound: 1, updatedAt: serverTimestamp() }));
+});
+
+test('受付待ちに戻った依頼の再開は、担当の編集者だけ', async () => {
+  await seed(newReq({ editorId: ED, status: 'pending' }));
+  const upd = { status: 'editing', updatedAt: serverTimestamp() };
+  await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { ...upd, editorId: ED2 }));
+  await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', editorId: ED2, reviewReason: 'x', reviewRound: 1, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(db(ED), 'requests', 'r1'), { ...upd, editorId: ED }));
 });
 
 test('要確認: 理由必須・通知は相手宛て。再送信は依頼者のみ', async () => {
@@ -203,6 +211,30 @@ test('Storage: 添付は依頼者本人のみ書込、動画は担当編集者�
   await assertFails(uploadBytes(ref(st(REQ), 'videos/r1/v1/v.mp4'), bytes, mp4));
   await assertSucceeds(getBytes(ref(st(REQ), 'videos/r1/v1/v.mp4')));
   await assertFails(getBytes(ref(st(NOROLE), 'videos/r1/v1/v.mp4')));
+});
+
+test('Storage: 承認後だけ、依頼者が添付素材と承認されなかった動画を削除できる', async () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+  const mp4 = { contentType: 'video/mp4' };
+  const put = async () => {
+    await env.withSecurityRulesDisabled(async (c) => {
+      for (const p of ['uploads/req/r1/video_0-a.mp4', 'videos/r1/v1/v.mp4', 'videos/r1/v2/v.mp4'])
+        await uploadBytes(ref(c.storage(), p), bytes, mp4);
+    });
+  };
+  // 承認前は削除できない
+  await seed(newReq({ editorId: ED, status: 'review', submissionCount: 2 }));
+  await put();
+  await assertFails(deleteObject(ref(st(REQ), 'uploads/req/r1/video_0-a.mp4')));
+  await assertFails(deleteObject(ref(st(REQ), 'videos/r1/v1/v.mp4')));
+  // 承認後（v2を承認）
+  await seed(newReq({ editorId: ED, status: 'review', submissionCount: 2, approvedVersion: 2 }));
+  await put();
+  await assertFails(deleteObject(ref(st(OTHER), 'uploads/req/r1/video_0-a.mp4'))); // 別の依頼者は不可
+  await assertFails(deleteObject(ref(st(ED), 'uploads/req/r1/video_0-a.mp4'))); // 編集者は不可
+  await assertSucceeds(deleteObject(ref(st(REQ), 'uploads/req/r1/video_0-a.mp4')));
+  await assertSucceeds(deleteObject(ref(st(REQ), 'videos/r1/v1/v.mp4')));
+  await assertFails(deleteObject(ref(st(REQ), 'videos/r1/v2/v.mp4'))); // 承認された版は消せない
 });
 
 test('スタッフ: 依頼の作成と、他人の依頼の受付（編集開始）の両方ができる', async () => {

@@ -36,7 +36,14 @@ class RequestDetailScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          const AppHeader(title: '動画確認'),
+          // 受付待ちの依頼（新規依頼のカードから開いたとき）は「依頼確認」、それ以外は「動画確認」。
+          StreamBuilder<VideoRequest?>(
+            stream: Services.repo.watchRequest(requestId),
+            builder: (context, snap) => AppHeader(
+                title: snap.data?.status == RequestStatus.pending
+                    ? '依頼確認'
+                    : '動画確認'),
+          ),
           Expanded(
             child: RoleBuilder(
               dark: true,
@@ -89,6 +96,12 @@ class _BodyState extends State<_Body> {
 
   VideoRequest get q => widget.request;
   bool get _isEditor => widget.role == UserRole.editor;
+
+  /// この依頼を請け負っている編集者が自分か。
+  bool get _isAssignee => q.editorId == widget.uid;
+
+  /// 編集者が編集開始・問い合わせをしてよいか：担当がいなければ誰でも、いれば担当本人だけ。
+  bool get _canTakeOrAsk => q.editorId == null || _isAssignee;
 
   Future<void> _download(String path) async {
     final url = await Services.repo.downloadUrl(path);
@@ -182,8 +195,11 @@ class _BodyState extends State<_Body> {
   String _notice() {
     switch (q.status) {
       case RequestStatus.pending:
+        if (_isEditor && !_canTakeOrAsk) {
+          return '${q.editorName ?? '他の編集者'}が担当しています。';
+        }
         return _isEditor
-            ? '新しい依頼です。内容を確認して、編集を開始してください。'
+            ? '受付待ちの依頼です。編集を担当する場合、“受注”ボタンを選択してください。'
             : '依頼済みです。編集者の受付を待っています。';
       case RequestStatus.needsInfo:
         return q.reviewReason == null
@@ -210,7 +226,8 @@ class _BodyState extends State<_Body> {
     final s = q.status;
     final actions = <Widget>[];
 
-    if (_isEditor) {
+    // 提出・投稿は、依頼を請け負った編集者だけ。
+    if (_isEditor && _isAssignee) {
       if (s == RequestStatus.editing || s == RequestStatus.revision) {
         actions.add(DetailButton(
             s == RequestStatus.revision ? '修正動画を提出' : '初稿動画を提出',
@@ -236,7 +253,8 @@ class _BodyState extends State<_Body> {
             () => _run(() => repo.markPosted(requestId: q.id, uid: widget.uid),
                 done: '投稿済にしました')));
       }
-    } else {
+    } else if (!_isEditor && q.requesterId == widget.uid) {
+      // 依頼内容を直せるのは、依頼を出した本人だけ。
       if (s == RequestStatus.needsInfo) {
         actions.add(DetailButton('指示書を修正して再送信', AppColors.amber, _busy, () {
           final d = RequestDraft(requestId: q.id)
@@ -261,16 +279,19 @@ class _BodyState extends State<_Body> {
         s != RequestStatus.posted &&
         !q.approved;
 
-    // 編集者の受付待ちの依頼：画面下の「編集開始」「内容確認」。
-    final intake = _isEditor && s == RequestStatus.pending;
+    // 編集者の受付待ちの依頼：画面下の「受注」「内容確認」。
+    final intake = _isEditor && s == RequestStatus.pending && _canTakeOrAsk;
 
     // 依頼者の動画確認（承認／修正依頼）。Figma の「修正の依頼」欄とボタン2つ。
-    final reviewing = !_isEditor && s == RequestStatus.review && !q.approved;
+    final reviewing = !_isEditor &&
+        q.requesterId == widget.uid &&
+        s == RequestStatus.review &&
+        !q.approved;
 
     final list = ListView(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
       children: [
-        NoticeBar(_notice()),
+        NoticeBar(_notice(), light: q.status == RequestStatus.pending),
         SizedBox(height: r.x(16)),
         Text(q.brief.title, style: AppText.dark(r.x(20), height: 1.5)),
         SizedBox(height: r.x(10)),
@@ -326,13 +347,18 @@ class _BodyState extends State<_Body> {
             ),
             SizedBox(width: r.x(10)),
             Expanded(
-              child: DetailButton(
-                  '承認する',
-                  AppColors.blue,
-                  _busy,
-                  () => _run(
-                      () => repo.approve(requestId: q.id, uid: widget.uid),
-                      done: '承認しました。編集者へ通知しました')),
+              child: DetailButton('承認する', AppColors.blue, _busy, () async {
+                var cleaned = true;
+                final ok = await _run(
+                    () async => cleaned =
+                        await repo.approve(requestId: q.id, uid: widget.uid),
+                    done: '承認しました。編集者へ通知しました');
+                if (ok && !cleaned && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'エラー：添付素材の一部を削除できませんでした。通信を確認して、しばらくしてからお問い合わせください')));
+                }
+              }),
             ),
           ]),
         ],
@@ -351,56 +377,69 @@ class _BodyState extends State<_Body> {
           DetailRow('目的', q.brief.purpose),
           if (q.brief.structure.isNotEmpty) DetailRow('構成', q.brief.structure),
           DetailRow('納品条件', q.brief.deliveryTerms),
+          if (q.brief.otherNotes.isNotEmpty)
+            DetailRow('その他指示', q.brief.otherNotes),
           for (var i = 0; i < q.brief.scenes.length; i++)
             DetailRow('場面${i + 1}',
                 '${q.brief.scenes[i].title}\n${q.brief.scenes[i].instruction}'),
         ]),
         SizedBox(height: r.y(10)),
-        DetailCard(children: [
-          Text('添付資料', style: AppText.dark(r.x(16))),
-          // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
-          StreamBuilder<StaffAccess>(
-            stream: Services.repo.watchAccess(widget.uid),
-            builder: (context, snap) {
-              final canDownload = snap.data?.canEdit ?? false;
-              return Column(children: [
-                for (final a in q.attachments)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    textColor: AppColors.white,
-                    iconColor: AppColors.white,
-                    leading: a.kind == 'video'
-                        ? const Icon(Icons.play_circle_outline)
-                        : const AppIcon(AppIcons.attachFile,
-                            size: 24, color: AppColors.white),
-                    title: Text(a.name),
-                    subtitle: !canDownload && a.kind != 'video'
-                        ? Text('ダウンロードは編集者のみ',
-                            style: TextStyle(
-                                color: AppColors.white.withValues(alpha: 0.7)))
-                        : null,
-                    trailing: canDownload
-                        ? IconButton(
-                            tooltip: 'ダウンロード',
-                            color: AppColors.white,
-                            icon: const Icon(Icons.download),
-                            onPressed: () => _download(a.path),
-                          )
-                        : null,
-                    onTap: () async {
-                      if (a.kind == 'video') {
-                        await showVideoDialog(context,
-                            path: a.path, title: a.name);
-                      } else if (canDownload) {
-                        await _download(a.path);
-                      }
-                    },
-                  ),
-              ]);
-            },
-          ),
-        ]),
+        // 承認後は、添付素材を削除して承認された動画だけを保管する。
+        if (q.approved)
+          DetailCard(children: [
+            Text('添付資料', style: AppText.dark(r.x(16))),
+            Padding(
+                padding: EdgeInsets.only(top: r.y(6)),
+                child: Text('承認済みのため、添付資料は削除しました。承認された動画だけを保管しています',
+                    style: AppText.dark(r.x(14), weight: FontWeight.w400))),
+          ])
+        else
+          DetailCard(children: [
+            Text('添付資料', style: AppText.dark(r.x(16))),
+            // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
+            StreamBuilder<StaffAccess>(
+              stream: Services.repo.watchAccess(widget.uid),
+              builder: (context, snap) {
+                final canDownload = snap.data?.canEdit ?? false;
+                return Column(children: [
+                  for (final a in q.attachments)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      textColor: AppColors.white,
+                      iconColor: AppColors.white,
+                      leading: a.kind == 'video'
+                          ? const Icon(Icons.play_circle_outline)
+                          : const AppIcon(AppIcons.attachFile,
+                              size: 24, color: AppColors.white),
+                      title: Text(a.name),
+                      subtitle: !canDownload && a.kind != 'video'
+                          ? Text('ダウンロードは編集者のみ',
+                              style: TextStyle(
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.7)))
+                          : null,
+                      trailing: canDownload
+                          ? IconButton(
+                              tooltip: 'ダウンロード',
+                              color: AppColors.white,
+                              icon: const Icon(Icons.download),
+                              onPressed: () => _download(a.path),
+                            )
+                          : null,
+                      onTap: () async {
+                        if (a.kind == 'video') {
+                          await showVideoDialog(context,
+                              path: a.path, title: a.name);
+                        } else if (canDownload) {
+                          await _download(a.path);
+                        }
+                      },
+                    ),
+                ]);
+              },
+            ),
+          ]),
         SizedBox(height: r.y(10)),
         _Submissions(request: q, uid: widget.uid),
         if (canCancel) ...[
@@ -417,12 +456,12 @@ class _BodyState extends State<_Body> {
         child: Row(children: [
           Expanded(
             child: DetailButton(
-                '編集開始',
+                '受注',
                 AppColors.blue,
                 _busy,
                 () => _run(
                     () => repo.startEditing(requestId: q.id, uid: widget.uid),
-                    done: '編集を開始しました')),
+                    done: '受注しました。編集を担当します')),
           ),
           SizedBox(width: r.x(10)),
           Expanded(
@@ -463,7 +502,11 @@ class _Submissions extends StatelessWidget {
     return StreamBuilder<List<Submission>>(
       stream: Services.repo.watchSubmissions(request.id),
       builder: (context, snap) {
-        final subs = snap.data ?? const <Submission>[];
+        // 承認後は、承認された動画だけが残っている。
+        final subs = [
+          for (final s in snap.data ?? const <Submission>[])
+            if (!request.approved || s.version == request.approvedVersion) s
+        ];
         return DetailCard(children: [
           Text('提出された動画', style: AppText.dark(r.x(16))),
           if (subs.isEmpty)

@@ -395,7 +395,8 @@ class _EditDialog extends StatefulWidget {
 }
 
 class _EditDialogState extends State<_EditDialog> {
-  late final _name = TextEditingController(text: widget.user.name);
+  late final _lastName = TextEditingController(text: widget.user.nameParts.$1);
+  late final _firstName = TextEditingController(text: widget.user.nameParts.$2);
   late final _email = TextEditingController(text: widget.user.email);
   final _currentPassword = TextEditingController();
   final _newPassword = TextEditingController();
@@ -407,7 +408,8 @@ class _EditDialogState extends State<_EditDialog> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _lastName.dispose();
+    _firstName.dispose();
     _email.dispose();
     _currentPassword.dispose();
     _newPassword.dispose();
@@ -451,7 +453,9 @@ class _EditDialogState extends State<_EditDialog> {
         await user.updatePassword(newPassword);
       }
       await Services.repo.updateStaffProfile(widget.user.uid,
-          name: _name.text.trim(), email: email);
+          lastName: _lastName.text.trim(),
+          firstName: _firstName.text.trim(),
+          email: email);
       if (!widget.isMe) {
         await Services.repo.setStaffAccess(widget.user.uid,
             canRequest: _canRequest, canEdit: _canEdit, manager: _manager);
@@ -500,11 +504,23 @@ class _EditDialogState extends State<_EditDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: _name,
-                  decoration: const InputDecoration(
-                      labelText: '名前', border: OutlineInputBorder()),
-                ),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _lastName,
+                      decoration: const InputDecoration(
+                          labelText: '姓', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  SizedBox(width: r.x(12)),
+                  Expanded(
+                    child: TextField(
+                      controller: _firstName,
+                      decoration: const InputDecoration(
+                          labelText: '名', border: OutlineInputBorder()),
+                    ),
+                  ),
+                ]),
                 SizedBox(height: r.y(12)),
                 TextField(
                   controller: _email,

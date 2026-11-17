@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
 import '../core/responsive.dart';
-import '../data/services.dart';
-import '../domain/request_status.dart';
-import '../domain/staff_access.dart';
 import 'app_icon.dart';
 
 /// 下部バーのアイコンボタン1つ分。
@@ -37,93 +34,29 @@ class BarItem {
   final bool replaceToHome;
 }
 
-/// 画面下部の共通バー（ダークテイスト）。背景は透明、高さ56、アイコンを等間隔に置く。
-/// 未選択のアイコンは white、選択中（今表示している画面）は amber。
+/// 画面下部の共通バー（ダークテイスト）。背景は透明、高さ56。
+/// アイコンは「ホーム」（メイン画面 /menu へ戻る）だけ。メイン画面では選択中（amber）。
 /// タップすると、バーの背面にエフェクト（広がって消える円）が出てから移動する。
-/// アイコンは画面ごとに [items] で変えられる。省略時は役割に合わせた既定の3つ
-/// （ホーム／新規依頼（編集者は進捗状況）／納品ライブラリ）。
 class AppBottomBar extends StatelessWidget {
-  const AppBottomBar({super.key, this.items, this.homeRoute = '/home'});
-
-  /// 「ホーム」ボタンの移動先（依頼者ページは '/requester'）。
-  final String homeRoute;
-
-  /// 画面ごとのアイコン。null なら既定。
-  final List<BarItem>? items;
+  const AppBottomBar({super.key});
 
   static const _home = BarItem(
       label: 'ホーム',
       icon: AppIcons.viewCozy,
-      route: '/home',
+      route: '/menu',
       replaceToHome: true);
-  static const _library = BarItem(
-      label: 'ライブラリ', icon: AppIcons.systemUpdateAlt, route: '/library');
-  static const _add = BarItem(
-      label: '新規依頼',
-      icon: AppIcons.addCircle,
-      selectedIcon: AppIcons.addCircleFill,
-      route: '/chat',
-      size: 40);
-  static const _progress = BarItem(
-      label: '進捗状況',
-      // Figma の icon_list に進捗用がないため Material のアイコンを使う。
-      materialIcon: Icons.pending_actions,
-      route: '/progress',
-      size: 40);
-
-  /// ダッシュボード用のバー：「ホーム」（メイン画面へ）、「新規」（依頼チャット。依頼者権限のみ）、
-  /// 「ライブラリ」（本棚）、「登録スタッフ」（責任者のみ）。
-  static List<BarItem> dashboardItems(StaffAccess a) => [
-        const BarItem(
-            label: 'ホーム',
-            icon: AppIcons.viewCozy,
-            route: '/menu',
-            replaceToHome: true),
-        if (a.canRequest) _add,
-        // 本棚・スタッフのアイコンは icon_list にないため、Material のアイコンを使う。
-        const BarItem(
-            label: 'ライブラリ',
-            materialIcon: Icons.shelves,
-            route: '/library',
-            size: 36),
-        if (a.manager)
-          const BarItem(
-              label: '登録スタッフ',
-              materialIcon: Icons.groups_outlined,
-              route: '/staff',
-              size: 36),
-      ];
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    final uid = Services.uid;
     return SafeArea(
       top: false,
       child: SizedBox(
         height: r.x(56),
-        child: items != null
-            ? _row(context, items!)
-            : uid == null
-                ? _row(context, _defaults(UserRole.requester))
-                : StreamBuilder<UserRole?>(
-                    stream: Services.repo.watchRole(uid),
-                    builder: (context, snap) => _row(
-                        context, _defaults(snap.data ?? UserRole.requester)),
-                  ),
+        child: _row(context, const [_home]),
       ),
     );
   }
-
-  List<BarItem> _defaults(UserRole role) => [
-        BarItem(
-            label: _home.label,
-            icon: _home.icon,
-            route: homeRoute,
-            replaceToHome: true),
-        role == UserRole.editor ? _progress : _add,
-        _library
-      ];
 
   Widget _row(BuildContext context, List<BarItem> list) {
     final here = ModalRoute.of(context)?.settings.name;

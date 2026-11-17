@@ -78,6 +78,16 @@ void main() {
     expect(daysUntilDue(null, now), isNull);
   });
 
+  test('新規依頼：依頼から1週間以内（暦日）。超えたら受付待ち', () {
+    final now = DateTime(2026, 11, 17, 9);
+    VideoRequest at(DateTime? t) =>
+        req('a', RequestStatus.pending, createdAt: t);
+    expect(isNewRequest(at(DateTime(2026, 11, 17, 8)), now), isTrue);
+    expect(isNewRequest(at(DateTime(2026, 11, 10, 0)), now), isTrue);
+    expect(isNewRequest(at(DateTime(2026, 11, 9, 23)), now), isFalse);
+    expect(isNewRequest(at(null), now), isTrue);
+  });
+
   group('ホームの絞り込み', () {
     final all = [
       req('p', RequestStatus.pending),
@@ -91,6 +101,15 @@ void main() {
 
     List<String> ids(HomeFilter f, UserRole role) =>
         [for (final q in applyHomeFilter(all, role, f)) q.id];
+
+    test('ダッシュボードのタブは進捗で分ける', () {
+      List<String> tab(DashboardTab t) =>
+          [for (final q in applyDashboardTab(all, t)) q.id];
+      expect(tab(DashboardTab.all), ['p', 'n', 'e', 'v', 'va', 'x']);
+      expect(tab(DashboardTab.request), ['p', 'n']);
+      expect(tab(DashboardTab.edit), ['e', 'x']);
+      expect(tab(DashboardTab.confirm), ['v', 'va']);
+    });
 
     test('進行中は投稿済を除く', () {
       expect(ids(HomeFilter.active, UserRole.editor),

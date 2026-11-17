@@ -133,6 +133,7 @@ class VideoRequest {
 
 enum NotificationType {
   newRequest,
+  assigned,
   reviewRequested,
   revisionRequested,
   approved,

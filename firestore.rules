@@ -64,9 +64,9 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isManager());
       allow write: if signedIn() && request.auth.uid == uid
         && !('role' in request.resource.data);
-      // 責任者は、自分以外のスタッフの名前・メールアドレスを直し、情報を削除できる。
+      // 責任者は、自分以外のスタッフの名前（姓・名・結合した name）・メールアドレスを直し、情報を削除できる。
       allow update: if isManager() && request.auth.uid != uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'lastName', 'firstName', 'email']);
       allow delete: if isManager() && request.auth.uid != uid;
     }
 
@@ -131,10 +131,11 @@ service cloud.firestore {
             && resource.data.submissionCount >= 1
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['approvedVersion', 'approvedAt', 'updatedAt']))
-          // 編集者: 受付待ち → 編集中（担当は開始した編集者）
+          // 編集者: 受付待ち → 編集中（担当は開始した編集者）。担当が決まっている依頼は、その担当だけ
+          // （要確認への回答後に受付待ちへ戻った依頼を、担当が再開できる）。
           || (isEditor()
             && resource.data.status == 'pending'
-            && resource.data.editorId == null
+            && (resource.data.editorId == null || resource.data.editorId == request.auth.uid)
             && request.resource.data.status == 'editing'
             && request.resource.data.editorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -233,6 +234,10 @@ service cloud.firestore {
             && nid == request.resource.data.requestId + '_new'
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')
+          || (request.resource.data.type == 'assigned'
+            && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'editing')
           || (request.resource.data.type == 'resubmitted'
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')

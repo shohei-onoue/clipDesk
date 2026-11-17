@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
+import '../data/request_repository.dart';
 import '../data/services.dart';
 import '../widgets/app_header.dart';
 
 /// スタッフの登録フォーム。責任者からの招待メールのリンクから開く。
-/// 名前とパスワードを決めて登録すると、招待された権限がそのまま付く。
+/// 姓・名とパスワードを決めて登録すると、招待された権限がそのまま付く。
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -18,7 +19,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _name = TextEditingController();
+  final _lastName = TextEditingController();
+  final _firstName = TextEditingController();
   final _email =
       TextEditingController(text: Uri.base.queryParameters['email'] ?? '');
   final _password = TextEditingController();
@@ -27,7 +29,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _lastName.dispose();
+    _firstName.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -45,10 +48,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     if (_busy) return;
-    final name = _name.text.trim();
+    final lastName = _lastName.text.trim();
+    final firstName = _firstName.text.trim();
+    final name = joinName(lastName, firstName);
     final email = _email.text.trim();
-    if (name.isEmpty || email.isEmpty || _password.text.length < 6) {
-      setState(() => _error = '名前・メールアドレスを入力し、パスワードは6文字以上にしてください');
+    if (lastName.isEmpty ||
+        firstName.isEmpty ||
+        email.isEmpty ||
+        _password.text.length < 6) {
+      setState(() => _error = '姓・名・メールアドレスを入力し、パスワードは6文字以上にしてください');
       return;
     }
     setState(() {
@@ -65,6 +73,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       try {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'email': user.email ?? email,
+          'lastName': lastName,
+          'firstName': firstName,
           'name': name,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -103,11 +113,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     padding: const EdgeInsets.all(20),
                     children: [
                       Text(
-                          '招待ありがとうございます。名前とパスワードを決めて登録してください。次回からはこのパスワードでログインします。',
+                          '招待ありがとうございます。姓・名とパスワードを決めて登録してください。次回からはこのパスワードでログインします。',
                           style: AppText.dark(14,
                               weight: FontWeight.w400, height: 1.6)),
                       const SizedBox(height: 16),
-                      TextField(controller: _name, decoration: deco('名前')),
+                      Row(children: [
+                        Expanded(
+                            child: TextField(
+                                controller: _lastName, decoration: deco('姓'))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: TextField(
+                                controller: _firstName, decoration: deco('名'))),
+                      ]),
                       const SizedBox(height: 12),
                       TextField(
                           controller: _email,

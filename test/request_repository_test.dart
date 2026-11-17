@@ -11,6 +11,15 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeStorage extends StorageService {
   bool fail = false;
   final saved = <String>[];
+  final deleted = <String>[];
+  bool failDelete = false;
+
+  @override
+  Future<bool> delete(String path) async {
+    if (failDelete) return false;
+    deleted.add(path);
+    return true;
+  }
 
   @override
   Future<void> upload(String path, UploadFile file,
@@ -69,6 +78,24 @@ void main() {
     expect(n.single['audience'], 'editors');
   });
 
+  test('新規依頼の通知：全編集者に出るが、他の編集者が担当になったら消える', () async {
+    await create();
+    Future<List<String>> types(String uid) async => [
+          for (final n
+              in await repo.watchNotifications(uid, UserRole.editor).first)
+            n.type.name
+        ];
+    expect(await types('ed'), ['newRequest']);
+    expect(await types('ed2'), ['newRequest']);
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    // 担当の本人には残り、他の編集者からは消える。
+    expect(await types('ed'), ['newRequest']);
+    expect(await types('ed2'), isEmpty);
+    // 依頼者には、担当が決まった通知が届く。
+    final req = await repo.watchNotifications('req', UserRole.requester).first;
+    expect(req.single.type.name, 'assigned');
+  });
+
   test('二重送信しても依頼と通知は1件', () async {
     await Future.wait([create(), create()]);
     await create();
@@ -119,8 +146,8 @@ void main() {
     expect(n['revisionRequested']!['recipientId'], 'ed');
     expect(n['approved']!['recipientId'], 'ed');
     expect(n['reviewRequested']!['recipientId'], 'req');
-    // 新規1 + 初稿1 + 修正指示1 + 修正動画1 + 承認1
-    expect((await notes()).length, 5);
+    // 新規・担当決定・初稿・修正指示・修正動画・承認
+    expect((await notes()).length, 6);
   });
 
   test('動画の保存に失敗したら、初稿確認にも通知にも提出記録にもならない', () async {
@@ -140,7 +167,55 @@ void main() {
                 .get())
             .docs,
         isEmpty);
-    expect((await notes()).length, 1); // 新規依頼の通知のみ
+    expect((await notes()).length, 2); // 新規依頼・担当決定のみ
+  });
+
+  test('問い合わせた編集者が担当。再送信後に再開でき、他の編集者は不可', () async {
+    await create();
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺が不明');
+    await expectLater(repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: 'x'),
+        throwsA(isA<RequestStateException>()));
+    await repo.resubmitBrief(
+        requestId: 'r1', uid: 'req', brief: brief, dueDate: due);
+    await expectLater(repo.startEditing(requestId: 'r1', uid: 'ed2'),
+        throwsA(isA<RequestStateException>()));
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    expect((await doc())['editorId'], 'ed');
+  });
+
+  test('動画の提出は、編集を受けた担当の編集者だけ', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await expectLater(
+        repo.submitVideo(requestId: 'r1', uid: 'ed2', file: _file('v1.mp4')),
+        throwsA(isA<RequestStateException>()));
+    expect((await doc())['status'], 'editing');
+    expect((await doc())['submissionCount'], 0);
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    expect((await doc())['status'], 'review');
+  });
+
+  test('承認すると、添付素材と承認されなかった動画をStorageから消し、承認版だけ残す', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    await repo.requestRevision(requestId: 'r1', uid: 'req', instruction: '直して');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v2.mp4'));
+    expect(storage.deleted, isEmpty);
+    expect(await repo.approve(requestId: 'r1', uid: 'req'), isTrue);
+    expect(storage.deleted, hasLength(3)); // 動画・資料の添付2件＋初稿v1
+    expect(storage.deleted.any((p) => p.contains('uploads/req/r1/')), isTrue);
+    expect(storage.deleted.any((p) => p.contains('videos/r1/v1/')), isTrue);
+    expect(storage.deleted.any((p) => p.contains('videos/r1/v2/')), isFalse);
+  });
+
+  test('削除に失敗しても承認は完了し、false を返す', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    storage.failDelete = true;
+    expect(await repo.approve(requestId: 'r1', uid: 'req'), isFalse);
+    expect((await doc())['approvedVersion'], 1);
   });
 
   test('二重操作: 2回目は拒否され、通知も重複しない', () async {
@@ -287,6 +362,21 @@ void main() {
     final list = await repo.watchUsers().first;
     expect(list.single.email, 'a@x.y');
     expect(list.single.name, 'あ');
+  });
+
+  test('スタッフ情報の更新：姓・名を別々に保存し、name は「姓 名」で結合する', () async {
+    await db
+        .collection('users')
+        .doc('a')
+        .set({'email': 'a@x.y', 'name': '山田 太郎'});
+    var u = (await repo.watchUsers().first).single;
+    expect(u.nameParts, ('山田', '太郎')); // 昔の登録は名前を空白で分ける
+    await repo.updateStaffProfile('a',
+        lastName: '佐藤', firstName: '花子', email: 'a@x.y');
+    u = (await repo.watchUsers().first).single;
+    expect((u.lastName, u.firstName, u.name), ('佐藤', '花子', '佐藤 花子'));
+    expect(splitName('山田　太郎'), ('山田', '太郎'));
+    expect(splitName('山田'), ('山田', ''));
   });
 
   test('全案件：他人の依頼も一覧に出る', () async {

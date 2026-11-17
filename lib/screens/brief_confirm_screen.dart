@@ -200,6 +200,8 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                           line.contains('：')
                               ? line.split('：').skip(1).join('：')
                               : ''),
+                    if (b.otherNotes.isNotEmpty)
+                      DetailRow('その他指示', b.otherNotes),
                     for (var i = 0; i < b.scenes.length; i++)
                       DetailRow('場面${i + 1}',
                           '${b.scenes[i].title}\n${b.scenes[i].instruction}'),

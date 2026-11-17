@@ -111,8 +111,11 @@ class DetailButton extends StatelessWidget {
 
 /// 画面上部のお知らせ（琥珀の枠）。
 class NoticeBar extends StatelessWidget {
-  const NoticeBar(this.text, {super.key});
+  const NoticeBar(this.text, {super.key, this.light = false});
   final String text;
+
+  /// true なら、白い背景に暗い文字で出す（受付待ちの案内など）。
+  final bool light;
 
   @override
   Widget build(BuildContext context) {
@@ -122,11 +125,15 @@ class NoticeBar extends StatelessWidget {
       constraints: BoxConstraints(minHeight: r.x(49)),
       padding: EdgeInsets.symmetric(horizontal: r.x(14), vertical: r.x(12)),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.08),
+        color:
+            light ? AppColors.white : AppColors.white.withValues(alpha: 0.08),
         border: Border.all(color: AppColors.amber, width: 2),
         borderRadius: BorderRadius.circular(r.x(15)),
       ),
-      child: Text(text, style: AppText.dark(r.x(14), height: 21 / 14)),
+      child: Text(text,
+          style: light
+              ? AppText.noto(r.x(14), height: 21 / 14)
+              : AppText.dark(r.x(14), height: 21 / 14)),
     );
   }
 }
