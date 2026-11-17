@@ -105,9 +105,9 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && request.resource.data.requesterId == resource.data.requesterId
         && (
-          // 依頼者: 要確認 → 受付待ち（指示書を直して再送信）
+          // 依頼者: 要確認 → 受付待ち（指示書を直して再送信）。受付待ちの間の内容編集も同じ項目だけ。
           (resource.data.requesterId == request.auth.uid && isRequester()
-            && resource.data.status == 'needsInfo'
+            && (resource.data.status == 'needsInfo' || resource.data.status == 'pending')
             && request.resource.data.status == 'pending'
             && request.resource.data.brief.purpose.size() > 0
             && request.resource.data.brief.deliveryTerms.size() > 0

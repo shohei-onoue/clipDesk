@@ -84,7 +84,10 @@ RequestStatus? nextStatus({
         return RequestStatus.editing;
       }
     case RequestAction.resubmit:
-      if (role == UserRole.requester && current == RequestStatus.needsInfo) {
+      // 要確認の回答のほか、受付待ち（まだ受注されていない）の間の内容編集にも使う。
+      if (role == UserRole.requester &&
+          (current == RequestStatus.needsInfo ||
+              current == RequestStatus.pending)) {
         return RequestStatus.pending;
       }
     case RequestAction.submitVideo:

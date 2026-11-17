@@ -382,14 +382,16 @@ class RequestRepository {
           'reviewReason': null,
         },
         // 担当の編集者がいるときだけ、その人へ通知する。
-        notification: (r) => r.editorId == null
-            ? null
-            : _Notice(
-                id: '${requestId}_resubmit_${r.reviewRound}',
-                type: NotificationType.resubmitted,
-                recipientId: r.editorId,
-                message: '指示書が再送信されました：${brief.title.trim()}',
-              ),
+        // 要確認への回答のときだけ通知する（受付待ちの内容編集は通知しない）。
+        notification: (r) =>
+            r.editorId == null || r.status != RequestStatus.needsInfo
+                ? null
+                : _Notice(
+                    id: '${requestId}_resubmit_${r.reviewRound}',
+                    type: NotificationType.resubmitted,
+                    recipientId: r.editorId,
+                    message: '指示書が再送信されました：${brief.title.trim()}',
+                  ),
       );
 
   /// 修正指示を送る（初稿確認 → 修正）。

@@ -278,7 +278,21 @@ void main() {
     expect(d['status'], 'pending');
     expect(d['brief']['deliveryTerms'], '30秒・縦型');
     expect(d['reviewReason'], isNull);
-    // 再送信後の再実行は拒否される
+    // 受付待ちの間は、依頼者が内容を何度でも直せる（編集者への通知は増えない）。
+    final before = (await notes()).length;
+    await repo.resubmitBrief(
+        requestId: 'r1',
+        uid: 'req',
+        brief: brief.copyWith(deliveryTerms: '60秒・横型'),
+        dueDate: due);
+    expect((await doc())['brief']['deliveryTerms'], '60秒・横型');
+    expect((await notes()).length, before);
+    // 他人は直せない。受注された後も直せない。
+    await expectLater(
+        repo.resubmitBrief(
+            requestId: 'r1', uid: 'other', brief: brief, dueDate: due),
+        throwsA(isA<RequestStateException>()));
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
     await expectLater(
         repo.resubmitBrief(
             requestId: 'r1', uid: 'req', brief: brief, dueDate: due),

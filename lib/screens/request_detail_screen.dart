@@ -198,9 +198,10 @@ class _BodyState extends State<_Body> {
         if (_isEditor && !_canTakeOrAsk) {
           return '${q.editorName ?? '他の編集者'}が担当しています。';
         }
-        return _isEditor
-            ? '受付待ちの依頼です。編集を担当する場合、“受注”ボタンを選択してください。'
-            : '依頼済みです。編集者の受付を待っています。';
+        // 依頼者本人と、それ以外で言い方を分ける。
+        return !_isEditor && q.requesterId == widget.uid
+            ? '編集担当者の受注待ちです。'
+            : '編集者の受注待ちです。';
       case RequestStatus.needsInfo:
         return q.reviewReason == null
             ? '要確認：編集者から確認があります。'
@@ -279,8 +280,11 @@ class _BodyState extends State<_Body> {
         s != RequestStatus.posted &&
         !q.approved;
 
-    // 編集者の受付待ちの依頼：画面下の「受注」「内容確認」。
+    // 受付待ちの依頼の、画面下のボタン。
+    // 編集者：「受注」「問合せ」。依頼者本人：「内容編集」「依頼取消」。
     final intake = _isEditor && s == RequestStatus.pending && _canTakeOrAsk;
+    final ownerPending =
+        !_isEditor && q.requesterId == widget.uid && s == RequestStatus.pending;
 
     // 依頼者の動画確認（承認／修正依頼）。Figma の「修正の依頼」欄とボタン2つ。
     final reviewing = !_isEditor &&
@@ -442,12 +446,37 @@ class _BodyState extends State<_Body> {
           ]),
         SizedBox(height: r.y(10)),
         _Submissions(request: q, uid: widget.uid),
-        if (canCancel) ...[
+        if (canCancel && !ownerPending) ...[
           SizedBox(height: r.x(16)),
           DetailButton('依頼を取り消す', AppColors.amber, _busy, _cancelRequest),
         ],
       ],
     );
+    if (ownerPending) {
+      return Column(children: [
+        Expanded(child: list),
+        Padding(
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
+          child: Row(children: [
+            Expanded(
+              child: DetailButton('内容編集', AppColors.blue, _busy, () {
+                // 指示書の入力画面を、いまの内容を入れた状態で開く。
+                final d = RequestDraft(requestId: q.id)
+                  ..brief = q.brief
+                  ..dueDate = q.dueDate
+                  ..original = q;
+                Navigator.of(context).pushNamed('/chat', arguments: d);
+              }),
+            ),
+            SizedBox(width: r.x(10)),
+            Expanded(
+              child:
+                  DetailButton('依頼取消', AppColors.amber, _busy, _cancelRequest),
+            ),
+          ]),
+        ),
+      ]);
+    }
     if (!intake) return list;
     return Column(children: [
       Expanded(child: list),
@@ -465,7 +494,7 @@ class _BodyState extends State<_Body> {
           ),
           SizedBox(width: r.x(10)),
           Expanded(
-            child: DetailButton('内容確認', AppColors.white, _busy, () async {
+            child: DetailButton('問合せ', AppColors.white, _busy, () async {
               final nav = Navigator.of(context);
               final message =
                   await _askText('依頼者へのメッセージ', '確認したい内容を入力（音声でも入力できます）');
