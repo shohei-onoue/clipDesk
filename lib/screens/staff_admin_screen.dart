@@ -11,6 +11,7 @@ import '../data/services.dart';
 import '../domain/staff_access.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/role_chip.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 
 /// スタッフ管理（責任者のみ）。登録済みのスタッフを一覧で表示し、権限を変更できる。
@@ -28,6 +29,7 @@ class StaffAdminScreen extends StatelessWidget {
       data: nightTheme,
       child: Scaffold(
         backgroundColor: AppColors.ink,
+        drawer: const AppDrawer(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: FloatingActionButton(
           tooltip: 'スタッフを招待',

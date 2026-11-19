@@ -151,7 +151,7 @@ class ProgressCard extends StatelessWidget {
 
   final VideoRequest request;
 
-  /// true なら黒の透過率50%をかぶせる（問合せ中で、依頼者以外が見るとき）。
+  /// true なら開けない印として扱う（問合せ中で、依頼者以外が見るとき）。黒の透過率50%は、問合せ・編集中のカードに常にかかる。
   final bool locked;
   final VoidCallback? onTap;
 
@@ -185,6 +185,23 @@ class ProgressCard extends StatelessWidget {
     final value = request.status == RequestStatus.pending
         ? 0.0
         : progressValue(request.status);
+    // 編集担当が決まった「問合せ」「編集中」のカードは、黒の透過率50%をかぶせ、バッジを中央に置く。
+    final dim = locked ||
+        request.status == RequestStatus.needsInfo ||
+        request.status == RequestStatus.editing;
+    Widget badge() => Container(
+          width: r.x(70),
+          height: r.x(30),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: badgeFilled ? badgeColor : AppColors.white,
+            border: badgeFilled ? null : Border.all(color: badgeColor),
+            borderRadius: BorderRadius.circular(r.x(10)),
+          ),
+          child: Text(badgeText,
+              style: AppText.noto(r.x(14),
+                  color: badgeFilled ? AppColors.white : badgeColor)),
+        );
     return Semantics(
       button: true,
       child: GestureDetector(
@@ -207,27 +224,7 @@ class ProgressCard extends StatelessWidget {
                       AttachmentThumb(
                           key: ValueKey(request.id),
                           attachment: thumbnailAttachment(request)),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          width: r.x(70),
-                          height: r.x(30),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: badgeFilled ? badgeColor : AppColors.white,
-                            border: badgeFilled
-                                ? null
-                                : Border.all(color: badgeColor),
-                            borderRadius: BorderRadius.circular(r.x(10)),
-                          ),
-                          child: Text(badgeText,
-                              style: AppText.noto(r.x(14),
-                                  color: badgeFilled
-                                      ? AppColors.white
-                                      : badgeColor)),
-                        ),
-                      ),
+                      if (!dim) Positioned(right: 0, top: 0, child: badge()),
                     ],
                   ),
                 ),
@@ -296,7 +293,7 @@ class ProgressCard extends StatelessWidget {
               ],
             ),
           ),
-          if (locked)
+          if (dim) ...[
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -307,6 +304,8 @@ class ProgressCard extends StatelessWidget {
                 ),
               ),
             ),
+            Center(child: IgnorePointer(child: badge())),
+          ],
         ]),
       ),
     );

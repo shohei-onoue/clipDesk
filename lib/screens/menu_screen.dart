@@ -41,6 +41,7 @@ class MenuScreen extends StatelessWidget {
           children: [
             AppHeader(
               title: 'ホーム',
+              showSettings: true,
               leadingIcon: AppIcons.logout,
               leadingTooltip: 'ログアウト',
               onLeading: () async {

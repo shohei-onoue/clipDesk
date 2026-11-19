@@ -6,6 +6,7 @@ import '../core/night_theme.dart';
 import '../core/responsive.dart';
 import '../data/invite_mailer.dart';
 import '../data/services.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/tips_card.dart';
 
@@ -68,6 +69,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
       data: nightTheme,
       child: Scaffold(
         backgroundColor: AppColors.ink,
+        drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [
             const AppHeader(title: 'スタッフ招待'),

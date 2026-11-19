@@ -24,7 +24,8 @@ enum AppIcons {
   notifications('notifications'),
   notificationsFill('notifications_fill'),
   settings('settings'),
-  settingsFill('settings_fill');
+  settingsFill('settings_fill'),
+  tune('tune');
 
   const AppIcons(this.file);
   final String file;

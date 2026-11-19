@@ -456,7 +456,9 @@ class InquiryHistoryScreen extends StatelessWidget {
                         _Bubble(false, i.question,
                             sender: '${i.editorName ?? '編集者'}（編集者）'),
                         if (i.answer != null)
-                          _Bubble(true, i.answer!, sender: '依頼者'),
+                          _Bubble(true, i.answer!, sender: '依頼者')
+                        else
+                          const _Bubble(false, 'この問合せへの回答は、まだありません。'),
                       ],
                     ],
                   );
