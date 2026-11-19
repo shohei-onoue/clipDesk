@@ -429,13 +429,11 @@ class RequestRepository {
     required DateTime dueDate,
     String? answer,
   }) async {
-    // 問合せへの回答なら、送信後に履歴へ記録するため、今の回数を控える。
-    int? round;
+    // 問合せへの回答なら、送信後に履歴へ記録する（要確認の依頼への再送信のときだけ）。
+    var isAnswer = false;
     if (answer != null && answer.trim().isNotEmpty) {
       final pre = await _requests.doc(requestId).get();
-      if (pre.data()?['status'] == RequestStatus.needsInfo.name) {
-        round = (pre.data()?['reviewRound'] as num?)?.toInt();
-      }
+      isAnswer = pre.data()?['status'] == RequestStatus.needsInfo.name;
     }
     await _transition(
       requestId: requestId,
@@ -463,13 +461,18 @@ class RequestRepository {
                 ),
     );
     // 再送信は成立している。履歴に回答を残せなかったときは、理由を伝える（黙って捨てない）。
-    if (round != null) {
+    if (isAnswer) {
       try {
-        final h =
-            _requests.doc(requestId).collection('inquiries').doc('r$round');
-        // 履歴を保存する前に届いた問合せには、書き足す先が無い。そのときは何もしない。
-        if (!(await h.get()).exists) return;
-        await h.update({
+        // 回数の番号に頼らず、まだ回答のない最新の問合せに書く。
+        final all =
+            await _requests.doc(requestId).collection('inquiries').get();
+        final open = all.docs.where((d) => d.data()['answer'] == null).toList()
+          ..sort((x, y) => ((y.data()['round'] as num?) ?? 0)
+              .compareTo((x.data()['round'] as num?) ?? 0));
+        if (open.isEmpty) {
+          throw StateError('回答を書き込む問合せが見つかりません');
+        }
+        await open.first.reference.update({
           'answer': answer!.trim(),
           'answeredAt': FieldValue.serverTimestamp(),
         });
@@ -601,10 +604,11 @@ class RequestRepository {
     // 問合せ履歴への記録。問合せ自体は成立しているので、失敗したら理由を伝える（黙って捨てない）。
     try {
       final ref = _requests.doc(requestId);
-      final round = ((await ref.get()).data()?['reviewRound'] as num?)?.toInt();
+      // 取引で増やした後の回数を、サーバーから読む（キャッシュの古い値だと番号がずれる）。
+      final latest = await ref.get(const GetOptions(source: Source.server));
+      final round = (latest.data()?['reviewRound'] as num?)?.toInt();
       if (round != null) {
-        final editorName =
-            ((await ref.get()).data()?['editorName'] as String?) ?? name;
+        final editorName = (latest.data()?['editorName'] as String?) ?? name;
         await ref.collection('inquiries').doc('r$round').set({
           'round': round,
           'question': reason.trim(),

@@ -387,6 +387,27 @@ void main() {
         isEmpty);
   });
 
+  test('問合せ履歴：履歴の番号が依頼の回数とずれていても、回答は未回答の最新の問合せに書く', () async {
+    await create();
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺は？');
+    // 実機で起きた状態：履歴は r0、依頼の reviewRound は 1。
+    final col = db.collection('requests').doc('r1').collection('inquiries');
+    final cur = (await col.get()).docs.single;
+    await col.doc('r0').set({...cur.data(), 'round': 0});
+    if (cur.id != 'r0') await col.doc(cur.id).delete();
+    await repo.resubmitBrief(
+        requestId: 'r1',
+        uid: 'req',
+        brief: brief,
+        dueDate: due,
+        answer: '30秒です');
+    expect((await repo.watchInquiries('r1').first).single.answer, '30秒です');
+    // 回答の通知が編集者へ届く（回答本文つき）。
+    final n = (await notes()).where((x) => x['type'] == 'resubmitted').single;
+    expect(n['recipientId'], 'ed');
+    expect(n['message'], contains('30秒です'));
+  });
+
   test('2回目の要確認でも通知は別IDで作られる', () async {
     await create();
     await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: 'a');

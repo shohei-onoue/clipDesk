@@ -6,7 +6,7 @@ import '../core/responsive.dart';
 import 'app_icon.dart';
 
 /// 画面上部のAppBar（ダークテイスト）。高さ61。背景は ink、下端だけ accent へ変わる線。
-/// 左に戻る（または [leadingIcon]）、中央にタイトル、右に [actions] とメニューを置く。
+/// 左にハンバーガー（ドロワーがある画面）、ドロワーがなければ戻る。中央にタイトル、右に [actions] と設定（歯車）を置く。
 /// ボタンは必ず左端・右端に寄せ、タイトルだけを中央にする。アイコンには label（tooltip）を付ける。
 class AppHeader extends StatelessWidget {
   const AppHeader({
@@ -23,13 +23,13 @@ class AppHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onMenu;
 
-  /// 未接続のときは設定アイコンを出さない（押しても反応しないボタンを置かない）。
+  /// 設定画面は予定のため、未接続の間は押しても何も起きない。
   final VoidCallback? onSettings;
 
-  /// 右端（メニューの手前）に並べるボタン。
+  /// 右端（設定の手前）に並べるボタン。
   final List<Widget> actions;
 
-  /// 左端のアイコン。省略すると「戻る」。
+  /// 左端のアイコン。省略するとドロワーがあればハンバーガー、なければ「戻る」。
   final AppIcons? leadingIcon;
   final String? leadingTooltip;
   final VoidCallback? onLeading;
@@ -39,7 +39,8 @@ class AppHeader extends StatelessWidget {
     final r = context.r;
     final hasDrawer = Scaffold.maybeOf(context)?.hasDrawer ?? false;
     final canPop = Navigator.of(context).canPop();
-    final showLeading = leadingIcon != null || canPop;
+    final showMenu = leadingIcon == null && (hasDrawer || onMenu != null);
+    final showLeading = leadingIcon != null || showMenu || canPop;
     final tap = r.x(48); // タップ領域
     return Container(
       height: r.x(61),
@@ -61,11 +62,16 @@ class AppHeader extends StatelessWidget {
                 width: tap,
                 height: tap,
                 child: IconButton(
-                  tooltip: leadingTooltip ?? '戻る',
-                  onPressed:
-                      onLeading ?? () => Navigator.of(context).maybePop(),
-                  icon: AppIcon(leadingIcon ?? AppIcons.back,
-                      size: r.x(32), color: AppColors.white),
+                  tooltip: leadingTooltip ?? (showMenu ? 'メニューを開く' : '戻る'),
+                  onPressed: onLeading ??
+                      (showMenu
+                          ? (onMenu ??
+                              () => Scaffold.maybeOf(context)?.openDrawer())
+                          : () => Navigator.of(context).maybePop()),
+                  icon: AppIcon(
+                      leadingIcon ?? (showMenu ? AppIcons.menu : AppIcons.back),
+                      size: r.x(32),
+                      color: AppColors.white),
                 ),
               ),
             ),
@@ -86,20 +92,11 @@ class AppHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ...actions,
-                if (onSettings != null)
-                  _HeaderIcon(
-                      icon: AppIcons.settings,
-                      tooltip: '設定',
-                      onTap: onSettings,
-                      size: tap),
-                if (hasDrawer || onMenu != null)
-                  _HeaderIcon(
-                    icon: AppIcons.menu,
-                    tooltip: 'メニューを開く',
-                    size: tap,
-                    onTap:
-                        onMenu ?? () => Scaffold.maybeOf(context)?.openDrawer(),
-                  ),
+                _HeaderIcon(
+                    icon: AppIcons.settings,
+                    tooltip: '設定',
+                    onTap: onSettings,
+                    size: tap),
               ],
             ),
           ),
