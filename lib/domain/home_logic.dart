@@ -160,3 +160,27 @@ List<AppNotification> unreadOf(List<AppNotification> all, DateTime? seenAt) => [
             n.createdAt!.isAfter(seenAt))
           n,
     ];
+
+/// 通知の内容がすでに処理済みか。処理済みの通知は一覧から外し、未読として数えない。
+/// 承認・取り消しの通知は「やること」が無いため、依頼の状態では判定できない
+/// （ここでは false。見たかどうかは [unreadOf] で見る）。
+bool isNotificationProcessed(
+    AppNotification n, VideoRequest? request, String uid) {
+  if (n.type == NotificationType.approved ||
+      n.type == NotificationType.cancelled) {
+    return false;
+  }
+  if (request == null) return true; // 依頼が削除された
+  return switch (n.type) {
+    // 他の編集者が受注した、または受付待ちでなくなった。
+    NotificationType.newRequest => request.status != RequestStatus.pending ||
+        (request.editorId != null && request.editorId != uid),
+    NotificationType.resubmitted => request.status != RequestStatus.pending,
+    NotificationType.assigned => request.status != RequestStatus.editing,
+    NotificationType.reviewRequested => request.status != RequestStatus.review,
+    NotificationType.revisionRequested =>
+      request.status != RequestStatus.revision,
+    NotificationType.needsInfo => request.status != RequestStatus.needsInfo,
+    _ => false,
+  };
+}

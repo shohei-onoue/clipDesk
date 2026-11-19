@@ -27,7 +27,16 @@ class UnreadBuilder extends StatelessWidget {
         stream: Services.repo.watchNotifications(uid, role),
         builder: (context, snap) {
           final all = snap.data ?? const <AppNotification>[];
-          return builder(context, all, unreadOf(all, seen.data));
+          // 処理が必要な通知は、見ても消さない。承認・取り消しは、見たら外す。
+          final open = [
+            for (final n in all)
+              if (n.type != NotificationType.approved &&
+                  n.type != NotificationType.cancelled)
+                n
+              else if (unreadOf([n], seen.data).isNotEmpty)
+                n,
+          ];
+          return builder(context, open, open);
         },
       ),
     );

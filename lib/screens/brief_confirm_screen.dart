@@ -9,9 +9,12 @@ import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
 import '../domain/draft.dart';
+import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/attachment_thumb.dart';
 import '../widgets/detail_widgets.dart';
+import '../widgets/video_player_dialog.dart';
 import '../widgets/status_style.dart';
 
 /// 04 指示書確認。案件詳細と同じ「詳細」のレイアウトで、入力した内容と添付ファイルを確認し、修正に戻る／送信できる。
@@ -140,18 +143,26 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                 name: a.name,
                 size: a.size,
                 video: a.kind == 'video',
-                file: null as UploadFile?
+                file: null as UploadFile?,
+                path: a.path,
               )
           ]
         : [
             for (final f in d.videos)
-              (name: f.name, size: f.size, video: true, file: f as UploadFile?),
+              (
+                name: f.name,
+                size: f.size,
+                video: true,
+                file: f as UploadFile?,
+                path: null as String?
+              ),
             for (final f in d.references)
               (
                 name: f.name,
                 size: f.size,
                 video: false,
-                file: f as UploadFile?
+                file: f as UploadFile?,
+                path: null as String?
               ),
           ];
     return Scaffold(
@@ -222,7 +233,8 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                           name: f.name,
                           size: f.size,
                           video: f.video,
-                          file: f.file),
+                          file: f.file,
+                          path: f.path),
                     if (d.original != null)
                       Padding(
                         padding: EdgeInsets.only(top: r.x(6)),
@@ -281,6 +293,7 @@ class _AttachmentTile extends StatelessWidget {
     required this.size,
     required this.video,
     required this.file,
+    this.path,
   });
 
   final String name;
@@ -290,15 +303,44 @@ class _AttachmentTile extends StatelessWidget {
   /// 送信前のファイル（画像のプレビュー用）。再送信時は null。
   final UploadFile? file;
 
+  /// 再送信時の、Storage上の場所。
+  final String? path;
+
+  static bool _isVideoName(String n) {
+    final l = n.toLowerCase();
+    return ['.mp4', '.mov', '.m4v', '.webm'].any(l.endsWith);
+  }
+
   static bool _isImage(String n) {
     final l = n.toLowerCase();
     return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].any(l.endsWith);
   }
 
+  /// 動画は冒頭の1コマを出し、タップで再生する。
+  Widget _videoPreview(BuildContext context) {
+    final f = file;
+    final p = path;
+    if (f == null && p == null) {
+      return const Icon(Icons.videocam_outlined, color: AppColors.white);
+    }
+    return InkWell(
+      onTap: () => f != null
+          ? showLocalVideoDialog(context, file: f, title: name)
+          : showVideoDialog(context, path: p!, title: name),
+      child: f != null
+          ? LocalVideoThumb(file: f)
+          : AttachmentThumb(
+              attachment:
+                  Attachment(name: name, path: p!, size: size, kind: 'video')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    final kind = video
+    // 参考資料でも、拡張子が動画なら動画として扱う。
+    final isVideo = video || _isVideoName(name);
+    final kind = isVideo
         ? '動画'
         : _isImage(name)
             ? '画像'
@@ -323,13 +365,13 @@ class _AttachmentTile extends StatelessWidget {
                   builder: (context, snap) => snap.hasData
                       ? Image.memory(snap.data!, fit: BoxFit.cover)
                       : const SizedBox.shrink())
-              : Icon(
-                  video
-                      ? Icons.videocam_outlined
-                      : kind == 'BGM'
+              : isVideo
+                  ? _videoPreview(context)
+                  : Icon(
+                      kind == 'BGM'
                           ? Icons.music_note_outlined
                           : Icons.insert_drive_file_outlined,
-                  color: AppColors.white),
+                      color: AppColors.white),
         ),
         SizedBox(width: r.x(12)),
         Expanded(

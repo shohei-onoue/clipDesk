@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_storage/firebase_storage.dart';
 
 /// 1ファイルの上限。容量制限はFigJamで未確定のため暫定値（storage.rulesと揃える）。
@@ -8,9 +9,13 @@ const int kMaxFileBytes = 500 * 1024 * 1024;
 
 /// 選択したファイル（名前・サイズ・読み出し）。ピッカーの実装に依存させない。
 class UploadFile {
-  UploadFile({required this.name, required this.size, required this.read});
+  UploadFile(
+      {required this.name, required this.size, required this.read, this.path});
 
   final String name;
+
+  /// 端末上のファイルの場所（Webでは無し）。動画のプレビューに使う。
+  final String? path;
   final int size;
   final Future<Uint8List> Function() read;
 
@@ -18,6 +23,7 @@ class UploadFile {
         name: f.name,
         size: await f.length() ?? f.lengthSync() ?? 0,
         read: f.readAsBytes,
+        path: kIsWeb ? null : f.path,
       );
 }
 
@@ -48,6 +54,13 @@ class StorageService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// [path] のファイルの中身を読み込む（端末へ保存するため）。
+  Future<Uint8List> readBytes(String path) async {
+    final data = await _storage.ref(path).getData(kMaxFileBytes);
+    if (data == null) throw StateError('ファイルを読み込めませんでした');
+    return data;
   }
 
   Future<String> downloadUrl(String path) =>

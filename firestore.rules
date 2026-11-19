@@ -111,8 +111,10 @@ service cloud.firestore {
             && request.resource.data.status == 'pending'
             && request.resource.data.brief.purpose.size() > 0
             && request.resource.data.brief.deliveryTerms.size() > 0
+            && request.resource.data.attachments is list
+            && request.resource.data.attachments.size() >= 1
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['title', 'brief', 'dueDate', 'reviewReason', 'status', 'updatedAt']))
+                .hasOnly(['title', 'brief', 'dueDate', 'attachments', 'reviewReason', 'status', 'updatedAt']))
           // 依頼者: 初稿確認 → 修正（承認前のみ）
           || (resource.data.requesterId == request.auth.uid && isRequester()
             && resource.data.status == 'review'
@@ -201,6 +203,25 @@ service cloud.firestore {
           && request.resource.data.instruction is string
           && request.resource.data.instruction.size() > 0;
         allow update: if false;
+        allow delete: if signedIn() && isRequester()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
+      }
+      // 問合せの履歴。編集者が要確認にしたあとに記録し、依頼者が回答を書き足す。
+      match /inquiries/{iid} {
+        allow read: if canRead(get(/databases/$(database)/documents/requests/$(requestId)).data);
+        // 担当の編集者だけが、自分の問合せを記録できる（問合せの直後に書くため、状態は問わない）。
+        allow create: if isEditor()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.editorId == request.auth.uid
+          && request.resource.data.editorId == request.auth.uid
+          && request.resource.data.question is string
+          && request.resource.data.question.size() > 0;
+        allow update: if isRequester()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
+          && request.resource.data.answer is string
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answeredAt']);
+        // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
           && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'

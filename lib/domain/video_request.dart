@@ -55,6 +55,36 @@ class Submission {
       );
 }
 
+/// 問合せの履歴（編集者の問合せと、依頼者の回答）。1回の問合せ＝1件。
+class Inquiry {
+  const Inquiry({
+    required this.round,
+    required this.question,
+    required this.editorName,
+    required this.askedAt,
+    required this.answer,
+    required this.answeredAt,
+  });
+
+  final int round;
+  final String question;
+  final String? editorName;
+  final DateTime? askedAt;
+
+  /// 回答がまだなら null。
+  final String? answer;
+  final DateTime? answeredAt;
+
+  factory Inquiry.fromMap(Map<String, Object?> m) => Inquiry(
+        round: (m['round'] as num?)?.toInt() ?? 0,
+        question: (m['question'] as String?) ?? '',
+        editorName: m['editorName'] as String?,
+        askedAt: (m['askedAt'] as Timestamp?)?.toDate(),
+        answer: m['answer'] as String?,
+        answeredAt: (m['answeredAt'] as Timestamp?)?.toDate(),
+      );
+}
+
 class VideoRequest {
   const VideoRequest({
     required this.id,
@@ -65,6 +95,7 @@ class VideoRequest {
     required this.dueDate,
     required this.attachments,
     required this.reviewReason,
+    this.reviewRound = 0,
     required this.revisionNote,
     required this.submissionCount,
     required this.approvedVersion,
@@ -86,6 +117,9 @@ class VideoRequest {
 
   /// 要確認の理由。
   final String? reviewReason;
+
+  /// 要確認（問合せ）の回数。
+  final int reviewRound;
 
   /// 直近の修正指示。
   final String? revisionNote;
@@ -121,6 +155,7 @@ class VideoRequest {
           Attachment.fromMap(Map<String, Object?>.from(a as Map)),
       ],
       reviewReason: m['reviewReason'] as String?,
+      reviewRound: (m['reviewRound'] as num?)?.toInt() ?? 0,
       revisionNote: m['revisionNote'] as String?,
       submissionCount: (m['submissionCount'] as num?)?.toInt() ?? 0,
       approvedVersion: (m['approvedVersion'] as num?)?.toInt(),

@@ -110,13 +110,13 @@ void main() {
     // 希望納期は、添付の前に聞く。
     expect(find.text('希望納期を選んでください。'), findsOneWidget);
     expect(find.text('納期を選ぶ'), findsOneWidget);
-    // その他の指示は、納期のあと・添付の前に「あり」「なし」で聞く。
+    // その他の指示は、納期のあと・添付の前に「指示を入力する」「指示はなし」で聞く。
     await tester.tap(find.text('納期を選ぶ'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(find.text('その他の指示はありますか？'), findsOneWidget);
-    await tester.tap(find.text('なし'));
+    await tester.tap(find.text('指示はなし'));
     await tester.pumpAndSettle();
     expect(find.text('その他指示：なし'), findsOneWidget);
     expect(find.textContaining('添付してください'), findsOneWidget);

@@ -12,27 +12,35 @@ Future<String?> showVoiceMessageDialog(
   required String title,
   required String hint,
   String sendLabel = '送信',
+  String initialText = '',
 }) {
   return showDialog<String>(
     context: context,
-    builder: (_) =>
-        _VoiceMessageDialog(title: title, hint: hint, sendLabel: sendLabel),
+    builder: (_) => _VoiceMessageDialog(
+        title: title,
+        hint: hint,
+        sendLabel: sendLabel,
+        initialText: initialText),
   );
 }
 
 class _VoiceMessageDialog extends StatefulWidget {
   const _VoiceMessageDialog(
-      {required this.title, required this.hint, required this.sendLabel});
+      {required this.title,
+      required this.hint,
+      required this.sendLabel,
+      this.initialText = ''});
   final String title;
   final String hint;
   final String sendLabel;
+  final String initialText;
 
   @override
   State<_VoiceMessageDialog> createState() => _VoiceMessageDialogState();
 }
 
 class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
-  final _text = TextEditingController();
+  late final _text = TextEditingController(text: widget.initialText);
   final _speech = SpeechToText();
   bool _ready = false;
   bool _listening = false;

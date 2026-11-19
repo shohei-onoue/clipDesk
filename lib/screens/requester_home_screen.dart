@@ -88,17 +88,9 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                               setState(() => _tab = DashboardTab.values[i]),
                         ),
                         Expanded(
+                          // カードがないときは、メッセージを出さず空のまま。
                           child: list.isEmpty
-                              ? Padding(
-                                  padding: EdgeInsets.all(r.x(14)),
-                                  child: Align(
-                                      alignment: Alignment.topCenter,
-                                      child: EmptyCard(
-                                          text: _tab == DashboardTab.all &&
-                                                  !editor
-                                              ? '進行中の依頼はありません。下の「＋」から新しい依頼を作れます'
-                                              : _tab.emptyText)),
-                                )
+                              ? const SizedBox.shrink()
                               : Align(
                                   alignment: Alignment.topCenter,
                                   child: ConstrainedBox(
@@ -115,11 +107,22 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                         mainAxisExtent: r.x(310),
                                       ),
                                       itemCount: list.length,
-                                      itemBuilder: (context, i) => ProgressCard(
-                                        request: list[i],
-                                        onTap: () =>
-                                            openRequest(context, list[i].id),
-                                      ),
+                                      itemBuilder: (context, i) {
+                                        final q = list[i];
+                                        // 問合せ中の依頼は、依頼者本人だけが開ける。
+                                        // それ以外の人には、暗くして開けないようにする。
+                                        final locked = q.status ==
+                                                RequestStatus.needsInfo &&
+                                            q.requesterId != Services.uid;
+                                        return ProgressCard(
+                                          request: q,
+                                          locked: locked,
+                                          onTap: locked
+                                              ? null
+                                              : () =>
+                                                  openRequest(context, q.id),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -139,9 +142,17 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
 
 /// 進捗カード（174×292、角丸10）。状態バッジは語句つき。
 class ProgressCard extends StatelessWidget {
-  const ProgressCard({super.key, required this.request, this.onTap, this.now});
+  const ProgressCard(
+      {super.key,
+      required this.request,
+      this.onTap,
+      this.now,
+      this.locked = false});
 
   final VideoRequest request;
+
+  /// true なら黒の透過率50%をかぶせる（問合せ中で、依頼者以外が見るとき）。
+  final bool locked;
   final VoidCallback? onTap;
 
   /// 「新規依頼」の判定に使う今日。テスト用（省略時は現在時刻）。
@@ -178,112 +189,125 @@ class ProgressCard extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.ink,
-            borderRadius: BorderRadius.circular(r.x(10)),
-          ),
-          child: Column(
-            children: [
-              // サムネイル：最初に添付された動画または画像。
-              SizedBox(
-                height: r.x(160),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    AttachmentThumb(
-                        key: ValueKey(request.id),
-                        attachment: thumbnailAttachment(request)),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: r.x(70),
-                        height: r.x(30),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: badgeFilled ? badgeColor : AppColors.white,
-                          border: badgeFilled
-                              ? null
-                              : Border.all(color: badgeColor),
-                          borderRadius: BorderRadius.circular(r.x(10)),
-                        ),
-                        child: Text(badgeText,
-                            style: AppText.noto(r.x(14),
-                                color: badgeFilled
-                                    ? AppColors.white
-                                    : badgeColor)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  color: AppColors.white,
-                  padding: EdgeInsets.all(r.x(5)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(fit: StackFit.expand, children: [
+          Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.ink,
+              borderRadius: BorderRadius.circular(r.x(10)),
+            ),
+            child: Column(
+              children: [
+                // サムネイル：最初に添付された動画または画像。
+                SizedBox(
+                  height: r.x(160),
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Text(b.title.isEmpty ? '（題名なし）' : b.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.noto(r.x(12), height: 1.3)),
-                      SizedBox(height: r.x(4)),
-                      SizedBox(
-                        height: r.x(48),
-                        child: Text(summary,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.noto(r.x(12),
-                                weight: FontWeight.w400, height: 1.3)),
-                      ),
-                      const Spacer(),
-                      Text('進捗状況', style: AppText.noto(r.x(12), height: 1.3)),
-                      SizedBox(height: r.x(4)),
-                      Container(
-                        height: r.x(10),
-                        alignment: Alignment.centerLeft,
-                        decoration: BoxDecoration(
-                          color: AppColors.ink.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(r.x(3)),
-                        ),
-                        child: FractionallySizedBox(
-                          widthFactor: value,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: done ? AppColors.blue : AppColors.amber,
-                              borderRadius: BorderRadius.circular(r.x(3)),
-                            ),
+                      AttachmentThumb(
+                          key: ValueKey(request.id),
+                          attachment: thumbnailAttachment(request)),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: r.x(70),
+                          height: r.x(30),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: badgeFilled ? badgeColor : AppColors.white,
+                            border: badgeFilled
+                                ? null
+                                : Border.all(color: badgeColor),
+                            borderRadius: BorderRadius.circular(r.x(10)),
                           ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: r.x(26),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text('編集担当',
-                                style: AppText.noto(r.x(12), height: 1.3)),
-                            SizedBox(width: r.x(20)),
-                            Text(
-                                request.editorName ??
-                                    (request.editorId == null ? '未定' : '決定済'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppText.noto(r.x(14), height: 1.3)),
-                          ],
+                          child: Text(badgeText,
+                              style: AppText.noto(r.x(14),
+                                  color: badgeFilled
+                                      ? AppColors.white
+                                      : badgeColor)),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    color: AppColors.white,
+                    padding: EdgeInsets.all(r.x(5)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(b.title.isEmpty ? '（題名なし）' : b.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.noto(r.x(12), height: 1.3)),
+                        SizedBox(height: r.x(4)),
+                        SizedBox(
+                          height: r.x(48),
+                          child: Text(summary,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.noto(r.x(12),
+                                  weight: FontWeight.w400, height: 1.3)),
+                        ),
+                        const Spacer(),
+                        Text('進捗状況', style: AppText.noto(r.x(12), height: 1.3)),
+                        SizedBox(height: r.x(4)),
+                        Container(
+                          height: r.x(10),
+                          alignment: Alignment.centerLeft,
+                          decoration: BoxDecoration(
+                            color: AppColors.ink.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(r.x(3)),
+                          ),
+                          child: FractionallySizedBox(
+                            widthFactor: value,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: done ? AppColors.blue : AppColors.amber,
+                                borderRadius: BorderRadius.circular(r.x(3)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: r.x(26),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Text('編集担当',
+                                  style: AppText.noto(r.x(12), height: 1.3)),
+                              SizedBox(width: r.x(20)),
+                              Text(
+                                  request.editorName ??
+                                      (request.editorId == null ? '未定' : '決定済'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppText.noto(r.x(14), height: 1.3)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          if (locked)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(r.x(10)),
+                  ),
+                ),
+              ),
+            ),
+        ]),
       ),
     );
   }

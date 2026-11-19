@@ -2,13 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../core/app_colors.dart';
+import '../data/local_video.dart';
 import '../data/services.dart';
+import '../data/storage_service.dart';
 import '../domain/video_request.dart';
 
 /// 画像として表示できる添付か（拡張子で判定）。
 bool isImageAttachment(Attachment a) {
   final ext = a.name.split('.').last.toLowerCase();
   return const {'jpg', 'jpeg', 'png', 'gif', 'webp'}.contains(ext);
+}
+
+/// 添付の種類（拡張子で判定。動画は登録時の種別も見る）。
+enum AttachmentType { video, image, audio, other }
+
+AttachmentType attachmentTypeOf(Attachment a) {
+  final ext = a.name.split('.').last.toLowerCase();
+  if (a.kind == 'video' || const {'mp4', 'mov', 'm4v', 'webm'}.contains(ext)) {
+    return AttachmentType.video;
+  }
+  if (isImageAttachment(a)) return AttachmentType.image;
+  if (const {'mp3', 'wav', 'm4a', 'aac'}.contains(ext)) {
+    return AttachmentType.audio;
+  }
+  return AttachmentType.other;
 }
 
 /// 依頼の添付のうち、サムネイルに使うもの：最初に添付された動画または画像。なければ null。
@@ -99,7 +116,9 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
       ]);
     } else if (_url != null) {
       content = Image.network(_url!,
-          fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder);
+          fit: BoxFit.cover,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          errorBuilder: (_, __, ___) => _placeholder);
     } else {
       content = _failed || widget.attachment == null
           ? _placeholder
@@ -112,5 +131,74 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
     }
     return ColoredBox(
         color: AppColors.white.withValues(alpha: 0.08), child: content);
+  }
+}
+
+/// 送信前の端末上の動画の、最初の1コマ（タップで再生するための印つき）。
+class LocalVideoThumb extends StatefulWidget {
+  const LocalVideoThumb({super.key, required this.file});
+  final UploadFile file;
+
+  @override
+  State<LocalVideoThumb> createState() => _LocalVideoThumbState();
+}
+
+class _LocalVideoThumbState extends State<LocalVideoThumb> {
+  VideoPlayerController? _video;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final c = await localVideoController(widget.file);
+      await c.initialize();
+      await c.setVolume(0);
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      setState(() => _video = c);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _video?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = _video;
+    if (v == null) {
+      return Center(
+        child: _failed
+            ? const Icon(Icons.play_circle_outline, color: AppColors.white)
+            : const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.white)),
+      );
+    }
+    final size = v.value.size;
+    return Stack(fit: StackFit.expand, children: [
+      FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+            width: size.width, height: size.height, child: VideoPlayer(v)),
+      ),
+      const Center(
+          child: Icon(Icons.play_circle_outline,
+              size: 28, color: AppColors.white)),
+    ]);
   }
 }

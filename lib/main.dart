@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/debug_auto_login.dart';
 import 'firebase_options.dart';
 import 'screens/brief_confirm_screen.dart';
 import 'screens/chat_screen.dart';
@@ -24,11 +25,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // 保存済みの認証情報ではホームへ進まず、毎回ボタン操作で認証する。
-  runApp(const ClipDeskApp());
+  // ただしデバッグ実行（ポート 5001／5002）だけは、テスト用アカウントで自動ログインする。
+  final auto = await debugAutoLogin();
+  runApp(ClipDeskApp(autoLoggedIn: auto));
 }
 
 class ClipDeskApp extends StatelessWidget {
-  const ClipDeskApp({super.key});
+  const ClipDeskApp({super.key, this.autoLoggedIn = false});
+
+  /// デバッグの自動ログインが済んでいるか（済んでいればメイン画面から始める）。
+  final bool autoLoggedIn;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +54,7 @@ class ClipDeskApp extends StatelessWidget {
       initialRoute: kIsWeb &&
               FirebaseAuth.instance.isSignInWithEmailLink(Uri.base.toString())
           ? '/register'
-          : '/',
+          : (autoLoggedIn ? '/menu' : '/'),
       routes: {
         '/': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),

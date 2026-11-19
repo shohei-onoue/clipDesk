@@ -8,6 +8,7 @@ import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
+import '../domain/brief.dart';
 import '../domain/draft.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
@@ -221,12 +222,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// 質問ごとの選択肢。メニュー（回答のタップ）と、チャット末尾のボタンで共通。
   static const _choices = {
-    _Step.videoType: ['会社紹介', 'スタッフ紹介', '採用PR', '社内用', '社長チャレンジ', 'その他'],
-    _Step.platform: ['Instagram', 'TikTok', 'YouTube', 'Threads', 'X', 'その他'],
-    _Step.purpose: ['認知を広げたい', '会社の魅力を伝えたい', '求人に繋げたい', '研修資料', 'その他'],
-    _Step.length: ['30秒', '60秒', '直接入力'],
-    _Step.orientation: ['縦型', '横型'],
-    _Step.subtitle: ['あり', 'なし'],
+    _Step.videoType: BriefChoices.videoType,
+    _Step.platform: BriefChoices.platform,
+    _Step.purpose: BriefChoices.purpose,
+    _Step.length: BriefChoices.length,
+    _Step.orientation: BriefChoices.orientation,
+    _Step.subtitle: BriefChoices.subtitle,
   };
 
   /// 決定済みの回答をタップしたとき：メニューで選択肢を出し、選んだ内容で
@@ -346,14 +347,14 @@ class _ChatScreenState extends State<ChatScreen> {
           side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
           borderRadius: BorderRadius.circular(10)),
       items: [
-        for (final o in const ['あり', 'なし'])
+        for (final o in const ['指示を入力する', '指示はなし'])
           PopupMenuItem<String>(
               value: o,
               child: Text(o, style: AppText.dark(14, weight: FontWeight.w400))),
       ],
     );
     if (picked == null || !mounted) return null;
-    return picked == 'なし' ? '' : _askNotes();
+    return picked == '指示はなし' ? '' : _askNotes();
   }
 
   /// 「その他の指示」で「あり」：入力してもらい、指示書に反映して次へ。
@@ -474,9 +475,13 @@ class _ChatScreenState extends State<ChatScreen> {
         final target = video ? d.videos : d.references;
         target.addAll(list);
         _me('${video ? '動画' : (image ? '画像' : (bgm ? 'BGM' : '参考資料'))}を添付：${list.map((f) => f.name).join('、')}');
-        _say(_step == _Step.video
-            ? '添付しました。追加するか「添付を完了」を押してください。'
-            : '添付しました。続けて質問にお答えください。');
+        if (_step == _Step.video) {
+          _say('添付しました。追加するか「添付を完了」を押してください。');
+        } else {
+          // 添付で会話が途切れても、答える質問が分かるよう、もう一度聞く。
+          _say('添付しました。先ほどの質問です。');
+          _prompt(_step);
+        }
       });
     } catch (e) {
       if (mounted) {
@@ -637,8 +642,8 @@ class _ChatScreenState extends State<ChatScreen> {
         return [AppChip('納期を選ぶ', onTap: _pickDate)];
       case _Step.notes:
         return [
-          AppChip('あり', onTap: _notesYes),
-          AppChip('なし', onTap: _notesNo),
+          AppChip('指示を入力する', onTap: _notesYes),
+          AppChip('指示はなし', onTap: _notesNo),
         ];
       case _Step.review:
         // 直したい回答は、チャットの回答をタップして選び直す。

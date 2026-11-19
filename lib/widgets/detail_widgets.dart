@@ -28,10 +28,49 @@ class DetailCard extends StatelessWidget {
   }
 }
 
+/// タップで編集できる内容テキスト。下線つきのテキストボタンとして見せる。
+class TapEditText extends StatelessWidget {
+  const TapEditText(this.text,
+      {super.key,
+      required this.label,
+      required this.style,
+      required this.onTap,
+      this.textAlign});
+  final String text;
+  final String label;
+  final TextStyle style;
+
+  /// タップした画面上の位置を渡す（メニューをその場に出すため）。
+  final void Function(Offset at) onTap;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: '$labelを編集',
+        child: InkWell(
+          onTapUp: (d) => onTap(d.globalPosition),
+          onTap: () {},
+          borderRadius: BorderRadius.circular(4),
+          child: Text(text,
+              textAlign: textAlign,
+              style: style.copyWith(
+                  decoration: TextDecoration.underline,
+                  decorationColor: style.color)),
+        ),
+      );
+}
+
 class DetailRow extends StatelessWidget {
-  const DetailRow(this.label, this.value, {super.key});
+  const DetailRow(this.label, this.value, {super.key, this.onEdit, this.child});
   final String label;
   final String value;
+
+  /// 指定すると、内容のテキストがボタンになり、タップで編集できる。
+  final void Function(Offset at)? onEdit;
+
+  /// 内容を独自の部品で出したいとき（複数の編集箇所があるとき）に指定する。
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +80,24 @@ class DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-              width: r.x(80),
+          Expanded(
               child: Text(label,
                   style: AppText.dark(r.x(14),
                       weight: FontWeight.w400,
                       color: AppColors.white.withValues(alpha: 0.7)))),
           Expanded(
-              child: Text(value,
-                  style: AppText.dark(r.x(14), weight: FontWeight.w400))),
+            child: child ??
+                (onEdit == null
+                    ? Text(value,
+                        style: AppText.dark(r.x(14), weight: FontWeight.w400))
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: TapEditText(value,
+                            label: label,
+                            onTap: onEdit!,
+                            style: AppText.dark(r.x(14),
+                                weight: FontWeight.w400)))),
+          ),
         ],
       ),
     );
@@ -109,7 +157,7 @@ class DetailButton extends StatelessWidget {
   }
 }
 
-/// 画面上部のお知らせ（琥珀の枠）。
+/// 画面上部のお知らせ（枠線なし）。
 class NoticeBar extends StatelessWidget {
   const NoticeBar(this.text, {super.key, this.light = false});
   final String text;
@@ -127,7 +175,6 @@ class NoticeBar extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             light ? AppColors.white : AppColors.white.withValues(alpha: 0.08),
-        border: Border.all(color: AppColors.amber, width: 2),
         borderRadius: BorderRadius.circular(r.x(15)),
       ),
       child: Text(text,
@@ -139,9 +186,12 @@ class NoticeBar extends StatelessWidget {
 }
 
 class InfoRow extends StatelessWidget {
-  const InfoRow(this.label, this.value, {super.key});
+  const InfoRow(this.label, this.value, {super.key, this.onEdit});
   final String label;
   final String value;
+
+  /// 指定すると、内容のテキストがボタンになり、タップで編集できる。
+  final void Function(Offset at)? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -149,20 +199,27 @@ class InfoRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: r.x(4)),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: AppText.dark(r.x(12),
-                  weight: FontWeight.w400,
-                  color: AppColors.white.withValues(alpha: 0.7),
-                  height: 20 / 12)),
-          SizedBox(width: r.x(8)),
-          Flexible(
-            child: Text(value,
-                textAlign: TextAlign.right,
-                style: AppText.dark(r.x(14),
-                    weight: FontWeight.w400, height: 20 / 14)),
+          Expanded(
+            child: Text(label,
+                style: AppText.dark(r.x(12),
+                    weight: FontWeight.w400,
+                    color: AppColors.white.withValues(alpha: 0.7),
+                    height: 20 / 12)),
+          ),
+          Expanded(
+            child: onEdit == null
+                ? Text(value,
+                    style: AppText.dark(r.x(14),
+                        weight: FontWeight.w400, height: 20 / 14))
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: TapEditText(value,
+                        label: label,
+                        onTap: onEdit!,
+                        style: AppText.dark(r.x(14),
+                            weight: FontWeight.w400, height: 20 / 14))),
           ),
         ],
       ),

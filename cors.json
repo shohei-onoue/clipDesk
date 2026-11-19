@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://clipdesk-app.web.app",
+      "https://clipdesk-app.firebaseapp.com",
+      "http://localhost:5001",
+      "http://localhost:5002"
+    ],
+    "method": ["GET", "HEAD"],
+    "responseHeader": ["Content-Type", "Content-Length", "Range"],
+    "maxAgeSeconds": 3600
+  }
+]

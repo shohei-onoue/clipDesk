@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../domain/brief.dart';
+import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
@@ -253,6 +255,12 @@ class RequestRepository {
             for (final d in q.docs) Submission.fromMap(d.data())
           ]..sort((a, b) => a.version.compareTo(b.version)));
 
+  /// 問合せの履歴（古い順）。
+  Stream<List<Inquiry>> watchInquiries(String id) =>
+      _requests.doc(id).collection('inquiries').snapshots().map((q) => [
+            for (final d in q.docs) Inquiry.fromMap(d.data())
+          ]..sort((a, b) => a.round.compareTo(b.round)));
+
   /// ログイン中のユーザーの通知。自分宛て（recipientId が自分）に加え、編集者には
   /// 新規依頼の全員向け通知（audience == 'editors'）も出す。
   /// 新規依頼の通知は、他の編集者が担当になった・依頼が取り消された場合は一覧から外す。
@@ -266,18 +274,14 @@ class RequestRepository {
     final notes = merged.map((docs) => [
           for (final d in docs) AppNotification.fromDoc(d.id, d.data()),
         ]);
-    if (role != UserRole.editor) return notes.map(_sorted);
-    return _combine(notes, watchAllRequests(), (list, requests) {
+    // 依頼の今の状態を見て、処理済みの通知は一覧から外す。
+    final requests =
+        role == UserRole.editor ? watchAllRequests() : watchRequester(uid);
+    return _combine(notes, requests, (list, requests) {
       final byId = {for (final r in requests) r.id: r};
-      bool takenByOther(AppNotification n) {
-        if (n.type != NotificationType.newRequest) return false;
-        final r = byId[n.requestId];
-        return r == null || (r.editorId != null && r.editorId != uid);
-      }
-
       return _sorted([
         for (final n in list)
-          if (!takenByOther(n)) n,
+          if (!isNotificationProcessed(n, byId[n.requestId], uid)) n,
       ]);
     });
   }
@@ -287,6 +291,8 @@ class RequestRepository {
         .compareTo(a.createdAt ?? DateTime.now()));
 
   Future<String> downloadUrl(String path) => _storage.downloadUrl(path);
+
+  Future<Uint8List> readBytes(String path) => _storage.readBytes(path);
 
   // ---- 依頼者: 作成・再送信 ----
 
@@ -363,36 +369,115 @@ class RequestRepository {
     return out;
   }
 
+  /// 受付待ちの依頼の添付を変える（依頼者本人だけ）。[keep] が変更後に残す既存の添付、
+  /// [add] が新しく足すファイル。外した添付は、Storage からも消す（消せなくても変更は成立）。
+  Future<void> updateAttachments({
+    required String requestId,
+    required String uid,
+    required List<Attachment> keep,
+    List<({UploadFile file, String kind})> add = const [],
+  }) async {
+    final ref = _requests.doc(requestId);
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null) throw RequestStateException('依頼が見つかりません');
+    if (data['requesterId'] != uid) {
+      throw RequestStateException('この依頼の添付は変更できません');
+    }
+    if (data['status'] != RequestStatus.pending.name) {
+      throw RequestStateException('受付待ちの間だけ、添付を変更できます');
+    }
+    if (keep.length + add.length < 1) {
+      throw RequestStateException('添付は1件以上必要です。入れ替えるときは「変更」を使ってください');
+    }
+    final before = [
+      for (final m in (data['attachments'] as List? ?? const []))
+        Attachment.fromMap(Map<String, Object?>.from(m as Map))
+    ];
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final added = <Attachment>[];
+    for (var i = 0; i < add.length; i++) {
+      final f = add[i].file;
+      final kind = add[i].kind;
+      final path = 'uploads/$uid/$requestId/${kind}_$stamp$i-${_safe(f.name)}';
+      final type =
+          StorageService.contentTypeFor(f.name, video: kind == 'video');
+      try {
+        await _storage.upload(path, f, contentType: type);
+      } catch (e) {
+        throw StateError('${f.name}（$type）を保存できませんでした：$e');
+      }
+      added.add(Attachment(name: f.name, path: path, size: f.size, kind: kind));
+    }
+    final next = [...keep, ...added];
+    await ref.update({
+      'attachments': [for (final a in next) a.toMap()],
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    // 外した添付は、保存領域からも消す。消せなくても、依頼の変更は済んでいる。
+    final kept = {for (final a in next) a.path};
+    for (final a in before) {
+      if (!kept.contains(a.path)) await _storage.delete(a.path);
+    }
+  }
+
   /// 要確認の依頼の指示書を直して再送信する。再送信後は暫定で「受付待ち」。
   Future<void> resubmitBrief({
     required String requestId,
     required String uid,
     required Brief brief,
     required DateTime dueDate,
-  }) =>
-      _transition(
-        requestId: requestId,
-        uid: uid,
-        role: UserRole.requester,
-        action: RequestAction.resubmit,
-        update: (r) => {
-          'title': brief.title.trim(),
-          'brief': brief.toMap(),
-          'dueDate': Timestamp.fromDate(dueDate),
-          'reviewReason': null,
-        },
-        // 担当の編集者がいるときだけ、その人へ通知する。
-        // 要確認への回答のときだけ通知する（受付待ちの内容編集は通知しない）。
-        notification: (r) =>
-            r.editorId == null || r.status != RequestStatus.needsInfo
-                ? null
-                : _Notice(
-                    id: '${requestId}_resubmit_${r.reviewRound}',
-                    type: NotificationType.resubmitted,
-                    recipientId: r.editorId,
-                    message: '指示書が再送信されました：${brief.title.trim()}',
-                  ),
-      );
+    String? answer,
+  }) async {
+    // 問合せへの回答なら、送信後に履歴へ記録するため、今の回数を控える。
+    int? round;
+    if (answer != null && answer.trim().isNotEmpty) {
+      final pre = await _requests.doc(requestId).get();
+      if (pre.data()?['status'] == RequestStatus.needsInfo.name) {
+        round = (pre.data()?['reviewRound'] as num?)?.toInt();
+      }
+    }
+    await _transition(
+      requestId: requestId,
+      uid: uid,
+      role: UserRole.requester,
+      action: RequestAction.resubmit,
+      update: (r) => {
+        'title': brief.title.trim(),
+        'brief': brief.toMap(),
+        'dueDate': Timestamp.fromDate(dueDate),
+        'reviewReason': null,
+      },
+      // 担当の編集者がいるときだけ、その人へ通知する。
+      // 要確認への回答のときだけ通知する（受付待ちの内容編集は通知しない）。
+      notification: (r) =>
+          r.editorId == null || r.status != RequestStatus.needsInfo
+              ? null
+              : _Notice(
+                  id: '${requestId}_resubmit_${r.reviewRound}',
+                  type: NotificationType.resubmitted,
+                  recipientId: r.editorId,
+                  message: answer != null && answer.trim().isNotEmpty
+                      ? '問合せへの回答：${brief.title.trim()}\n${answer.trim()}'
+                      : '指示書が再送信されました：${brief.title.trim()}',
+                ),
+    );
+    // 再送信は成立している。履歴に回答を残せなかったときは、理由を伝える（黙って捨てない）。
+    if (round != null) {
+      try {
+        final h =
+            _requests.doc(requestId).collection('inquiries').doc('r$round');
+        // 履歴を保存する前に届いた問合せには、書き足す先が無い。そのときは何もしない。
+        if (!(await h.get()).exists) return;
+        await h.update({
+          'answer': answer!.trim(),
+          'answeredAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        throw RequestStateException('回答は送信しましたが、履歴を保存できませんでした。\n$e');
+      }
+    }
+  }
 
   /// 修正指示を送る（初稿確認 → 修正）。
   Future<void> requestRevision({
@@ -513,6 +598,26 @@ class RequestRepository {
         message: '要確認：${r.title}\n${reason.trim()}',
       ),
     );
+    // 問合せ履歴への記録。問合せ自体は成立しているので、失敗したら理由を伝える（黙って捨てない）。
+    try {
+      final ref = _requests.doc(requestId);
+      final round = ((await ref.get()).data()?['reviewRound'] as num?)?.toInt();
+      if (round != null) {
+        final editorName =
+            ((await ref.get()).data()?['editorName'] as String?) ?? name;
+        await ref.collection('inquiries').doc('r$round').set({
+          'round': round,
+          'question': reason.trim(),
+          'editorId': uid,
+          'editorName': editorName,
+          'askedAt': FieldValue.serverTimestamp(),
+          'answer': null,
+          'answeredAt': null,
+        });
+      }
+    } catch (e) {
+      throw RequestStateException('問合せは送信しましたが、履歴を保存できませんでした。\n$e');
+    }
   }
 
   /// 編集を開始する。担当編集者の決定方法は未確定のため、暫定で最初に
@@ -613,7 +718,7 @@ class RequestRepository {
       );
 
   /// 依頼者が、承認前の依頼を取り消す（完全に削除する）。元には戻せない。
-  /// 提出動画・修正指示の記録も一緒に消す。担当の編集者がいれば通知する。
+  /// 提出動画・修正指示・問合せ履歴の記録も一緒に消す。担当の編集者がいれば通知する。
   /// Storage に保存した添付・動画のファイルは、ここでは消さない。
   Future<void> cancelRequest(
       {required String requestId, required String uid}) async {
@@ -629,8 +734,13 @@ class RequestRepository {
     }
     final subs = await ref.collection('submissions').get();
     final revs = await ref.collection('revisions').get();
+    // 問合せ履歴も一緒に消す。読めない（記録がない）場合は、消すものがないものとして進める。
+    var inquiries = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    try {
+      inquiries = (await ref.collection('inquiries').get()).docs;
+    } catch (_) {}
     final batch = _db.batch();
-    for (final d in [...subs.docs, ...revs.docs]) {
+    for (final d in [...subs.docs, ...revs.docs, ...inquiries]) {
       batch.delete(d.reference);
     }
     batch.delete(ref);

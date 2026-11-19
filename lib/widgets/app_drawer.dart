@@ -73,6 +73,12 @@ class AppDrawer extends StatelessWidget {
                             context,
                             a.canEdit ? UserRole.editor : UserRole.requester,
                             '/home')),
+                  if (a.canRequest || a.canEdit)
+                    _Tile(
+                        AppIcon(AppIcons.notificationsFill,
+                            size: r.x(24), color: AppColors.white),
+                        '通知',
+                        () => _open(context, null, '/notifications')),
                   _Tile(
                       AppIcon(AppIcons.systemUpdateAlt,
                           size: r.x(24), color: AppColors.white),

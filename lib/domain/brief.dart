@@ -113,3 +113,20 @@ class BriefValidation {
     return errors;
   }
 }
+
+/// 指示作成チャットと、指示書の編集で共通の選択肢。
+abstract final class BriefChoices {
+  static const videoType = ['会社紹介', 'スタッフ紹介', '採用PR', '社内用', '社長チャレンジ', 'その他'];
+  static const platform = [
+    'Instagram',
+    'TikTok',
+    'YouTube',
+    'Threads',
+    'X',
+    'その他'
+  ];
+  static const purpose = ['認知を広げたい', '会社の魅力を伝えたい', '求人に繋げたい', '研修資料', 'その他'];
+  static const length = ['30秒', '60秒', '直接入力'];
+  static const orientation = ['縦型', '横型'];
+  static const subtitle = ['あり', 'なし'];
+}

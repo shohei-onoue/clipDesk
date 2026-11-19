@@ -30,10 +30,12 @@ service firebase.storage {
           || request.resource.contentType == 'application/pdf'
           || request.resource.contentType == 'application/octet-stream');
       // 承認後、依頼者が添付素材を削除する（承認された動画だけを残す）。
+      // 受付待ちの間は、依頼者が添付を差し替え・削除できる。
       allow delete: if hasRole('requester') && request.auth.uid == uid
         && reqExists(requestId)
         && req(requestId).requesterId == request.auth.uid
-        && req(requestId).approvedVersion != null;
+        && (req(requestId).approvedVersion != null
+          || req(requestId).status == 'pending');
       allow read: if signedIn() && (
         request.auth.uid == uid || isStaff());
     }

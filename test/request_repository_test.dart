@@ -5,6 +5,7 @@ import 'package:clipdesk/data/storage_service.dart';
 import 'package:clipdesk/domain/brief.dart';
 import 'package:clipdesk/domain/request_status.dart';
 import 'package:clipdesk/domain/staff_access.dart';
+import 'package:clipdesk/domain/video_request.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -78,7 +79,7 @@ void main() {
     expect(n.single['audience'], 'editors');
   });
 
-  test('新規依頼の通知：全編集者に出るが、他の編集者が担当になったら消える', () async {
+  test('新規依頼の通知：全編集者に出るが、受注されたら処理済みとして全員から消える', () async {
     await create();
     Future<List<String>> types(String uid) async => [
           for (final n
@@ -88,12 +89,47 @@ void main() {
     expect(await types('ed'), ['newRequest']);
     expect(await types('ed2'), ['newRequest']);
     await repo.startEditing(requestId: 'r1', uid: 'ed');
-    // 担当の本人には残り、他の編集者からは消える。
-    expect(await types('ed'), ['newRequest']);
+    // 受付待ちでなくなったので、担当の本人からも他の編集者からも消える。
+    expect(await types('ed'), isEmpty);
     expect(await types('ed2'), isEmpty);
     // 依頼者には、担当が決まった通知が届く。
     final req = await repo.watchNotifications('req', UserRole.requester).first;
     expect(req.single.type.name, 'assigned');
+  });
+
+  test('添付の変更：受付待ちの本人だけ。追加・差し替え・削除でき、0件にはできない', () async {
+    await create();
+    final first = ((await doc())['attachments'] as List)
+        .map((m) => Attachment.fromMap(Map<String, Object?>.from(m as Map)))
+        .toList();
+    // 追加
+    await repo.updateAttachments(
+        requestId: 'r1',
+        uid: 'req',
+        keep: first,
+        add: [(file: _file('b.png'), kind: 'reference')]);
+    expect(((await doc())['attachments'] as List).length, 3);
+    // 差し替え（1件外して1件足す）。外したファイルはStorageからも消える。
+    await repo.updateAttachments(
+        requestId: 'r1',
+        uid: 'req',
+        keep: first.skip(1).toList(),
+        add: [(file: _file('c.mp4'), kind: 'video')]);
+    expect(storage.deleted, contains(first.first.path));
+    // 3件のうち、残したのは1件。1件足したので、合計2件になる。
+    expect(((await doc())['attachments'] as List).length, 2);
+    // 0件にはできない／他人は変更できない。
+    await expectLater(
+        repo.updateAttachments(requestId: 'r1', uid: 'req', keep: const []),
+        throwsA(isA<RequestStateException>()));
+    await expectLater(
+        repo.updateAttachments(requestId: 'r1', uid: 'other', keep: first),
+        throwsA(isA<RequestStateException>()));
+    // 受け付けられたあとは変更できない。
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await expectLater(
+        repo.updateAttachments(requestId: 'r1', uid: 'req', keep: first),
+        throwsA(isA<RequestStateException>()));
   });
 
   test('二重送信しても依頼と通知は1件', () async {
@@ -323,6 +359,32 @@ void main() {
     await expectLater(repo.cancelRequest(requestId: 'r2', uid: 'req'),
         throwsA(isA<RequestStateException>()));
     expect((await db.collection('requests').doc('r2').get()).exists, isTrue);
+  });
+
+  test('問合せ履歴：問合せと回答を記録し、依頼を取り消すと一緒に削除される', () async {
+    await create();
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺は？');
+    var list = await repo.watchInquiries('r1').first;
+    expect(list.length, 1);
+    expect(list.first.question, '尺は？');
+    expect(list.first.answer, isNull);
+    await repo.resubmitBrief(
+        requestId: 'r1',
+        uid: 'req',
+        brief: brief,
+        dueDate: due,
+        answer: '30秒です');
+    list = await repo.watchInquiries('r1').first;
+    expect(list.first.answer, '30秒です');
+    await repo.cancelRequest(requestId: 'r1', uid: 'req');
+    expect(
+        (await db
+                .collection('requests')
+                .doc('r1')
+                .collection('inquiries')
+                .get())
+            .docs,
+        isEmpty);
   });
 
   test('2回目の要確認でも通知は別IDで作られる', () async {
