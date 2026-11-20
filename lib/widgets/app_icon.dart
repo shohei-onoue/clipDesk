@@ -16,6 +16,8 @@ enum AppIcons {
   delete('delete'),
   doneOutline('done_outline'),
   viewCozy('view_cozy'),
+  home('home'),
+  bookshelf('bookshelf'),
   logout('logout'),
   addCircle('add_circle'),
   addCircleFill('add_circle_fill'),

@@ -35,15 +35,26 @@ class BarItem {
 }
 
 /// 画面下部の共通バー（ダークテイスト）。背景は透明、高さ56。
-/// アイコンは「ホーム」（メイン画面 /menu へ戻る）だけ。メイン画面では選択中（amber）。
+/// 左から「ダッシュボード」（/home）、「ホーム」（メイン画面 /menu へ戻る）、「ライブラリ」（/library）。
+/// 今いる画面のアイコンは選択中（amber）。
 /// タップすると、バーの背面にエフェクト（広がって消える円）が出てから移動する。
 class AppBottomBar extends StatelessWidget {
   const AppBottomBar({super.key});
 
+  static const _dashboard = BarItem(
+      label: 'ダッシュボード',
+      icon: AppIcons.viewCozy,
+      route: '/home',
+      replaceToHome: true);
   static const _home = BarItem(
       label: 'ホーム',
-      icon: AppIcons.viewCozy,
+      icon: AppIcons.home,
       route: '/menu',
+      replaceToHome: true);
+  static const _library = BarItem(
+      label: 'ライブラリ',
+      icon: AppIcons.bookshelf,
+      route: '/library',
       replaceToHome: true);
 
   @override
@@ -53,7 +64,7 @@ class AppBottomBar extends StatelessWidget {
       top: false,
       child: SizedBox(
         height: r.x(56),
-        child: _row(context, const [_home]),
+        child: _row(context, const [_dashboard, _home, _library]),
       ),
     );
   }
