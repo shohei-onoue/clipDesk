@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -140,10 +141,22 @@ class _LibraryCard extends StatelessWidget {
                           style: AppText.dark(r.x(16),
                               weight: FontWeight.w400, height: 20 / 16)),
                       SizedBox(height: r.x(12)),
-                      Text(_dateTime(request.approvedAt),
-                          style: AppText.dark(r.x(14),
-                              weight: FontWeight.w400, height: 20 / 14)),
-                      _EditorName(request.editorId, request.editorName),
+                      // 日付と編集者名の2行（高さ40）。右に、配信先のアイコンを同じ高さで並べる。
+                      Row(children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_dateTime(request.approvedAt),
+                                  style: AppText.dark(r.x(14),
+                                      weight: FontWeight.w400,
+                                      height: 20 / 14)),
+                              _EditorName(request.editorId, request.editorName),
+                            ],
+                          ),
+                        ),
+                        _PlatformIcons(request.brief.platform, height: r.x(40)),
+                      ]),
                     ],
                   ),
                 ),
@@ -313,6 +326,62 @@ class _SwipeToDeleteState extends State<_SwipeToDelete>
           ),
         ),
       ]),
+    );
+  }
+}
+
+/// 配信先（「、」区切り）に当てはまるアイコンを、高さ [height] で右に並べる。
+/// 当てはまるものがない（「その他」など）ときは何も出さない。幅が足りないときは縮める。
+class _PlatformIcons extends StatelessWidget {
+  const _PlatformIcons(this.platform, {required this.height});
+  final String platform;
+  final double height;
+
+  static const _assets = {
+    'instagram': 'assets/icons/instagram.svg',
+    'tiktok': 'assets/icons/tiktok.svg',
+    'youtube': 'assets/icons/youtube.svg',
+    'threads': 'assets/icons/threads.svg',
+    'x': 'assets/icons/x_twitter.svg',
+    'twitter': 'assets/icons/x_twitter.svg',
+    'facebook': 'assets/icons/facebook.svg',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final names = platform
+        .split(RegExp(r'[、,，]'))
+        .map((e) => e.trim().toLowerCase())
+        .where(_assets.containsKey)
+        .toSet()
+        .toList();
+    if (names.isEmpty) return const SizedBox.shrink();
+    // 日付・編集者名の列が残りの幅をとり、アイコンは右端に詰める（多いときは縮める）。
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: height * 3.6),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          // 3つ以上のときは、2つだけ出して、右に「…」を添える（ほかにもあることを示す）。
+          for (final n in names.take(names.length >= 3 ? 2 : names.length))
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: SvgPicture.asset(_assets[n]!,
+                  width: height, height: height, semanticsLabel: n),
+            ),
+          if (names.length >= 3)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Semantics(
+                label: 'ほかにも${names.length - 2}件',
+                child: Text('…',
+                    style: AppText.dark(height * 0.6,
+                        weight: FontWeight.w400, height: 1)),
+              ),
+            ),
+        ]),
+      ),
     );
   }
 }
