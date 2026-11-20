@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -9,6 +9,7 @@ import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/voice_input.dart';
+import '../widgets/ruby_text.dart';
 
 /// 問合せ履歴の1件の発言（編集者の問合せ、または依頼者の回答）。
 class _HistoryMsg {
@@ -220,7 +221,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   Widget build(BuildContext context) {
     final answered = _reply != null;
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Stack(children: [
@@ -256,9 +257,9 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                               context, InquiryResult(_reply!, submit: false)),
                       style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
-                          backgroundColor: AppColors.ink,
+                          backgroundColor: AppColors.bg,
                           foregroundColor: AppColors.blue,
-                          side: const BorderSide(color: AppColors.blue),
+                          side: BorderSide(color: AppColors.blue),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24))),
                       child: Text('依頼内容に戻る',
@@ -272,11 +273,11 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                       style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           backgroundColor: AppColors.blue,
-                          foregroundColor: AppColors.white,
+                          foregroundColor: AppColors.onBlue,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24))),
                       child: _sending
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
@@ -299,7 +300,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   Widget _bar() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border(
                 top: BorderSide(
                     color: AppColors.white.withValues(alpha: 0.16)))),
@@ -322,7 +323,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                 cursorColor: AppColors.white,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppColors.ink,
+                  fillColor: AppColors.bg,
                   isDense: true,
                   hintText: _voice.listening ? '聞き取り中です…' : '回答を入力',
                   hintStyle: AppText.dark(15,
@@ -405,9 +406,7 @@ class _Bubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: mine
                           ? AppColors.blue
-                          : (light
-                              ? AppColors.white
-                              : AppColors.white.withValues(alpha: 0.08)),
+                          : (light ? AppColors.white : AppColors.gray),
                       border: (mine || light)
                           ? null
                           : Border.all(
@@ -452,7 +451,7 @@ class InquiryHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [

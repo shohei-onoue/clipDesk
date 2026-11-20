@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
+import 'ruby_text.dart';
 
 /// ログアウトの確認ポップアップ。「ログアウト」を選んだときだけログアウトし、最初の画面へ戻る。
 /// やめる場合は何も起きない。
@@ -12,7 +13,7 @@ Future<void> confirmAndLogout(BuildContext context) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -35,7 +36,7 @@ Future<void> confirmAndLogout(BuildContext context) async {
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.blue,
-            foregroundColor: AppColors.white,
+            foregroundColor: AppColors.onBlue,
             minimumSize: const Size(96, 44),
             shape: RoundedRectangleBorder(borderRadius: radius),
           ),

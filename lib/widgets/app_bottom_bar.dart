@@ -47,10 +47,7 @@ class AppBottomBar extends StatelessWidget {
       route: '/home',
       replaceToHome: true);
   static const _home = BarItem(
-      label: 'ホーム',
-      icon: AppIcons.home,
-      route: '/menu',
-      replaceToHome: true);
+      label: 'ホーム', icon: AppIcons.home, route: '/menu', replaceToHome: true);
   static const _library = BarItem(
       label: 'ライブラリ',
       icon: AppIcons.bookshelf,
@@ -165,7 +162,7 @@ class _BarButtonState extends State<_BarButton>
                           opacity: active ? (1 - t) * 0.6 : 0,
                           child: Transform.scale(
                             scale: 0.4 + t * 1.2,
-                            child: const DecoratedBox(
+                            child: DecoratedBox(
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: AppColors.blue,

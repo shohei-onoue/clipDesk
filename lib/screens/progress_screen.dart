@@ -47,7 +47,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
@@ -87,7 +87,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             selected: _tab,
                             labels: _labels,
                             counts: counts,
-                            idleColor: AppColors.ink,
+                            idleColor: AppColors.bg,
                             dark: true,
                             onChanged: (i) => setState(() => _tab = i),
                           ),
@@ -95,7 +95,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             emptyTextDark(context,
                                 'エラー：読み込みに失敗しました（$error）。通信を確認して、もう一度開いてください'),
                           if (waiting)
-                            const Center(
+                            Center(
                                 child: CircularProgressIndicator(
                                     color: AppColors.white))
                           else if (shown.isEmpty)

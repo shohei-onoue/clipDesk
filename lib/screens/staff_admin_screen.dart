@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -14,6 +14,7 @@ import '../widgets/role_chip.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/ruby_text.dart';
 
 /// スタッフ管理（責任者のみ）。登録済みのスタッフを一覧で表示し、権限を変更できる。
 /// 右下の「＋」から招待画面（/staff/invite）へ進む。
@@ -29,16 +30,15 @@ class StaffAdminScreen extends StatelessWidget {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         drawer: const AppDrawer(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: FloatingActionButton(
           tooltip: 'スタッフを招待',
           backgroundColor: AppColors.blue,
-          foregroundColor: AppColors.white,
+          foregroundColor: AppColors.onBlue,
           onPressed: () => Navigator.of(context).pushNamed('/staff/invite'),
-          child: const AppIcon(AppIcons.addCircle,
-              size: 32, color: AppColors.white),
+          child: AppIcon(AppIcons.addCircle, size: 32, color: AppColors.white),
         ),
         body: SafeArea(
           child: Column(children: [
@@ -125,7 +125,7 @@ class _UserTileState extends State<_UserTile> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(15)),
@@ -143,7 +143,7 @@ class _UserTileState extends State<_UserTile> {
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.amber,
-                  foregroundColor: AppColors.ink),
+                  foregroundColor: AppColors.onAmber),
               child: const Text('削除する')),
         ],
       ),
@@ -177,7 +177,7 @@ class _UserTileState extends State<_UserTile> {
         final card = Container(
           padding: EdgeInsets.fromLTRB(r.x(14), r.x(12), r.x(14), r.x(12)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border.all(
                 color: a.approved || waiting
                     ? AppColors.white.withValues(alpha: 0.16)
@@ -198,31 +198,41 @@ class _UserTileState extends State<_UserTile> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                    u.name.isEmpty ? '（名前なし）' : u.name,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppText.dark(r.x(16))),
+                          // 文字が大きいとき（中・大）は、名前と「ログイン」を折り返して並べる。
+                          () {
+                            final name = Text(
+                                u.name.isEmpty ? '（名前なし）' : u.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.dark(r.x(16)));
+                            final me = Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: r.x(10), vertical: r.x(2)),
+                              decoration: BoxDecoration(
+                                color: AppColors.amber,
+                                borderRadius: BorderRadius.circular(r.x(8)),
                               ),
-                              if (widget.isMe) ...[
-                                SizedBox(width: r.x(8)),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: r.x(10), vertical: r.x(2)),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.amber,
-                                    borderRadius:
-                                        BorderRadius.circular(r.x(8)),
-                                  ),
-                                  child: Text('ログイン',
-                                      style: AppText.dark(r.x(12),
-                                          color: AppColors.ink)),
-                                ),
+                              child: Text('ログイン',
+                                  style: AppText.dark(r.x(12),
+                                      color: AppColors.onAmber)),
+                            );
+                            if (r.large) {
+                              return Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: r.x(8),
+                                runSpacing: r.x(2),
+                                children: [name, if (widget.isMe) me],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Flexible(child: name),
+                                if (widget.isMe) ...[
+                                  SizedBox(width: r.x(8)),
+                                  me,
+                                ],
                               ],
-                            ],
-                          ),
+                            );
+                          }(),
                           Text(u.email,
                               style: AppText.dark(r.x(13),
                                   color:
@@ -235,11 +245,15 @@ class _UserTileState extends State<_UserTile> {
                       ),
                     ),
                   ),
-                  if (a.manager) ...[
-                    RoleChip('管理者権限', selected: true),
-                  ],
+                  if (a.manager && !r.large) RoleChip('管理者権限', selected: true),
                 ],
               ),
+              // 文字が大きいとき（中・大）は、横に並べると狭いので、下の段に置く。
+              if (a.manager && r.large)
+                Padding(
+                  padding: EdgeInsets.only(top: r.x(8)),
+                  child: RoleChip('管理者権限', selected: true),
+                ),
             ],
           ),
         );
@@ -259,8 +273,7 @@ class _UserTileState extends State<_UserTile> {
           ],
           child: card,
         );
-        return Padding(
-            padding: EdgeInsets.only(bottom: r.y(10)), child: swipe);
+        return Padding(padding: EdgeInsets.only(bottom: r.y(10)), child: swipe);
       },
     );
   }
@@ -284,7 +297,7 @@ class _PendingInvites extends StatelessWidget {
               margin: EdgeInsets.only(bottom: r.y(10)),
               padding: EdgeInsets.all(r.x(14)),
               decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.08),
+                color: AppColors.gray,
                 border: Border.all(color: AppColors.amber, width: 2),
                 borderRadius: BorderRadius.circular(r.x(15)),
               ),
@@ -477,7 +490,7 @@ class _EditDialogState extends State<_EditDialog> {
     return Theme(
       data: nightTheme,
       child: AlertDialog(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(r.x(15))),
@@ -565,7 +578,7 @@ class _EditDialogState extends State<_EditDialog> {
               onPressed: _busy ? null : _submit,
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.blue,
-                  foregroundColor: AppColors.white),
+                  foregroundColor: AppColors.onBlue),
               child: Text(_busy ? '保存中…' : '保存する')),
         ],
       ),

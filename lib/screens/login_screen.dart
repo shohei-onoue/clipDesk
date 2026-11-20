@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:video_player/video_player.dart';
 
 import '../widgets/intro_painter.dart';
@@ -10,6 +10,7 @@ import '../widgets/intro_painter.dart';
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import '../widgets/ruby_text.dart';
 
 /// 00 ログイン（フォーム表示）
 class LoginScreen extends StatefulWidget {
@@ -274,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       // 位置は上で自分で計算するため、Scaffoldによる縮小は使わない。
       resizeToAvoidBottomInset: false,
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) {
@@ -403,7 +404,7 @@ class _LoginScreenState extends State<LoginScreen>
                               constraints: BoxConstraints.tightFor(
                                   width: r.x(44), height: fieldHeight),
                               iconSize: r.x(22),
-                              color: AppColors.ink.withValues(alpha: 0.5),
+                              color: AppColors.onLight.withValues(alpha: 0.5),
                               icon: Icon(_showPassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined),
@@ -420,7 +421,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 backgroundColor: AppColors.blue,
                                 foregroundColor: Colors.white,
                                 // ログイン中は黒（ink）にして、文字の代わりに回るアイコンを出す。
-                                disabledBackgroundColor: AppColors.ink,
+                                disabledBackgroundColor: AppColors.bg,
                                 disabledForegroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
@@ -561,7 +562,7 @@ class _Field extends StatelessWidget {
         hintText: hint,
         hintStyle: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
             weight: FontWeight.w400,
-            color: AppColors.ink.withValues(alpha: 0.5),
+            color: AppColors.onLight.withValues(alpha: 0.5),
             height: 1.3),
         suffixIcon: suffix,
         contentPadding: EdgeInsets.symmetric(horizontal: r.x(14)),

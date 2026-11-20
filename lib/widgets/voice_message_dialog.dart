@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../core/japanese_speech.dart';
@@ -6,6 +6,7 @@ import '../core/japanese_speech.dart';
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
+import 'ruby_text.dart';
 
 /// メッセージ入力のダイアログ。キーボード入力に加えて、マイクで音声入力できる。
 /// 送信なら入力した文字（前後の空白なし）、キャンセルなら null を返す。
@@ -129,7 +130,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppRadius.md);
     return AlertDialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -161,7 +162,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
                           color: AppColors.white.withValues(alpha: 0.55))),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: radius,
-                      borderSide: const BorderSide(color: AppColors.white)),
+                      borderSide: BorderSide(color: AppColors.white)),
                 ),
               ),
               // 聞き間違いのとき、入力を消して最初からやり直す。入力欄の右下の最前面。
@@ -174,7 +175,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
                   label: const Text('やり直し'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.white,
-                    backgroundColor: AppColors.ink.withValues(alpha: 0.85),
+                    backgroundColor: AppColors.bg.withValues(alpha: 0.85),
                     minimumSize: const Size(0, 32),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
@@ -198,7 +199,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
           style: IconButton.styleFrom(
             backgroundColor: _listening ? AppColors.amber : AppColors.blue,
-            foregroundColor: _listening ? AppColors.ink : AppColors.white,
+            foregroundColor: _listening ? AppColors.onAmber : AppColors.onBlue,
             minimumSize: const Size(44, 44),
           ),
           onPressed: _toggle,
@@ -219,7 +220,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           onPressed: () => Navigator.pop(context, _text.text.trim()),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.blue,
-            foregroundColor: AppColors.white,
+            foregroundColor: AppColors.onBlue,
             minimumSize: const Size(96, 44),
             shape: RoundedRectangleBorder(borderRadius: radius),
           ),

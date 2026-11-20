@@ -57,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
       body: SafeArea(
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   emptyTextDark(context,
                                       'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください'),
                                 if (waiting)
-                                  const Center(
+                                  Center(
                                       child: CircularProgressIndicator(
                                           color: AppColors.white))
                                 else if (shown.isEmpty)

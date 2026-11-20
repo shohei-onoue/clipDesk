@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -12,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
+import '../widgets/ruby_text.dart';
 
 /// 依頼一覧（Figma 284:1673「list_ccreen」。編集者は同じ画面を「依頼確認」として使う）。
 /// 上から、グラデーションの下線つきヘッダー、依頼の2列グリッド、下部の共通バー（AppBottomBar）。
@@ -46,7 +47,7 @@ class _RequestListScreenState extends State<RequestListScreen> {
     final r = context.r;
     return Scaffold(
       key: _key,
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
       body: SafeArea(
@@ -70,7 +71,7 @@ class _RequestListScreenState extends State<RequestListScreen> {
                       }
                       if (snap.connectionState == ConnectionState.waiting &&
                           !snap.hasData) {
-                        return const Center(
+                        return Center(
                             child: CircularProgressIndicator(
                                 color: AppColors.white));
                       }
@@ -124,7 +125,7 @@ class _RequestTile extends StatelessWidget {
         child: ExcludeSemantics(
           child: Container(
             clipBehavior: Clip.antiAlias,
-            decoration: const BoxDecoration(color: AppColors.ink),
+            decoration: BoxDecoration(color: AppColors.bg),
             child: Column(
               children: [
                 // 動画の静止画の場所（データが無いので代わりの面）。

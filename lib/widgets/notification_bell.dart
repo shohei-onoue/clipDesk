@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -13,6 +13,7 @@ import 'app_icon.dart';
 import 'list_helpers.dart';
 import 'notice_card.dart';
 import 'unread_builder.dart';
+import 'ruby_text.dart';
 
 /// アプリバーの下に置く通知アイコン。未読の通知があるときだけ出し、
 /// 2件以上なら右上に件数を赤丸・白字で添える。押すと通知一覧をダイアログで開く。
@@ -99,7 +100,7 @@ class _Bell extends StatelessWidget {
                           ),
                           child: Text(count > 99 ? '99+' : '$count',
                               style: AppText.noto(r.x(12),
-                                  color: AppColors.white, height: 16 / 12)),
+                                  color: AppColors.onDark, height: 16 / 12)),
                         ),
                       ),
                   ],
@@ -143,7 +144,7 @@ class _NotificationDialog extends StatelessWidget {
               child: Text(label, style: const TextStyle(fontSize: 12)),
             );
         return AlertDialog(
-          backgroundColor: AppColors.ink,
+          backgroundColor: AppColors.bg,
           shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(AppRadius.lg),

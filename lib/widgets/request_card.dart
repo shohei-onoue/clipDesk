@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import 'progress_ring.dart';
+import 'ruby_text.dart';
 
 /// 依頼カード（ダーク背景用。リング / 依頼名 / 担当・納期 / 状態タグ）。
 class RequestCard extends StatelessWidget {
@@ -15,18 +16,21 @@ class RequestCard extends StatelessWidget {
     required this.title,
     required this.meta,
     required this.tag,
-    this.tagColor = AppColors.blue,
-    this.tagTextColor = AppColors.white,
+    Color? tagColor,
+    Color? tagTextColor,
     this.onTap,
-  });
+  })  : _tagColor = tagColor,
+        _tagTextColor = tagTextColor;
 
   final double progress;
   final String progressLabel;
   final String title;
   final String meta;
   final String tag;
-  final Color tagColor;
-  final Color tagTextColor;
+  final Color? _tagColor;
+  final Color? _tagTextColor;
+  Color get tagColor => _tagColor ?? AppColors.blue;
+  Color get tagTextColor => _tagTextColor ?? AppColors.onBlue;
   final VoidCallback? onTap;
 
   @override
@@ -39,7 +43,7 @@ class RequestCard extends StatelessWidget {
           constraints: BoxConstraints(minHeight: r.y(92)),
           padding: EdgeInsets.all(r.x(14)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(r.x(15)),
           ),

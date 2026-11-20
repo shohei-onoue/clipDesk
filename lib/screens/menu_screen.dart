@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -12,6 +12,7 @@ import '../widgets/confirm_logout.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/ruby_text.dart';
 
 /// ログイン後のメイン画面（Figma 268:879「main_screen」）。
 /// 「依頼する」「ダッシュボード」「ライブラリ」「登録スタッフ」のカードから各画面へ進む。
@@ -34,7 +35,7 @@ class MenuScreen extends StatelessWidget {
     final r = context.r;
     return Scaffold(
       // Figma：背景・アプリバーとも #1A1D20（AppColors.ink）。
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
@@ -42,6 +43,7 @@ class MenuScreen extends StatelessWidget {
             AppHeader(
               title: 'ホーム',
               showSettings: true,
+              onSettings: () => Navigator.of(context).pushNamed('/settings'),
               leadingIcon: AppIcons.logout,
               leadingTooltip: 'ログアウト',
               onLeading: () => confirmAndLogout(context),
@@ -171,12 +173,17 @@ class _MenuCard extends StatelessWidget {
   final VoidCallback onTap;
 
   // 161.887°のグラデーション（ink 60.6% → brand 90.1%）を、330×104 の箱の対角に換算した向き。
-  static const _gradient = LinearGradient(
-    begin: Alignment(-0.189, -1.838),
-    end: Alignment(0.189, 1.838),
-    colors: [AppColors.ink, AppColors.ink, AppColors.blue, AppColors.blue],
-    stops: [0, 0.60629, 0.90123, 1],
-  );
+  static LinearGradient get _gradient => LinearGradient(
+        begin: Alignment(-0.189, -1.838),
+        end: Alignment(0.189, 1.838),
+        colors: [
+          AppColors.deep,
+          AppColors.deep,
+          AppColors.blue,
+          AppColors.blue
+        ],
+        stops: [0, 0.60629, 0.90123, 1],
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +227,7 @@ class _MenuCard extends StatelessWidget {
                           Text(ruby,
                               style: AppText.noto(r.x(14),
                                   weight: FontWeight.w400,
-                                  color: AppColors.white)),
+                                  color: AppColors.onDark)),
                         // 長い題名（編集者ダッシュボード）は、枠に収まるよう縮める。
                         FittedBox(
                           fit: BoxFit.scaleDown,
@@ -228,7 +235,7 @@ class _MenuCard extends StatelessWidget {
                           child: Text(title,
                               style: AppText.noto(r.x(24),
                                   weight: FontWeight.w400,
-                                  color: AppColors.white)),
+                                  color: AppColors.onDark)),
                         ),
                       ] else
                         FittedBox(
@@ -244,11 +251,13 @@ class _MenuCard extends StatelessWidget {
                                     Text(rb ?? ' ',
                                         style: AppText.noto(r.x(14),
                                             weight: FontWeight.w400,
-                                            color: AppColors.white)),
+                                            color: AppColors.onDark)),
+                                    // 手で付けたふりがながあるので、自動のふりがなは付けない。
                                     Text(text,
+                                        ruby: false,
                                         style: AppText.noto(r.x(24),
                                             weight: FontWeight.w400,
-                                            color: AppColors.white)),
+                                            color: AppColors.onDark)),
                                   ],
                                 ),
                             ],

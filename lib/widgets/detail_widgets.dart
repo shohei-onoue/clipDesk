@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 // 案件詳細（RequestDetailScreen）と指示書確認（BriefConfirmScreen）で共有する部品。
 
@@ -18,7 +19,7 @@ class DetailCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.x(14)),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.08),
+        color: AppColors.gray,
         border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(r.x(15)),
       ),
@@ -123,10 +124,10 @@ class DetailButton extends StatelessWidget {
     final radius = BorderRadius.circular(AppRadius.md);
     // 塗りの上の文字：blue の上は white、white の上は amber、amber の上は ink。
     final fg = color == AppColors.blue
-        ? AppColors.white
+        ? AppColors.onBlue
         : color == AppColors.white
             ? AppColors.amber
-            : AppColors.ink;
+            : AppColors.onAmber;
     return Material(
       color: busy || disabled ? AppColors.white.withValues(alpha: 0.16) : color,
       borderRadius: radius,
@@ -138,7 +139,7 @@ class DetailButton extends StatelessWidget {
           width: double.infinity,
           child: Center(
             child: busy
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(

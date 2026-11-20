@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import 'app_icon.dart';
+import 'ruby_text.dart';
 
 /// 画面上部のAppBar（ダークテイスト）。高さ61。背景は ink、下端だけ accent へ変わる線。
 /// 左に戻る（前の画面へ。[leadingIcon] で差し替え可）、中央にタイトル、右に [actions] とハンバーガー（ドロワーを開く）を置く。
@@ -64,11 +65,11 @@ class AppHeader extends StatelessWidget {
     final tap = r.x(48); // タップ領域
     return Container(
       height: r.x(61),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.ink, AppColors.ink, AppColors.amber],
+          colors: [AppColors.bg, AppColors.bg, AppColors.amber],
           stops: [0, 0.92308, 1],
         ),
       ),
@@ -93,9 +94,11 @@ class AppHeader extends StatelessWidget {
             child: Padding(
               // ボタンと重ならないよう、左右に余白をとる。
               padding: EdgeInsets.symmetric(horizontal: tap * 2),
+              // タイトルの文字の大きさは、設定（文字の大きさ）に関わらず標準で固定。
               child: Text(title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textScaler: TextScaler.noScaling,
                   style: AppText.noto(r.x(24),
                       weight: FontWeight.w400, color: AppColors.white)),
             ),

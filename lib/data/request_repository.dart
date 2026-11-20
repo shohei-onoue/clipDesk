@@ -128,11 +128,10 @@ class RequestRepository {
 
   /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
   /// 区分は全員「両方」（`staff`）。責任者の印だけ切り替える。
-  Future<void> setStaffAccess(String uid, {required bool manager}) =>
-      _db
-          .collection('roles')
-          .doc(uid)
-          .set({'role': StaffAccess.roleValue, 'manager': manager});
+  Future<void> setStaffAccess(String uid, {required bool manager}) => _db
+      .collection('roles')
+      .doc(uid)
+      .set({'role': StaffAccess.roleValue, 'manager': manager});
 
   /// スタッフの名前・メールアドレス（users/{uid} の表示用の値）を直す。責任者だけ。
   /// 姓・名を別々に保存し、結合した name も同時に更新する。

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// スワイプで現れるボタン1つ分。
 class SwipeAction {
@@ -108,10 +109,10 @@ class _SwipeActionsState extends State<SwipeActions>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(a.icon,
-                                      color: AppColors.white, size: r.x(26)),
+                                      color: AppColors.onDark, size: r.x(26)),
                                   Text(a.label,
                                       style: AppText.dark(r.x(12),
-                                          color: AppColors.white)),
+                                          color: AppColors.onDark)),
                                 ]),
                           ),
                         ),

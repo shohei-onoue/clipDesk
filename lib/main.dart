@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/app_settings.dart';
 import 'core/debug_auto_login.dart';
 import 'firebase_options.dart';
 import 'screens/brief_confirm_screen.dart';
@@ -20,21 +21,56 @@ import 'screens/register_screen.dart';
 import 'screens/staff_admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/request_list_screen.dart';
+import 'screens/settings_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // 保存済みの認証情報ではホームへ進まず、毎回ボタン操作で認証する。
   // ただしデバッグ実行（ポート 5001／5002）だけは、テスト用アカウントで自動ログインする。
+  await AppSettings.instance.load();
   final auto = await debugAutoLogin();
   runApp(ClipDeskApp(autoLoggedIn: auto));
 }
 
-class ClipDeskApp extends StatelessWidget {
+class ClipDeskApp extends StatefulWidget {
   const ClipDeskApp({super.key, this.autoLoggedIn = false});
 
   /// デバッグの自動ログインが済んでいるか（済んでいればメイン画面から始める）。
   final bool autoLoggedIn;
+
+  @override
+  State<ClipDeskApp> createState() => _ClipDeskAppState();
+}
+
+class _ClipDeskAppState extends State<ClipDeskApp> {
+  bool get autoLoggedIn => widget.autoLoggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    AppSettings.instance.addListener(_onSettings);
+  }
+
+  @override
+  void dispose() {
+    AppSettings.instance.removeListener(_onSettings);
+    super.dispose();
+  }
+
+  /// 設定（文字の大きさ・色の組み合わせ・ふりがな）が変わったら、画面全体を作り直す。
+  /// 色は const ではなく、const のウィジェットや State に残った値もあるため、全部を再構築する。
+  void _onSettings() {
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      void mark(Element e) {
+        e.markNeedsBuild();
+        e.visitChildren(mark);
+      }
+
+      WidgetsBinding.instance.rootElement?.visitChildren(mark);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +90,17 @@ class ClipDeskApp extends StatelessWidget {
       '/brief': (_) => const BriefConfirmScreen(),
       '/notifications': (_) => const NotificationsScreen(),
       '/library': (_) => const DeliveryLibraryScreen(),
+      '/settings': (_) => const SettingsScreen(),
     };
     return MaterialApp(
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
+      // 文字の大きさ（設定）。「小」は従来のまま（1倍）、「中」は1.5倍、「大」は2倍。
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(AppSettings.instance.textSize.scale)),
+        child: child ?? const SizedBox.shrink(),
+      ),
       theme: ThemeData(useMaterial3: true),
       // 日付選択（カレンダー）などの標準部品を日本語にする。
       locale: const Locale('ja'),

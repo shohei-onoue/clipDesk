@@ -110,7 +110,7 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
               height: size.height,
               child: VideoPlayer(_video!)),
         ),
-        const Center(
+        Center(
             child: Icon(Icons.play_circle_outline,
                 size: 40, color: AppColors.white)),
       ]);
@@ -122,15 +122,14 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
     } else {
       content = _failed || widget.attachment == null
           ? _placeholder
-          : const Center(
+          : Center(
               child: SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: AppColors.white)));
     }
-    return ColoredBox(
-        color: AppColors.white.withValues(alpha: 0.08), child: content);
+    return ColoredBox(color: AppColors.gray, child: content);
   }
 }
 
@@ -180,8 +179,8 @@ class _LocalVideoThumbState extends State<LocalVideoThumb> {
     if (v == null) {
       return Center(
         child: _failed
-            ? const Icon(Icons.play_circle_outline, color: AppColors.white)
-            : const SizedBox(
+            ? Icon(Icons.play_circle_outline, color: AppColors.white)
+            : SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
@@ -196,7 +195,7 @@ class _LocalVideoThumbState extends State<LocalVideoThumb> {
         child: SizedBox(
             width: size.width, height: size.height, child: VideoPlayer(v)),
       ),
-      const Center(
+      Center(
           child: Icon(Icons.play_circle_outline,
               size: 28, color: AppColors.white)),
     ]);

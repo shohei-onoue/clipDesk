@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
+import 'ruby_text.dart';
 
 /// フィルタ番号（0=すべて、1〜=進捗の並び順）で依頼を絞り込む。
 List<VideoRequest> applyFilter(List<VideoRequest> all, int filter) {
@@ -39,14 +40,13 @@ String? noticeText(List<VideoRequest> all, UserRole role) {
 void openRequest(BuildContext context, String id) =>
     Navigator.of(context).pushNamed('/request', arguments: id);
 
-Widget emptyText(BuildContext context, String text,
-        {Color color = AppColors.ink}) =>
-    Padding(
+Widget emptyText(BuildContext context, String text, {Color? color}) => Padding(
       padding: EdgeInsets.symmetric(vertical: context.r.y(24)),
       child: Center(
           child: Text(text,
               textAlign: TextAlign.center,
-              style: AppText.noto(context.r.x(15), color: color))),
+              style: AppText.noto(context.r.x(15),
+                  color: color ?? AppColors.ink))),
     );
 
 /// ダーク背景の画面用の空表示。

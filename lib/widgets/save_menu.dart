@@ -1,11 +1,12 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
+import 'ruby_text.dart';
 
 enum _Dest {
   local('この端末に保存', null, null),
@@ -40,7 +41,7 @@ Future<void> showSaveMenu(BuildContext context,
   final dest = await showMenu<_Dest>(
     context: context,
     position: position,
-    color: AppColors.ink,
+    color: AppColors.bg,
     shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(10)),

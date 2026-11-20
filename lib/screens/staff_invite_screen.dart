@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -9,6 +9,7 @@ import '../data/services.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/tips_card.dart';
+import '../widgets/ruby_text.dart';
 
 /// スタッフ招待（責任者のみ）。メールアドレスと管理者権限を決め、登録フォームのリンクをメールで送る。
 /// 区分は全員「依頼も編集もできる」で、選ばない。「管理者」だけトグルスイッチで入り切りする。
@@ -41,9 +42,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
     }
     setState(() => _busy = true);
     try {
-      await Services.repo.saveInvite(email,
-          manager: _manager,
-          invitedBy: me);
+      await Services.repo.saveInvite(email, manager: _manager, invitedBy: me);
       await const InviteMailer().send(email);
       messenger.showSnackBar(SnackBar(content: Text('$email へ招待メールを送りました')));
       if (mounted) Navigator.of(context).maybePop();
@@ -60,7 +59,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [
@@ -92,7 +91,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
                         minimumSize: const Size(0, 56),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.white,
+                        foregroundColor: AppColors.onBlue,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),

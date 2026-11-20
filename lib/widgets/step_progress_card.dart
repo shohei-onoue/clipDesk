@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -8,6 +8,7 @@ import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 import 'status_style.dart';
+import 'ruby_text.dart';
 
 enum StepState { done, current, pending }
 
@@ -80,7 +81,7 @@ class StepProgressCard extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(r.x(AppSpace.s4)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border.all(
                 color: mine
                     ? AppColors.amber
@@ -91,24 +92,41 @@ class StepProgressCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                      child: Text(title,
-                          style: AppText.h3(r, color: AppColors.white))),
-                  if (mine) ...[
-                    SizedBox(width: r.x(AppSpace.s2)),
-                    const _Tag(text: 'あなたの対応待ち', accent: true),
-                  ] else if (waiting != null) ...[
-                    SizedBox(width: r.x(AppSpace.s2)),
-                    _Tag(text: waiting),
-                  ] else if (request.status == RequestStatus.posted) ...[
-                    SizedBox(width: r.x(AppSpace.s2)),
-                    const _Tag(text: '完了'),
+              // 標準は、題名の右にタグを並べる。文字が大きい・ふりがなのときは、幅が足りないので、
+              // 題名の下の段にタグを置く。
+              Builder(builder: (context) {
+                final tag = mine
+                    ? const _Tag(text: 'あなたの対応待ち', accent: true)
+                    : waiting != null
+                        ? _Tag(text: waiting)
+                        : request.status == RequestStatus.posted
+                            ? const _Tag(text: '完了')
+                            : null;
+                final titleText =
+                    Text(title, style: AppText.h3(r, color: AppColors.white));
+                if (r.roomy) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleText,
+                      if (tag != null) ...[
+                        SizedBox(height: r.x(AppSpace.s2)),
+                        tag,
+                      ],
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: titleText),
+                    if (tag != null) ...[
+                      SizedBox(width: r.x(AppSpace.s2)),
+                      tag,
+                    ],
                   ],
-                ],
-              ),
+                );
+              }),
               SizedBox(height: r.y(AppSpace.s1)),
               Wrap(
                 spacing: r.x(AppSpace.s4),
@@ -216,7 +234,7 @@ class _Tag extends StatelessWidget {
       child: Text(text,
           style: AppText.label(r,
               color: accent
-                  ? AppColors.ink
+                  ? AppColors.onAmber
                   : AppColors.white.withValues(alpha: 0.7))),
     );
   }
@@ -238,15 +256,15 @@ class _Step extends StatelessWidget {
     // 状態は色だけでなく語句（✓／現在／未到達）でも示す。
     final top = done ? '✓' : (current ? '現在' : '未到達');
     final topColor = done
-        ? AppColors.white
+        ? AppColors.onBlue
         : (current ? AppColors.white : AppColors.white.withValues(alpha: 0.7));
-    final bottomColor = done ? AppColors.white : AppColors.white;
+    final bottomColor = done ? AppColors.onBlue : AppColors.white;
 
     return Container(
       height: r.y(57),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: done ? AppColors.blue : AppColors.white.withValues(alpha: 0.08),
+        color: done ? AppColors.blue : AppColors.gray,
         border: Border.all(
           color: current ? accent : AppColors.white.withValues(alpha: 0.55),
           width: current ? 3 : 1,

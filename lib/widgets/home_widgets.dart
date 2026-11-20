@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -8,6 +8,7 @@ import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 import 'status_style.dart';
+import 'ruby_text.dart';
 
 // デザインシステム（docs/design-system/components.md）のホーム用部品：
 // TopTabs／EmptyCard／StatusTag／ProgressBar／RequestCard（グリッド用）。ダークテイスト。
@@ -31,7 +32,7 @@ class TopTabs extends StatelessWidget {
     final r = context.r;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.ink,
+        color: AppColors.bg,
         border: Border(
             bottom: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
       ),
@@ -47,7 +48,10 @@ class TopTabs extends StatelessWidget {
                   onTap: () => onSelect(i),
                   child: ExcludeSemantics(
                     child: Container(
-                      height: r.y(48),
+                      // 標準は高さ48。文字が大きい・ふりがなのときは、文字に合わせて広がる。
+                      constraints: BoxConstraints(minHeight: r.y(48)),
+                      padding:
+                          EdgeInsets.symmetric(vertical: r.roomy ? r.x(6) : 0),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         border: Border(
@@ -99,7 +103,7 @@ class EmptyCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.x(AppSpace.s4)),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.08),
+        color: AppColors.gray,
         border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
@@ -137,7 +141,7 @@ class SelectField extends StatelessWidget {
           height: r.y(48),
           padding: EdgeInsets.symmetric(horizontal: r.x(AppSpace.s3)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border.all(color: AppColors.white.withValues(alpha: 0.55)),
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
@@ -145,9 +149,9 @@ class SelectField extends StatelessWidget {
             child: DropdownButton<int>(
               isExpanded: true,
               value: value,
-              dropdownColor: AppColors.white.withValues(alpha: 0.08),
+              dropdownColor: AppColors.gray,
               style: AppText.body(r, color: AppColors.white),
-              icon: const Icon(Icons.expand_more, color: AppColors.white),
+              icon: Icon(Icons.expand_more, color: AppColors.white),
               items: [
                 for (var i = 0; i < options.length; i++)
                   DropdownMenuItem(value: i, child: Text(options[i])),
@@ -174,8 +178,9 @@ class StatusTag extends StatelessWidget {
   factory StatusTag.of(RequestStatus s) => StatusTag(
         text: s.label,
         fill: tagColor(s),
-        onFill:
-            tagColor(s) == AppColors.amber ? AppColors.ink : AppColors.white,
+        onFill: tagColor(s) == AppColors.amber
+            ? AppColors.onAmber
+            : AppColors.onBlue,
       );
 
   @override
@@ -195,7 +200,7 @@ class StatusTag extends StatelessWidget {
       child: Text(text,
           style: AppText.label(r,
               color: filled
-                  ? (onFill ?? AppColors.ink)
+                  ? (onFill ?? AppColors.onAmber)
                   : AppColors.white.withValues(alpha: 0.7))),
     );
   }
@@ -282,7 +287,7 @@ class HomeRequestCard extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(r.x(AppSpace.s3)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
+            color: AppColors.gray,
             border: Border.all(
                 color: mine
                     ? AppColors.amber
@@ -305,10 +310,10 @@ class HomeRequestCard extends StatelessWidget {
                 children: [
                   StatusTag.of(request.status),
                   if (mine)
-                    const StatusTag(
+                    StatusTag(
                         text: 'あなたの対応待ち',
                         fill: AppColors.amber,
-                        onFill: AppColors.ink),
+                        onFill: AppColors.onAmber),
                 ],
               ),
               SizedBox(height: r.y(AppSpace.s2)),

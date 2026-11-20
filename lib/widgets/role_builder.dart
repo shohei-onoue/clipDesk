@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import 'ruby_text.dart';
 
 /// ログイン中ユーザーの役割を購読して builder に渡す。
 /// 役割が未設定の場合は案内を表示する（自己申告で役割を選ばせない）。

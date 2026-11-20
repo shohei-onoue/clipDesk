@@ -10,7 +10,7 @@ class AppText {
   static TextStyle noto(
     double size, {
     FontWeight weight = FontWeight.w700,
-    Color color = AppColors.ink,
+    Color? color,
     double? height,
     double? letterSpacing,
   }) =>
@@ -18,7 +18,7 @@ class AppText {
         fontFamily: 'NotoSansJP',
         fontSize: size,
         fontWeight: weight,
-        color: color,
+        color: color ?? AppColors.ink,
         height: height,
         letterSpacing: letterSpacing,
       );
@@ -27,29 +27,29 @@ class AppText {
   static TextStyle dark(
     double size, {
     FontWeight weight = FontWeight.w700,
-    Color color = AppColors.white,
+    Color? color,
     double? height,
     double? letterSpacing,
   }) =>
       noto(size,
           weight: weight,
-          color: color,
+          color: color ?? AppColors.white,
           height: height,
           letterSpacing: letterSpacing);
 
   // --- デザインシステム（tokens.json の type）。サイズは画面幅に合わせて r で拡縮する。 ---
 
   /// h2：セクション見出し 20/30。
-  static TextStyle h2(Responsive r, {Color color = AppColors.ink}) =>
+  static TextStyle h2(Responsive r, {Color? color}) =>
       noto(r.x(20), color: color, height: 30 / 20);
 
   /// h3：カード・パネルの見出し 16/26。
-  static TextStyle h3(Responsive r, {Color color = AppColors.ink}) =>
+  static TextStyle h3(Responsive r, {Color? color}) =>
       noto(r.x(16), color: color, height: 26 / 16);
 
   /// body：指示文・説明 14/24。
   static TextStyle body(Responsive r,
-          {Color color = AppColors.ink, FontWeight weight = FontWeight.w400}) =>
+          {Color? color, FontWeight weight = FontWeight.w400}) =>
       noto(r.x(14), weight: weight, color: color, height: 24 / 14);
 
   /// body-sm：補足・ヒント 12/20。
@@ -59,7 +59,7 @@ class AppText {
       height: 20 / 12);
 
   /// label：タグ・ラベル 12/16 太字。
-  static TextStyle label(Responsive r, {Color color = AppColors.ink}) =>
+  static TextStyle label(Responsive r, {Color? color}) =>
       noto(r.x(12), color: color, height: 16 / 12);
 
   static TextStyle oswald(

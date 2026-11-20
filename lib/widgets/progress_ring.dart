@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// 進捗リング（円グラフ、ダーク背景用）。進んだ分は accent、中央に文字を表示する。
 class ProgressRing extends StatelessWidget {

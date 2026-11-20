@@ -36,7 +36,7 @@ Color tagColor(RequestStatus s) => switch (s) {
     };
 
 Color tagTextColor(RequestStatus s) =>
-    tagColor(s) == AppColors.amber ? AppColors.ink : AppColors.white;
+    tagColor(s) == AppColors.amber ? AppColors.onAmber : AppColors.onBlue;
 
 String dateText(DateTime? d) => d == null
     ? '未設定'

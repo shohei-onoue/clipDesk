@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/swipe_actions.dart';
 
@@ -16,6 +16,7 @@ import '../widgets/attachment_thumb.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/video_player_dialog.dart';
+import '../widgets/ruby_text.dart';
 
 /// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
@@ -26,7 +27,7 @@ class DeliveryLibraryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
@@ -104,7 +105,7 @@ class _LibraryCard extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.all(r.x(9)),
               decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.08),
+                color: AppColors.gray,
                 border:
                     Border.all(color: AppColors.white.withValues(alpha: 0.16)),
                 borderRadius: BorderRadius.circular(r.x(15)),
@@ -191,7 +192,7 @@ Future<void> _confirmDelete(
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),

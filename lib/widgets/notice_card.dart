@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import 'app_icon.dart';
+import 'ruby_text.dart';
 
 /// ベルアイコン付きのお知らせカード。
 class NoticeCard extends StatelessWidget {
@@ -12,18 +13,21 @@ class NoticeCard extends StatelessWidget {
     required this.text,
     this.caption,
     this.background,
-    this.borderColor = AppColors.amber,
-    this.bellColor = AppColors.amber,
+    Color? borderColor,
+    Color? bellColor,
     this.onTap,
-  });
+  })  : _borderColor = borderColor,
+        _bellColor = bellColor;
 
   final String text;
 
   /// タイトルの上に小さく出す文字（通知された日付など）。
   final String? caption;
   final Color? background;
-  final Color borderColor;
-  final Color bellColor;
+  final Color? _borderColor;
+  final Color? _bellColor;
+  Color get borderColor => _borderColor ?? AppColors.amber;
+  Color get bellColor => _bellColor ?? AppColors.amber;
   final VoidCallback? onTap;
 
   @override
@@ -35,7 +39,7 @@ class NoticeCard extends StatelessWidget {
         width: double.infinity,
         padding: EdgeInsets.all(r.x(14)),
         decoration: BoxDecoration(
-          color: background ?? AppColors.white.withValues(alpha: 0.08),
+          color: background ?? AppColors.gray,
           border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(r.x(15)),
         ),

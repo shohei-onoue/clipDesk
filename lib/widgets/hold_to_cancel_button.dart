@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// 「依頼取消」ボタン。長押しで取り消す（確認ダイアログは出さない）。
 /// 押している間、画面の中心に出るドーナツグラフが12時の位置から時計回りに塗りつぶされ、
@@ -122,7 +123,7 @@ class _HoldToCancelButtonState extends State<HoldToCancelButton>
               child: Center(
                 child: Text('依頼取消',
                     maxLines: 1,
-                    style: AppText.noto(r.x(14), color: AppColors.ink)),
+                    style: AppText.noto(r.x(14), color: AppColors.onAmber)),
               ),
             ),
           ),
@@ -175,7 +176,7 @@ class _HoldPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.ink,
+      color: AppColors.bg,
       elevation: 12,
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Container(

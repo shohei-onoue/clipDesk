@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:video_player/video_player.dart';
 
 import '../core/app_colors.dart';
@@ -9,6 +9,7 @@ import '../domain/video_request.dart';
 import 'attachment_thumb.dart';
 import 'submission_player.dart';
 import '../data/storage_service.dart';
+import 'ruby_text.dart';
 
 /// Storage上の動画（[audio] なら音声）を再生するダイアログ。YouTube風：黒い面に動画、赤いバーと白い丸、
 /// 再生・一時停止・秒数、題名。右上の×で閉じる。
@@ -37,7 +38,7 @@ Future<void> showVideoDialog(BuildContext context,
                 onPressed: () => Navigator.of(ctx).pop(),
                 style: IconButton.styleFrom(
                     backgroundColor: Colors.black.withValues(alpha: 0.55)),
-                icon: const Icon(Icons.close, color: AppColors.white),
+                icon: Icon(Icons.close, color: AppColors.onDark),
               ),
             ),
           ]),
@@ -67,7 +68,7 @@ Future<void> showAttachmentDialog(BuildContext context,
       return showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.ink,
+          backgroundColor: AppColors.bg,
           title: Text(name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -85,11 +86,11 @@ Future<void> showAttachmentDialog(BuildContext context,
                     onDownload();
                   },
                   child: Text('ダウンロード',
-                      style: AppText.dark(14, color: AppColors.white))),
+                      style: AppText.dark(14, color: AppColors.onDark))),
             TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: Text('閉じる',
-                    style: AppText.dark(14, color: AppColors.white))),
+                    style: AppText.dark(14, color: AppColors.onDark))),
           ],
         ),
       );
@@ -105,7 +106,7 @@ class _ImageDialog extends StatelessWidget {
     final screen = MediaQuery.sizeOf(context);
     // AlertDialog は中身の幅を測るため、画像の読み込み中にレイアウトが壊れる。Dialog で組む。
     return Dialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -131,11 +132,11 @@ class _ImageDialog extends StatelessWidget {
                           style: AppText.dark(14, weight: FontWeight.w400));
                     }
                     if (!snap.hasData) {
-                      return const SizedBox(
+                      return SizedBox(
                           height: 120,
                           child: Center(
                               child: CircularProgressIndicator(
-                                  color: AppColors.white)));
+                                  color: AppColors.onDark)));
                     }
                     return Image.network(
                       snap.data!,
@@ -144,11 +145,11 @@ class _ImageDialog extends StatelessWidget {
                       webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                       loadingBuilder: (_, child, p) => p == null
                           ? child
-                          : const SizedBox(
+                          : SizedBox(
                               height: 120,
                               child: Center(
                                   child: CircularProgressIndicator(
-                                      color: AppColors.white))),
+                                      color: AppColors.onDark))),
                       errorBuilder: (_, __, ___) => Text(
                           'エラー：画像を表示できません。通信を確認して、もう一度開いてください',
                           style: AppText.dark(14, weight: FontWeight.w400)),
@@ -161,7 +162,7 @@ class _ImageDialog extends StatelessWidget {
                 child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text('閉じる',
-                        style: AppText.dark(14, color: AppColors.white))),
+                        style: AppText.dark(14, color: AppColors.onDark))),
               ),
             ],
           ),
@@ -228,7 +229,7 @@ class _VideoDialogState extends State<_VideoDialog> {
     // 画面からはみ出さないよう、幅は画面内、動画の高さは画面の半分までに収める。
     final screen = MediaQuery.sizeOf(context);
     return AlertDialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       title: Text(widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -239,11 +240,11 @@ class _VideoDialogState extends State<_VideoDialog> {
             ? Text('エラー：動画を再生できません（$_error）。通信を確認して、もう一度開いてください',
                 style: AppText.dark(14, weight: FontWeight.w400))
             : c == null
-                ? const SizedBox(
+                ? SizedBox(
                     height: 120,
                     child: Center(
                         child:
-                            CircularProgressIndicator(color: AppColors.white)))
+                            CircularProgressIndicator(color: AppColors.onDark)))
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -259,7 +260,7 @@ class _VideoDialogState extends State<_VideoDialog> {
                         valueListenable: c,
                         builder: (_, v, __) => IconButton(
                           tooltip: v.isPlaying ? '一時停止' : '再生',
-                          color: AppColors.white,
+                          color: AppColors.onDark,
                           icon: Icon(
                               v.isPlaying ? Icons.pause : Icons.play_arrow),
                           onPressed: () => v.isPlaying ? c.pause() : c.play(),
@@ -272,7 +273,7 @@ class _VideoDialogState extends State<_VideoDialog> {
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child:
-                Text('閉じる', style: AppText.dark(14, color: AppColors.white))),
+                Text('閉じる', style: AppText.dark(14, color: AppColors.onDark))),
       ],
     );
   }

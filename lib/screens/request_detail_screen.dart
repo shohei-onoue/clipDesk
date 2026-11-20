@@ -1,5 +1,5 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
@@ -27,6 +27,7 @@ import '../widgets/app_icon.dart';
 import '../widgets/detail_widgets.dart';
 import '../widgets/voice_message_dialog.dart';
 import 'inquiry_chat_screen.dart';
+import '../widgets/ruby_text.dart';
 
 /// 案件詳細。依頼者は「動画承認」、編集者は「依頼確認／動画アップロード」を
 /// この画面から行う（役割と状態で操作を出し分ける）。
@@ -37,7 +38,7 @@ class RequestDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
@@ -63,7 +64,7 @@ class RequestDetailScreen extends StatelessWidget {
                     return const _Notice('エラー：この案件を表示できません。権限を確認してください');
                   }
                   if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
+                    return Center(
                         child:
                             CircularProgressIndicator(color: AppColors.white));
                   }
@@ -378,7 +379,7 @@ class _BodyState extends State<_Body> {
       context: context,
       position: RelativeRect.fromLTRB(
           at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-      color: AppColors.ink,
+      color: AppColors.bg,
       shape: RoundedRectangleBorder(
           side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
           borderRadius: BorderRadius.circular(10)),
@@ -390,8 +391,7 @@ class _BodyState extends State<_Body> {
               SizedBox(
                   width: 24,
                   child: o == current
-                      ? const Icon(Icons.check,
-                          size: 18, color: AppColors.white)
+                      ? Icon(Icons.check, size: 18, color: AppColors.white)
                       : null),
               Text(o, style: AppText.dark(14, weight: FontWeight.w400)),
             ]),
@@ -648,7 +648,7 @@ class _BodyState extends State<_Body> {
                           _addAttachments();
                         },
                   // ダウンロードアイコン（Icons.download）と同じ24px。
-                  icon: const AppIcon(AppIcons.addCircle,
+                  icon: AppIcon(AppIcons.addCircle,
                       size: 24, color: AppColors.white),
                 ),
             ]),
@@ -676,10 +676,8 @@ class _BodyState extends State<_Body> {
                             const Icon(Icons.image_outlined),
                           AttachmentType.audio =>
                             const Icon(Icons.music_note_outlined),
-                          AttachmentType.other => const AppIcon(
-                              AppIcons.attachFile,
-                              size: 24,
-                              color: AppColors.white),
+                          AttachmentType.other => AppIcon(AppIcons.attachFile,
+                              size: 24, color: AppColors.white),
                         },
                       ),
                       // 受付待ちの自分の依頼では、ファイル名をタップして「変更」「削除」を選ぶ。
@@ -1066,7 +1064,7 @@ class _Submissions extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         title: Text(who == null ? '修正の依頼' : '$who様からの修正の依頼',
             style: AppText.dark(18)),
         // メッセージの表示エリア：背景は白、文字は ink。
@@ -1122,7 +1120,7 @@ class _DocsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
     return Dialog(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
@@ -1137,7 +1135,7 @@ class _DocsDialog extends StatelessWidget {
               IconButton(
                 tooltip: '閉じる',
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: AppColors.white),
+                icon: Icon(Icons.close, color: AppColors.white),
               ),
             ]),
           ),

@@ -10,5 +10,9 @@ class Services {
   static RequestRepository get repo => _repo ??= RequestRepository();
   static set repo(RequestRepository v) => _repo = v;
 
-  static String? get uid => FirebaseAuth.instance.currentUser?.uid;
+  /// テスト用：ログイン中のユーザーIDを差し替える（Firebase なしで画面を開くため）。
+  static String? uidOverride;
+
+  static String? get uid =>
+      uidOverride ?? FirebaseAuth.instance.currentUser?.uid;
 }

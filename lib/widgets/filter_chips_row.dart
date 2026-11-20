@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// 進捗などの絞り込みボタン。横にスクロールでき、右端が見切れる位置には
 /// 薄いぼかしを重ねて「続きがある」ことを示す。[counts] があれば件数を添える。
@@ -11,13 +12,13 @@ class FilterChipsRow extends StatelessWidget {
   const FilterChipsRow({
     super.key,
     this.selected = 0,
-    this.idleColor = AppColors.white,
+    Color? idleColor,
     this.onChanged,
     this.labels = defaultLabels,
     this.counts,
     this.wrap = false,
     this.dark = false,
-  });
+  }) : _idleColor = idleColor;
 
   static const defaultLabels = [
     'すべて',
@@ -42,7 +43,8 @@ class FilterChipsRow extends StatelessWidget {
   final bool dark;
 
   /// チップが載る面の色（右端のぼかしに使う）。
-  final Color idleColor;
+  final Color? _idleColor;
+  Color get idleColor => _idleColor ?? AppColors.white;
   final ValueChanged<int>? onChanged;
 
   @override
@@ -103,10 +105,10 @@ class FilterChipsRow extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onChanged?.call(i),
         child: Container(
-          height: r.y(44),
-          constraints: BoxConstraints(minWidth: r.x(80)),
-          padding: EdgeInsets.symmetric(horizontal: r.x(AppSpace.s4)),
-          alignment: Alignment.center,
+          // 標準は高さ44。文字が大きい・ふりがなのときは、文字に合わせて広がる。
+          constraints: BoxConstraints(minWidth: r.x(80), minHeight: r.y(44)),
+          padding: EdgeInsets.symmetric(
+              horizontal: r.x(AppSpace.s4), vertical: r.roomy ? r.x(6) : 0),
           decoration: BoxDecoration(
             color: Colors.transparent,
             // 選択中は brand の2px枠。未選択は line-strong の細い枠。語句「✓」も添える。
@@ -119,14 +121,18 @@ class FilterChipsRow extends StatelessWidget {
                 width: on ? 2 : 1),
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
-          child: ExcludeSemantics(
-            child: Text(
-              text,
-              style: AppText.body(r,
-                  color: on
-                      ? AppColors.blue
-                      : (dark ? AppColors.white : AppColors.ink),
-                  weight: FontWeight.w700),
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: ExcludeSemantics(
+              child: Text(
+                text,
+                style: AppText.body(r,
+                    color: on
+                        ? AppColors.blue
+                        : (dark ? AppColors.white : AppColors.ink),
+                    weight: FontWeight.w700),
+              ),
             ),
           ),
         ),

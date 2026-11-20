@@ -76,3 +76,11 @@ AppRadius（4/8/12/20/999）は維持します。現行UI固有のカード15、
 ## アイコン
 
 アイコンは Figma「icon_list」(node 273:987) の SVG（`assets/icons/`）を、`lib/widgets/app_icon.dart` の `AppIcon(AppIcons.xxx, color: …)` で使います。単色で、色は4色から選びます。塗りつぶし版（`…Fill`）は選択中・現在地に使い、未選択は線画版です。Material の `Icons` は、この一覧にない用途（再生・ダウンロードなど）に限ります。
+
+## 表示の設定（設定画面）
+
+ユーザー指示（2026-11-20）。ホームのアップバーの歯車から開く設定画面で、文字の大きさ・色の組み合わせ・ふりがなを切り替えます。標準の設定（小・デフォルト・ふりがなオフ）の見た目は、これまでの基準UIと同じです。
+
+- 文字の大きさ：小＝標準、中＝1.5倍、大＝2倍（`textScaler`）。文字が大きいときは、固定の高さに文字を入れず、`Responsive.tx`・`r.large`・最小の高さで枠を広げます。高さを固定した枠に文字を入れる場合は、中・大で `test/layout_scale_test.dart`（はみ出しの確認）を通します。
+- 色の組み合わせ：`AppPalette`（デフォルト・ハイコントラスト・オーシャン・フォレスト・プラム）。`AppColors.bg／ink／white／amber／blue／gray／onBlue／onAmber` は設定で変わるため `const` では使えません。背景は `AppColors.bg`、青・琥珀の面の上の文字は `onBlue`／`onAmber` を使います（ハイコントラストは明るい背景）。面は `AppColors.gray`（白8%を直書きしない）。`badgeRed` は固定です。
+- ふりがな：文字は `widgets/ruby_text.dart` の `Text`（標準の `Text` を隠して読み込む）を使います。辞書は `core/ruby_dictionary.dart`。

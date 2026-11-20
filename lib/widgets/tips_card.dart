@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// ヒント用のカード。左上に「TIPS」ラベル（amber）、背景は White、本文は ink。
 class TipsCard extends StatelessWidget {

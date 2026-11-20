@@ -1,6 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -17,6 +17,7 @@ import '../widgets/status_style.dart';
 import '../widgets/voice_input.dart';
 import '../widgets/voice_message_dialog.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/ruby_text.dart';
 
 enum _Step {
   title,
@@ -315,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context: context,
         position: RelativeRect.fromLTRB(
             at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-        color: AppColors.ink,
+        color: AppColors.bg,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(10)),
@@ -327,8 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 SizedBox(
                     width: 24,
                     child: o == msg.text
-                        ? const Icon(Icons.check,
-                            size: 18, color: AppColors.white)
+                        ? Icon(Icons.check, size: 18, color: AppColors.white)
                         : null),
                 Text(o, style: AppText.dark(14, weight: FontWeight.w400)),
               ]),
@@ -391,7 +391,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       position: RelativeRect.fromLTRB(
           at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-      color: AppColors.ink,
+      color: AppColors.bg,
       shape: RoundedRectangleBorder(
           side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
           borderRadius: BorderRadius.circular(10)),
@@ -425,7 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final controller = FixedExtentScrollController(initialItem: selected - 1);
     return showModalBottomSheet<int>(
       context: context,
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       builder: (context) => SafeArea(
         child: SizedBox(
           height: 300,
@@ -448,7 +448,7 @@ class _ChatScreenState extends State<ChatScreen> {
               child: CupertinoPicker(
                 scrollController: controller,
                 itemExtent: 40,
-                backgroundColor: AppColors.ink,
+                backgroundColor: AppColors.bg,
                 onSelectedItemChanged: (i) => selected = i + 1,
                 children: [
                   for (var n = 1; n <= 600; n++)
@@ -519,7 +519,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final kind = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -573,10 +573,10 @@ class _ChatScreenState extends State<ChatScreen> {
             primary: AppColors.blue,
             onPrimary: AppColors.white,
             // 背景は透けない単色（ink）。
-            surface: AppColors.ink,
+            surface: AppColors.bg,
             onSurface: AppColors.white,
           ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppColors.ink),
+          dialogTheme: DialogThemeData(backgroundColor: AppColors.bg),
           // 「キャンセル」「OK」はテキストボタンではなく、枠付き／塗りのボタンにする。
           datePickerTheme: DatePickerThemeData(
             cancelButtonStyle: OutlinedButton.styleFrom(
@@ -587,7 +587,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             confirmButtonStyle: FilledButton.styleFrom(
               backgroundColor: AppColors.blue,
-              foregroundColor: AppColors.white,
+              foregroundColor: AppColors.onBlue,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg)),
             ),
@@ -619,7 +619,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(15)),
@@ -632,7 +632,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.blue,
-                  foregroundColor: AppColors.white),
+                  foregroundColor: AppColors.onBlue),
               child: const Text('はい')),
         ],
       ),
@@ -745,7 +745,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     _scrollToLatestQuestion();
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Stack(children: [
@@ -778,7 +778,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       for (final file in [...d.videos, ...d.references])
                         ListTile(
                           dense: true,
-                          tileColor: AppColors.white.withValues(alpha: 0.08),
+                          tileColor: AppColors.gray,
                           textColor: AppColors.white,
                           iconColor: AppColors.white,
                           shape: RoundedRectangleBorder(
@@ -789,7 +789,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   BorderRadius.circular(AppRadius.lg)),
                           leading: d.videos.contains(file)
                               ? const Icon(Icons.videocam_outlined)
-                              : const AppIcon(AppIcons.attachFile,
+                              : AppIcon(AppIcons.attachFile,
                                   size: 24, color: AppColors.white),
                           title: Text(file.name,
                               maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -894,9 +894,7 @@ class _ChatBubble extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 11),
                     decoration: BoxDecoration(
-                      color: message.mine
-                          ? AppColors.blue
-                          : AppColors.white.withValues(alpha: 0.08),
+                      color: message.mine ? AppColors.blue : AppColors.gray,
                       border: message.mine
                           ? null
                           : Border.all(
@@ -912,7 +910,7 @@ class _ChatBubble extends StatelessWidget {
                         style: message.mine
                             ? AppText.noto(15,
                                 weight: FontWeight.w400,
-                                color: AppColors.white,
+                                color: AppColors.onBlue,
                                 height: 1.5)
                             : AppText.dark(15,
                                 weight: FontWeight.w400, height: 1.5)),
@@ -954,7 +952,7 @@ class _InputBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.08),
+          color: AppColors.gray,
           border: Border(
               top: BorderSide(color: AppColors.white.withValues(alpha: 0.16)))),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -989,7 +987,7 @@ class _InputBar extends StatelessWidget {
                     style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.white,
+                        foregroundColor: AppColors.onBlue,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24))),
                     child: Text('完了', style: AppText.dark(16)),
@@ -1008,7 +1006,7 @@ class _InputBar extends StatelessWidget {
                   cursorColor: AppColors.white,
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: AppColors.ink,
+                    fillColor: AppColors.bg,
                     hintStyle: AppText.dark(15,
                         weight: FontWeight.w400,
                         color: AppColors.white.withValues(alpha: 0.7)),

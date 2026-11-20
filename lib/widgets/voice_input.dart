@@ -118,7 +118,7 @@ class VoiceMicButton extends StatelessWidget {
       icon: Icon(on ? Icons.stop : Icons.mic,
           size: 28,
           color: on
-              ? AppColors.ink
+              ? AppColors.onAmber
               : AppColors.white.withValues(alpha: enabled ? 0.7 : 0.3)),
     );
   }
@@ -142,7 +142,7 @@ class VoiceListeningOverlay extends StatelessWidget {
               shape: BoxShape.circle,
               color: AppColors.blue.withValues(alpha: 0.85),
             ),
-            child: const Icon(Icons.mic, size: 96, color: AppColors.white),
+            child: Icon(Icons.mic, size: 96, color: AppColors.onBlue),
           ),
         ),
       ),

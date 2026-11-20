@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// 権限のカード（「管理者権限」）。スタッフカード、編集ダイアログ、招待画面で共有する。
 /// 選択中は blue 塗り＋White文字、未選択は枠だけ。[onChanged] を渡すと押して切り替えられる
@@ -19,9 +20,9 @@ class RoleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     final box = Container(
-      height: r.x(32),
+      // 標準は高さ32。文字が大きいときは、文字に合わせて広がる。
+      constraints: BoxConstraints(minHeight: r.x(32)),
       padding: EdgeInsets.symmetric(horizontal: r.x(12)),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? AppColors.blue : null,
         border: selected
@@ -29,11 +30,15 @@ class RoleChip extends StatelessWidget {
             : Border.all(color: AppColors.white.withValues(alpha: 0.55)),
         borderRadius: BorderRadius.circular(r.x(8)),
       ),
-      child: Text(label,
-          style: AppText.dark(r.x(14),
-              color: selected
-                  ? AppColors.white
-                  : AppColors.white.withValues(alpha: 0.7))),
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(label,
+            style: AppText.dark(r.x(14),
+                color: selected
+                    ? AppColors.onBlue
+                    : AppColors.white.withValues(alpha: 0.7))),
+      ),
     );
     return Semantics(
       button: onChanged != null,

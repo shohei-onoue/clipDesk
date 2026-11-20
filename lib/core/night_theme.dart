@@ -5,19 +5,22 @@ import 'app_colors.dart';
 /// ダーク背景の画面で、標準のウィジェット（入力欄・チップ・スイッチ・リスト・ボタン）の色をそろえるテーマ。
 /// 値は tokens.json の dark。画面の Scaffold を `Theme(data: nightTheme, ...)` で包んで使う。
 /// 塗りボタンは、画面側で brand（on-brand の文字）か accent（on-accent の文字）を明示する。
-final ThemeData nightTheme = _build();
+/// 色の組み合わせ（設定）で変わるため、読むたびに作る。
+ThemeData get nightTheme => _build();
 
 ThemeData _build() {
-  final base = ThemeData.dark(useMaterial3: true);
+  final base = AppColors.isLight
+      ? ThemeData.light(useMaterial3: true)
+      : ThemeData.dark(useMaterial3: true);
   final outline = OutlineInputBorder(
     borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
   );
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.ink,
+    scaffoldBackgroundColor: AppColors.bg,
     colorScheme: base.colorScheme.copyWith(
       primary: AppColors.blue,
-      onPrimary: AppColors.white,
-      surface: AppColors.white.withValues(alpha: 0.08),
+      onPrimary: AppColors.onBlue,
+      surface: AppColors.gray,
       onSurface: AppColors.white,
       onSurfaceVariant: AppColors.white.withValues(alpha: 0.7),
       outline: AppColors.white.withValues(alpha: 0.55),
@@ -31,7 +34,7 @@ ThemeData _build() {
     inputDecorationTheme: InputDecorationTheme(
       border: outline,
       enabledBorder: outline,
-      focusedBorder: const OutlineInputBorder(
+      focusedBorder: OutlineInputBorder(
         borderSide: BorderSide(color: AppColors.blue, width: 2),
       ),
       labelStyle: TextStyle(color: AppColors.white.withValues(alpha: 0.7)),
@@ -42,8 +45,8 @@ ThemeData _build() {
       selectedColor: AppColors.blue,
       checkmarkColor: AppColors.white,
       side: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
-      labelStyle: const TextStyle(color: AppColors.white),
-      secondaryLabelStyle: const TextStyle(color: AppColors.white),
+      labelStyle: TextStyle(color: AppColors.white),
+      secondaryLabelStyle: TextStyle(color: AppColors.white),
     ),
     listTileTheme: ListTileThemeData(
       textColor: AppColors.white,

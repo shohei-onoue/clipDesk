@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -8,6 +8,7 @@ import '../core/night_theme.dart';
 import '../data/request_repository.dart';
 import '../data/services.dart';
 import '../widgets/app_header.dart';
+import '../widgets/ruby_text.dart';
 
 /// スタッフの登録フォーム。責任者からの招待メールのリンクから開く。
 /// 姓・名とパスワードを決めて登録すると、招待された権限がそのまま付く。
@@ -101,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(children: [
             const AppHeader(title: 'スタッフ登録'),
@@ -150,9 +151,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: _busy ? null : _submit,
                           style: FilledButton.styleFrom(
                               backgroundColor: AppColors.blue,
-                              foregroundColor: AppColors.white),
+                              foregroundColor: AppColors.onBlue),
                           child: _busy
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(

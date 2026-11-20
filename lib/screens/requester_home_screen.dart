@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -15,6 +15,7 @@ import '../widgets/home_widgets.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
+import '../widgets/ruby_text.dart';
 
 /// 依頼者ページ（Figma 290:123「home_screen」）。画面のタイトルは「ダッシュボード」。
 /// メイン画面の「依頼者ページ」「編集者ダッシュボード」から開く。依頼を2列の「進捗カード」で並べる。
@@ -44,7 +45,7 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
 
   Widget _scaffold(BuildContext context, Responsive r, bool editor) {
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
       bottomNavigationBar: const AppBottomBar(),
@@ -69,7 +70,7 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                   AppText.dark(14, weight: FontWeight.w400)));
                     }
                     if (!snap.hasData) {
-                      return const Center(
+                      return Center(
                           child: CircularProgressIndicator(
                               color: AppColors.white));
                     }
@@ -99,12 +100,20 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                     child: GridView.builder(
                                       padding: EdgeInsets.fromLTRB(
                                           r.x(14), r.x(16), r.x(14), r.x(16)),
+                                      // 文字が大きいときは、カードの文字が入るよう高さを広げる。
+                                      // 「大」は幅が足りないので、1列にする。
                                       gridDelegate:
                                           SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
+                                        crossAxisCount:
+                                            r.textScale >= 2 ? 1 : 2,
                                         crossAxisSpacing: r.x(17),
                                         mainAxisSpacing: r.x(29),
-                                        mainAxisExtent: r.x(330),
+                                        // ふりがなのときは、行が高くなる分も広げる。
+                                        mainAxisExtent: r.x(330) +
+                                            r.x(140) * (r.textScale - 1) +
+                                            (r.ruby
+                                                ? r.x(45) * r.textScale
+                                                : 0),
                                       ),
                                       itemCount: list.length,
                                       itemBuilder: (context, i) {
@@ -212,7 +221,7 @@ class ProgressCard extends StatelessWidget {
           padding: EdgeInsets.only(top: r.x(3)),
           child: Row(children: [
             SizedBox(
-                width: r.x(62),
+                width: r.tx(62),
                 child: Text(label, style: AppText.noto(r.x(11), height: 1.3))),
             Expanded(
               child: Text(value,
@@ -223,17 +232,25 @@ class ProgressCard extends StatelessWidget {
           ]),
         );
     Widget badge() => Container(
-          width: r.x(70),
-          height: r.x(30),
-          alignment: Alignment.center,
+          constraints: BoxConstraints(minWidth: r.x(70), minHeight: r.x(30)),
+          padding: EdgeInsets.symmetric(horizontal: r.x(6)),
           decoration: BoxDecoration(
             color: badgeFilled ? badgeColor : AppColors.white,
             border: badgeFilled ? null : Border.all(color: badgeColor),
             borderRadius: BorderRadius.circular(r.x(10)),
           ),
-          child: Text(badgeText,
-              style: AppText.noto(r.x(14),
-                  color: badgeFilled ? AppColors.white : badgeColor)),
+          // 標準は70×30の枠の中央。文字が大きいときは、文字に合わせて広がる。
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Text(badgeText,
+                style: AppText.noto(r.x(14),
+                    color: badgeFilled
+                        ? (badgeColor == AppColors.amber
+                            ? AppColors.badgeOnAmber
+                            : AppColors.onBlue)
+                        : badgeColor)),
+          ),
         );
     return Semantics(
       button: true,
@@ -243,7 +260,7 @@ class ProgressCard extends StatelessWidget {
           Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppColors.ink,
+              color: AppColors.bg,
               borderRadius: BorderRadius.circular(r.x(10)),
             ),
             child: Column(

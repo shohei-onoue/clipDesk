@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'ruby_text.dart';
 
 /// アシスタントの発言（アバター + 名前 + 吹き出し。ダーク背景用）。
 class AssistantMessage extends StatelessWidget {
@@ -63,7 +64,7 @@ class AssistantMessage extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: r.x(16), vertical: r.y(14)),
                   decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.08),
+                    color: AppColors.gray,
                     border: Border.all(
                         color: AppColors.white.withValues(alpha: 0.16)),
                     borderRadius: BorderRadius.circular(r.x(15)),
@@ -113,7 +114,7 @@ class MyMessage extends StatelessWidget {
           child: Text(text,
               style: AppText.noto(r.x(18),
                   weight: FontWeight.w400,
-                  color: AppColors.white,
+                  color: AppColors.onBlue,
                   height: 27 / 18)),
         ),
       ),

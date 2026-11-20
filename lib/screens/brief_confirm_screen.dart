@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -16,6 +16,7 @@ import '../widgets/attachment_thumb.dart';
 import '../widgets/detail_widgets.dart';
 import '../widgets/video_player_dialog.dart';
 import '../widgets/status_style.dart';
+import '../widgets/ruby_text.dart';
 
 /// 04 指示書確認。案件詳細と同じ「詳細」のレイアウトで、入力した内容と添付ファイルを確認し、修正に戻る／送信できる。
 class BriefConfirmScreen extends StatefulWidget {
@@ -96,7 +97,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
     if (args is! RequestDraft) {
       // ブラウザの再読み込みなどで、入力中の内容が失われたとき。
       return Scaffold(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(children: [
             const AppHeader(title: '依頼内容'),
@@ -117,7 +118,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                             .pushNamedAndRemoveUntil('/menu', (_) => false),
                         style: FilledButton.styleFrom(
                             backgroundColor: AppColors.blue,
-                            foregroundColor: AppColors.white),
+                            foregroundColor: AppColors.onBlue),
                         child: const Text('メインに戻る'),
                       ),
                     ],
@@ -166,7 +167,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
               ),
           ];
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
@@ -321,7 +322,7 @@ class _AttachmentTile extends StatelessWidget {
     final f = file;
     final p = path;
     if (f == null && p == null) {
-      return const Icon(Icons.videocam_outlined, color: AppColors.white);
+      return Icon(Icons.videocam_outlined, color: AppColors.white);
     }
     return InkWell(
       onTap: () => f != null
