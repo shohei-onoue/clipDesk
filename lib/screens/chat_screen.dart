@@ -464,37 +464,13 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// 1行の入力ダイアログ。キャンセルなら null。
-  Future<String?> _askText(String title, String initial) {
-    final controller = TextEditingController(text: initial);
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.ink,
-        shape: RoundedRectangleBorder(
-            side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
-            borderRadius: BorderRadius.circular(15)),
-        title: Text(title, style: AppText.dark(16)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: AppText.dark(15, weight: FontWeight.w400),
-          cursorColor: AppColors.white,
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('キャンセル')),
-          FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.blue,
-                  foregroundColor: AppColors.white),
-              child: const Text('決定')),
-        ],
-      ),
-    );
-  }
+  /// 入力ダイアログ（キーボード／音声）。キャンセルなら null。
+  Future<String?> _askText(String title, String initial) =>
+      showVoiceMessageDialog(context,
+          title: title,
+          hint: '内容を入力（音声でも入力できます）',
+          sendLabel: '決定',
+          initialText: initial);
 
   Future<void> _pick(
       {required bool video, bool image = false, bool bgm = false}) async {
