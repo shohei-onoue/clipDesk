@@ -77,7 +77,7 @@ class AppDrawer extends StatelessWidget {
                         '通知',
                         () => _open(context, null, '/notifications')),
                   _Tile(
-                      AppIcon(AppIcons.systemUpdateAlt,
+                      AppIcon(AppIcons.bookshelf,
                           size: r.x(24), color: AppColors.white),
                       'ライブラリ',
                       () => _open(context, null, '/library')),
@@ -87,6 +87,12 @@ class AppDrawer extends StatelessWidget {
                             size: r.x(24), color: AppColors.white),
                         '登録スタッフ',
                         () => _open(context, null, '/staff')),
+                  _Tile(
+                      AppIcon(AppIcons.settings,
+                          size: r.x(24), color: AppColors.white),
+                      '設定',
+                      // 設定画面はまだないため、いまはドロワーを閉じるだけ。
+                      () => Navigator.of(context).pop()),
                 ]);
               },
             ),

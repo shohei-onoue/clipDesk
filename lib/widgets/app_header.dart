@@ -7,7 +7,7 @@ import 'app_icon.dart';
 
 /// 画面上部のAppBar（ダークテイスト）。高さ61。背景は ink、下端だけ accent へ変わる線。
 /// 左に戻る（前の画面へ。[leadingIcon] で差し替え可）、中央にタイトル、右に [actions] とハンバーガー（ドロワーを開く）を置く。
-/// ホーム画面だけは [showSettings] で、ハンバーガーのかわりに設定（調整のアイコン。歯車は使わない）を置く。
+/// ホーム画面だけは [showSettings] で、ハンバーガーのかわりに設定（歯車のアイコン）を置く。
 /// ボタンは必ず左端・右端に寄せ、タイトルだけを中央にする。アイコンには label（tooltip）を付ける。
 class AppHeader extends StatelessWidget {
   const AppHeader({
@@ -108,10 +108,11 @@ class AppHeader extends StatelessWidget {
                 ...actions,
                 if (showSettings)
                   _HeaderIcon(
-                      icon: AppIcons.tune,
+                      icon: AppIcons.settings,
                       tooltip: '設定',
                       onTap: onSettings,
-                      size: tap),
+                      size: tap,
+                      iconSize: 26), // ログアウト（左端）のアイコンと同じ大きさ
                 if (showMenu)
                   _HeaderIcon(
                     icon: AppIcons.menu,
@@ -134,12 +135,14 @@ class _HeaderIcon extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.size,
+    this.iconSize = 32,
     this.onTap,
   });
 
   final AppIcons icon;
   final String tooltip;
   final double size;
+  final double iconSize;
   final VoidCallback? onTap;
 
   @override
@@ -151,7 +154,7 @@ class _HeaderIcon extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onTap,
-        icon: AppIcon(icon, size: r.x(32), color: AppColors.white),
+        icon: AppIcon(icon, size: r.x(iconSize), color: AppColors.white),
       ),
     );
   }
