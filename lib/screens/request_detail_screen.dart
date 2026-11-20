@@ -543,7 +543,10 @@ class _BodyState extends State<_Body> {
             ? '編集担当者の受注待ちです。'
             : '編集者の受注待ちです。';
       case RequestStatus.needsInfo:
-        return '${q.editorName ?? '編集者'}様より依頼内容の問い合わせが届いています。';
+        if (_isEditor) {
+          return '依頼者へ問合せ中です。回答をお待ちください。問合せ履歴で、ほかの編集者の問合せも確認できます。';
+        }
+        return '編集者より依頼内容の問い合わせが届いています。';
       case RequestStatus.editing:
         // 受注した編集者本人と、依頼者で言い方を分ける。
         if (_isEditor && _isAssignee) return 'あなたが受注した案件です。';
@@ -602,6 +605,9 @@ class _BodyState extends State<_Body> {
 
     // 受付待ちの依頼の、画面下のボタン。
     // 編集者：「受注」「問合せ」。依頼者本人：「依頼取消」（内容は各項目をタップして直す）。
+    // 問合せ中（担当なし）の編集者は、「問合せ」だけ追加できる（受注は、依頼者の回答後の受付待ちから）。
+    final askMore =
+        _isEditor && s == RequestStatus.needsInfo && q.editorId == null;
     final intake = _isEditor && s == RequestStatus.pending && _canTakeOrAsk;
     final ownerPending =
         !_isEditor && q.requesterId == widget.uid && s == RequestStatus.pending;
@@ -861,22 +867,24 @@ class _BodyState extends State<_Body> {
         ),
       ]);
     }
-    if (!intake) return list;
+    if (!intake && !askMore) return list;
     return Column(children: [
       Expanded(child: list),
       Padding(
         padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
         child: Row(children: [
-          Expanded(
-            child: DetailButton(
-                '受注',
-                AppColors.blue,
-                _busy,
-                () => _run(
-                    () => repo.startEditing(requestId: q.id, uid: widget.uid),
-                    done: '受注しました。編集を担当します')),
-          ),
-          SizedBox(width: r.x(10)),
+          if (intake) ...[
+            Expanded(
+              child: DetailButton(
+                  '受注',
+                  AppColors.blue,
+                  _busy,
+                  () => _run(
+                      () => repo.startEditing(requestId: q.id, uid: widget.uid),
+                      done: '受注しました。編集を担当します')),
+            ),
+            SizedBox(width: r.x(10)),
+          ],
           Expanded(
             child: DetailButton('問合せ', AppColors.white, _busy, () async {
               final nav = Navigator.of(context);

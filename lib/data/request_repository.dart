@@ -429,11 +429,22 @@ class RequestRepository {
     required DateTime dueDate,
     String? answer,
   }) async {
-    // 問合せへの回答なら、送信後に履歴へ記録する（要確認の依頼への再送信のときだけ）。
-    var isAnswer = false;
-    if (answer != null && answer.trim().isNotEmpty) {
-      final pre = await _requests.doc(requestId).get();
-      isAnswer = pre.data()?['status'] == RequestStatus.needsInfo.name;
+    // 要確認への回答のとき：回答を問合せ履歴に残し、問い合わせた編集者全員に通知する。
+    final hasAnswer = answer != null && answer.trim().isNotEmpty;
+    var wasNeedsInfo = false;
+    final asked = <String>{};
+    final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final pre = await _requests.doc(requestId).get();
+    if (pre.data()?['status'] == RequestStatus.needsInfo.name) {
+      wasNeedsInfo = true;
+      final all = await _requests.doc(requestId).collection('inquiries').get();
+      open.addAll(all.docs.where((d) => d.data()['answer'] == null));
+      open.sort((x, y) => ((x.data()['round'] as num?) ?? 0)
+          .compareTo((y.data()['round'] as num?) ?? 0));
+      for (final d in open) {
+        final id = d.data()['editorId'] as String?;
+        if (id != null) asked.add(id);
+      }
     }
     await _transition(
       requestId: requestId,
@@ -446,36 +457,44 @@ class RequestRepository {
         'dueDate': Timestamp.fromDate(dueDate),
         'reviewReason': null,
       },
-      // 担当の編集者がいるときだけ、その人へ通知する。
       // 要確認への回答のときだけ通知する（受付待ちの内容編集は通知しない）。
-      notification: (r) =>
-          r.editorId == null || r.status != RequestStatus.needsInfo
-              ? null
-              : _Notice(
-                  id: '${requestId}_resubmit_${r.reviewRound}',
-                  type: NotificationType.resubmitted,
-                  recipientId: r.editorId,
-                  message: answer != null && answer.trim().isNotEmpty
-                      ? '問合せへの回答：${brief.title.trim()}\n${answer.trim()}'
-                      : '指示書が再送信されました：${brief.title.trim()}',
-                ),
+      // 通知先は、問い合わせた編集者全員と、担当の編集者。
+      extra: (tx, r) {
+        if (r.status != RequestStatus.needsInfo) return;
+        for (final id in {...asked, if (r.editorId != null) r.editorId!}) {
+          tx.set(
+              _notifications.doc('${requestId}_resubmit_${r.reviewRound}_$id'),
+              {
+                'requestId': requestId,
+                'type': NotificationType.resubmitted.name,
+                'audience': 'user',
+                'recipientId': id,
+                'actorId': uid,
+                'message': hasAnswer
+                    ? '問合せへの回答：${brief.title.trim()}\n${answer.trim()}'
+                    : '指示書が再送信されました：${brief.title.trim()}',
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+        }
+      },
     );
     // 再送信は成立している。履歴に回答を残せなかったときは、理由を伝える（黙って捨てない）。
-    if (isAnswer) {
+    if (wasNeedsInfo && hasAnswer) {
       try {
-        // 回数の番号に頼らず、まだ回答のない最新の問合せに書く。
-        final all =
-            await _requests.doc(requestId).collection('inquiries').get();
-        final open = all.docs.where((d) => d.data()['answer'] == null).toList()
-          ..sort((x, y) => ((y.data()['round'] as num?) ?? 0)
-              .compareTo((x.data()['round'] as num?) ?? 0));
         if (open.isEmpty) {
           throw StateError('回答を書き込む問合せが見つかりません');
         }
-        await open.first.reference.update({
-          'answer': answer!.trim(),
-          'answeredAt': FieldValue.serverTimestamp(),
-        });
+        // 回答は、まだ回答のない最新の問合せに書く。それ以前の未回答の問合せは、
+        // 同じ回答でまとめて答えたものとして閉じる（回答は空。履歴には出さない）。
+        final batch = _db.batch();
+        for (var i = 0; i < open.length; i++) {
+          final last = i == open.length - 1;
+          batch.update(open[i].reference, {
+            'answer': last ? answer.trim() : '',
+            'answeredAt': FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
       } catch (e) {
         throw RequestStateException('回答は送信しましたが、履歴を保存できませんでした。\n$e');
       }
@@ -573,6 +592,8 @@ class RequestRepository {
 
   // ---- 編集者 ----
 
+  /// 依頼者へ問い合わせる。問合せは担当の決定ではない（担当になるのは「受注」だけ）。
+  /// 担当がいない間は、複数の編集者が続けて問い合わせられる。問合せは履歴に積み、全員が見られる。
   Future<void> askForInfo({
     required String requestId,
     required String uid,
@@ -589,39 +610,31 @@ class RequestRepository {
       action: RequestAction.askForInfo,
       update: (r) => {
         'reviewReason': reason.trim(),
-        'editorId': r.editorId ?? uid,
-        // 担当がまだ決まっていないときだけ、この編集者を担当として名前も残す。
-        if (r.editorId == null && name != null) 'editorName': name,
         'reviewRound': r.reviewRound + 1,
       },
+      // 問合せの履歴は、状態の更新と同時に記録する（番号は更新後の回数）。
+      extra: (tx, r) => tx.set(
+        _requests
+            .doc(requestId)
+            .collection('inquiries')
+            .doc('r${r.reviewRound + 1}'),
+        {
+          'round': r.reviewRound + 1,
+          'question': reason.trim(),
+          'editorId': uid,
+          'editorName': name,
+          'askedAt': FieldValue.serverTimestamp(),
+          'answer': null,
+          'answeredAt': null,
+        },
+      ),
       notification: (r) => _Notice(
         id: '${requestId}_needsinfo_${r.reviewRound + 1}',
         type: NotificationType.needsInfo,
         recipientId: r.requesterId,
-        message: '要確認：${r.title}\n${reason.trim()}',
+        message: '${name ?? '編集者'}様より問合せ：${r.title}\n${reason.trim()}',
       ),
     );
-    // 問合せ履歴への記録。問合せ自体は成立しているので、失敗したら理由を伝える（黙って捨てない）。
-    try {
-      final ref = _requests.doc(requestId);
-      // 取引で増やした後の回数を、サーバーから読む（キャッシュの古い値だと番号がずれる）。
-      final latest = await ref.get(const GetOptions(source: Source.server));
-      final round = (latest.data()?['reviewRound'] as num?)?.toInt();
-      if (round != null) {
-        final editorName = (latest.data()?['editorName'] as String?) ?? name;
-        await ref.collection('inquiries').doc('r$round').set({
-          'round': round,
-          'question': reason.trim(),
-          'editorId': uid,
-          'editorName': editorName,
-          'askedAt': FieldValue.serverTimestamp(),
-          'answer': null,
-          'answeredAt': null,
-        });
-      }
-    } catch (e) {
-      throw RequestStateException('問合せは送信しましたが、履歴を保存できませんでした。\n$e');
-    }
   }
 
   /// 編集を開始する。担当編集者の決定方法は未確定のため、暫定で最初に

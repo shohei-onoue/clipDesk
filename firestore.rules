@@ -142,17 +142,18 @@ service cloud.firestore {
             && request.resource.data.editorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['editorId', 'editorName', 'status', 'updatedAt']))
-          // 編集者: 受付待ち／編集中 → 要確認（理由必須）
+          // 編集者: 受付待ち／問合せ中／編集中 → 要確認（理由必須）。問合せは担当の決定ではないので、
+          // 担当（editorId）は変えない。担当がいない間は、複数の編集者が続けて問い合わせられる。
           || (isEditor()
             && (resource.data.editorId == null || resource.data.editorId == request.auth.uid)
-            && (resource.data.status == 'pending' || resource.data.status == 'editing')
+            && (resource.data.status == 'pending' || resource.data.status == 'needsInfo' || resource.data.status == 'editing')
             && request.resource.data.status == 'needsInfo'
-            && request.resource.data.editorId == request.auth.uid
+            && request.resource.data.editorId == resource.data.editorId
             && request.resource.data.reviewReason is string
             && request.resource.data.reviewReason.size() > 0
             && request.resource.data.reviewRound == resource.data.reviewRound + 1
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['reviewReason', 'editorId', 'editorName', 'reviewRound', 'status', 'updatedAt']))
+                .hasOnly(['reviewReason', 'reviewRound', 'status', 'updatedAt']))
           // 編集者: 編集中／修正 → 初稿確認（動画の保存記録と同時のみ）
           || (isEditor() && resource.data.editorId == request.auth.uid
             && (resource.data.status == 'editing' || resource.data.status == 'revision')
@@ -208,12 +209,12 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
           && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
       }
-      // 問合せの履歴。編集者が要確認にしたあとに記録し、依頼者が回答を書き足す。
+      // 問合せの履歴。編集者が問い合わせるたびに積み、依頼者が回答を書き足す。
       match /inquiries/{iid} {
         allow read: if canRead(get(/databases/$(database)/documents/requests/$(requestId)).data);
-        // 担当の編集者だけが、自分の問合せを記録できる（問合せの直後に書くため、状態は問わない）。
+        // 編集者が、自分の問合せを記録できる（依頼の状態を要確認にする更新と同時に書く）。
         allow create: if isEditor()
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.editorId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.status == 'needsInfo'
           && request.resource.data.editorId == request.auth.uid
           && request.resource.data.question is string
           && request.resource.data.question.size() > 0;
@@ -264,7 +265,6 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')
           || (request.resource.data.type == 'needsInfo'
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId
-            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.editorId == request.auth.uid
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'needsInfo')
           || (request.resource.data.type == 'reviewRequested'
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId

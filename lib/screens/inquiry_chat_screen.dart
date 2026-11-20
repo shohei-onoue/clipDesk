@@ -10,6 +10,53 @@ import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 
+/// 問合せ履歴の1件の発言（編集者の問合せ、または依頼者の回答）。
+class _HistoryMsg {
+  const _HistoryMsg(
+      {required this.fromRequester,
+      required this.sender,
+      required this.text,
+      required this.at,
+      required this.round});
+  final bool fromRequester;
+  final String sender;
+  final String text;
+  final DateTime? at;
+  final int round;
+}
+
+/// 問合せ履歴を、LINEのように時系列の発言に並べる。複数の編集者の問合せも、依頼者の回答も同じ並びで出す。
+/// 回答が空のもの（まとめて答えた問合せ）は、回答の吹き出しを出さない。
+List<_HistoryMsg> _historyMessages(List<Inquiry> items) {
+  final far = DateTime(9999);
+  final list = <_HistoryMsg>[
+    for (final i in items) ...[
+      _HistoryMsg(
+          fromRequester: false,
+          sender: '${i.editorName ?? '編集者'}（編集者）',
+          text: i.question,
+          at: i.askedAt,
+          round: i.round),
+      if (i.answer != null && i.answer!.isNotEmpty)
+        _HistoryMsg(
+            fromRequester: true,
+            sender: '依頼者',
+            text: i.answer!,
+            at: i.answeredAt,
+            round: i.round),
+    ],
+  ];
+  // 時刻が未確定（保存直後）のものは最後。同じ時刻なら、問合せの番号順で問合せを先に。
+  list.sort((a, b) {
+    final c = (a.at ?? far).compareTo(b.at ?? far);
+    if (c != 0) return c;
+    final r = a.round.compareTo(b.round);
+    if (r != 0) return r;
+    return (a.fromRequester ? 1 : 0).compareTo(b.fromRequester ? 1 : 0);
+  });
+  return list;
+}
+
 /// 問合せチャットの結果。[submit] が true なら、回答を送信済み。
 class InquiryResult {
   const InquiryResult(this.reply, {required this.submit});
@@ -51,15 +98,21 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   String _base = '';
   bool _sending = false;
 
+  /// これまでの問合せと回答（全員分）。読み込めるまでは、依頼の最新の問合せだけを出す。
+  List<Inquiry>? _history;
+
   static const _ackText =
       '回答を受け付けました。このまま編集者へ送るときは「回答する」、指示書も直したいときは「依頼内容に戻る」を押してください。';
 
   @override
   void initState() {
     super.initState();
-    final q = widget.request;
-    _msgs.add((mine: false, text: '${q.editorName ?? '編集者'}様より問い合わせが届いています。'));
-    _msgs.add((mine: false, text: q.reviewReason ?? '問い合わせ内容はありません。'));
+    Services.repo.watchInquiries(widget.request.id).first.then((h) {
+      if (mounted) {
+        setState(() => _history = h);
+        _scrollToEnd();
+      }
+    }).catchError((_) {});
     final prev = widget.initialReply;
     if (prev != null && prev.isNotEmpty) {
       _reply = prev;
@@ -76,6 +129,22 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// これまでの問合せと回答。履歴が読めない・空のときは、依頼に残る最新の問合せを出す。
+  List<Widget> _historyBubbles() {
+    final h = _history;
+    if (h == null || h.isEmpty) {
+      final q = widget.request;
+      return [
+        _Bubble(false, q.reviewReason ?? '問い合わせ内容はありません。',
+            sender: '${q.editorName ?? '編集者'}（編集者）'),
+      ];
+    }
+    return [
+      for (final m in _historyMessages(h))
+        _Bubble(m.fromRequester, m.text, sender: m.sender),
+    ];
   }
 
   void _scrollToEnd() => WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,7 +270,11 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
             child: ListView(
               controller: _scroll,
               padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-              children: [for (final m in _msgs) _Bubble(m.mine, m.text)],
+              children: [
+                const _Bubble(false, '依頼者への問合せの履歴です。編集者の問合せに、まとめて回答してください。'),
+                ..._historyBubbles(),
+                for (final m in _msgs) _Bubble(m.mine, m.text),
+              ],
             ),
           ),
           if (answered && _notice != null)
@@ -445,21 +518,20 @@ class InquiryHistoryScreen extends StatelessWidget {
                         child: Text('問合せの履歴はありません',
                             style: AppText.dark(14, weight: FontWeight.w400)));
                   }
+                  final msgs = _historyMessages(items);
+                  // 依頼者の回答を待っている問合せがあるか。
+                  final waiting = request.status == RequestStatus.needsInfo &&
+                      items.any((i) => i.answer == null);
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
                     children: [
-                      // 編集者・依頼者のどちらが開いても同じ表示。
-                      // ナビゲーターの案内から始め、問合せ（左）と回答（右）を古い順に並べる。
+                      // 編集者・依頼者・ほかの編集者のだれが開いても同じ表示。
+                      // ナビゲーターの案内から始め、編集者の問合せ（左）と依頼者の回答（右）を時系列で並べる。
                       const _Bubble(false,
                           'この依頼の問合せと回答の履歴です。編集者からの問合せは左、依頼者の回答は右に表示します。'),
-                      for (final i in items) ...[
-                        _Bubble(false, i.question,
-                            sender: '${i.editorName ?? '編集者'}（編集者）'),
-                        if (i.answer != null)
-                          _Bubble(true, i.answer!, sender: '依頼者')
-                        else
-                          const _Bubble(false, 'この問合せへの回答は、まだありません。'),
-                      ],
+                      for (final m in msgs)
+                        _Bubble(m.fromRequester, m.text, sender: m.sender),
+                      if (waiting) const _Bubble(false, '依頼者の回答をお待ちください。'),
                     ],
                   );
                 },

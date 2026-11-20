@@ -74,8 +74,10 @@ RequestStatus? nextStatus({
 }) {
   switch (action) {
     case RequestAction.askForInfo:
+      // 担当がいない間は、問合せ中でも、別の編集者が続けて問い合わせられる。
       if (role == UserRole.editor &&
           (current == RequestStatus.pending ||
+              current == RequestStatus.needsInfo ||
               current == RequestStatus.editing)) {
         return RequestStatus.needsInfo;
       }

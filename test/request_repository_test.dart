@@ -206,17 +206,48 @@ void main() {
     expect((await notes()).length, 2); // 新規依頼・担当決定のみ
   });
 
-  test('問い合わせた編集者が担当。再送信後に再開でき、他の編集者は不可', () async {
+  test('問合せは担当の決定ではない。担当になるのは「受注」だけ', () async {
     await create();
     await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺が不明');
-    await expectLater(repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: 'x'),
-        throwsA(isA<RequestStateException>()));
+    expect((await doc())['status'], 'needsInfo');
+    expect((await doc())['editorId'], isNull);
+    expect((await doc())['editorName'], isNull);
     await repo.resubmitBrief(
         requestId: 'r1', uid: 'req', brief: brief, dueDate: due);
-    await expectLater(repo.startEditing(requestId: 'r1', uid: 'ed2'),
+    // 問い合わせた編集者も、ほかの編集者も、受注すれば担当になれる（先着）。
+    await repo.startEditing(requestId: 'r1', uid: 'ed2');
+    expect((await doc())['editorId'], 'ed2');
+    await expectLater(repo.startEditing(requestId: 'r1', uid: 'ed'),
         throwsA(isA<RequestStateException>()));
+  });
+
+  test('問合せ：担当がいない間は複数の編集者が続けて問い合わせ、履歴を共有する。回答で全員に通知する', () async {
+    await create();
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺は？');
+    await repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: '字幕は？');
+    expect((await doc())['editorId'], isNull);
+    var list = await repo.watchInquiries('r1').first;
+    expect(list.map((i) => i.question), ['尺は？', '字幕は？']);
+    expect(list.every((i) => i.answer == null), isTrue);
+    await repo.resubmitBrief(
+        requestId: 'r1',
+        uid: 'req',
+        brief: brief,
+        dueDate: due,
+        answer: '30秒・字幕ありです');
+    list = await repo.watchInquiries('r1').first;
+    // 回答は最新の問合せに付き、先の問合せはまとめて閉じる（回答は空）。
+    expect(list.first.answer, '');
+    expect(list.last.answer, '30秒・字幕ありです');
+    final to = (await notes())
+        .where((n) => n['type'] == 'resubmitted')
+        .map((n) => n['recipientId'])
+        .toSet();
+    expect(to, {'ed', 'ed2'});
+    // 担当がいる間は、ほかの編集者は問い合わせられない。
     await repo.startEditing(requestId: 'r1', uid: 'ed');
-    expect((await doc())['editorId'], 'ed');
+    await expectLater(repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: 'x'),
+        throwsA(isA<RequestStateException>()));
   });
 
   test('動画の提出は、編集を受けた担当の編集者だけ', () async {

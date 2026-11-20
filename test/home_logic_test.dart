@@ -110,11 +110,15 @@ void main() {
     expect(locked(editing, 'x'), isTrue);
     expect(locked(editing, 'ed'), isFalse);
     expect(locked(editing, 'r'), isFalse);
-    // 問合せ中：依頼主だけ（担当の編集者も不可）。
-    final asking = req('a', RequestStatus.needsInfo, editorId: 'ed');
+    // 問合せ中で担当がいない：誰でも（編集者どうしで問合せの履歴を見られる）。
+    final asking = req('a', RequestStatus.needsInfo);
     expect(locked(asking, 'r'), isFalse);
-    expect(locked(asking, 'ed'), isTrue);
-    expect(locked(asking, 'x'), isTrue);
+    expect(locked(asking, 'x'), isFalse);
+    // 問合せ中で担当がいる：依頼主だけ。
+    final askingAssigned = req('a', RequestStatus.needsInfo, editorId: 'ed');
+    expect(locked(askingAssigned, 'r'), isFalse);
+    expect(locked(askingAssigned, 'ed'), isTrue);
+    expect(locked(askingAssigned, 'x'), isTrue);
   });
 
   group('ホームの絞り込み', () {
