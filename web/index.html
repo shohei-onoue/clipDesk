@@ -59,6 +59,39 @@
     }, true);
   </script>
   <script>
+    // iOS Safari: Flutterが作る入力欄（input/textarea）に言語や入力属性がないと、
+    // 1文字入力するたびにキーボードが日本語（かな）へ戻ることがある。
+    // メール・パスワード欄は英字入力にしたいので、作られた入力欄にlang="en"などを付ける。
+    (function () {
+      function fix(el) {
+        if (!el || !el.tagName) return;
+        if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return;
+        var type = el.getAttribute('type');
+        var mode = el.getAttribute('inputmode');
+        var ascii = type === 'password' || type === 'email' || mode === 'email';
+        if (!ascii) return;
+        if (el.getAttribute('lang') !== 'en') el.setAttribute('lang', 'en');
+        el.setAttribute('autocapitalize', 'none');
+        el.setAttribute('autocorrect', 'off');
+        el.setAttribute('spellcheck', 'false');
+      }
+      function scan(node) {
+        if (!node || node.nodeType !== 1) return;
+        fix(node);
+        if (node.querySelectorAll) node.querySelectorAll('input,textarea').forEach(fix);
+      }
+      new MutationObserver(function (muts) {
+        muts.forEach(function (m) {
+          if (m.type === 'attributes') fix(m.target);
+          m.addedNodes && m.addedNodes.forEach(scan);
+        });
+      }).observe(document.documentElement, {
+        childList: true, subtree: true, attributes: true,
+        attributeFilter: ['type', 'inputmode']
+      });
+    })();
+  </script>
+  <script>
     // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
     (function () {
       function kick() {
