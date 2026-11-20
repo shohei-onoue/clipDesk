@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
-import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
@@ -19,7 +18,9 @@ import '../widgets/app_header.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/status_style.dart';
 import '../widgets/attachment_thumb.dart';
+import '../widgets/hold_to_cancel_button.dart';
 import '../widgets/save_menu.dart';
+import '../widgets/submission_player.dart';
 import '../widgets/video_player_dialog.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/detail_widgets.dart';
@@ -110,13 +111,6 @@ class _Body extends StatefulWidget {
 
 class _BodyState extends State<_Body> {
   bool _busy = false;
-  final _note = TextEditingController();
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
 
   VideoRequest get q => widget.request;
 
@@ -240,8 +234,10 @@ class _BodyState extends State<_Body> {
   }
 
   /// メッセージ入力（キーボード／音声）。キャンセルや空なら null。
-  Future<String?> _askText(String title, String hint) async {
-    final t = await showVoiceMessageDialog(context, title: title, hint: hint);
+  Future<String?> _askText(String title, String hint,
+      {String sendLabel = '送信'}) async {
+    final t = await showVoiceMessageDialog(context,
+        title: title, hint: hint, sendLabel: sendLabel);
     return t == null || t.isEmpty ? null : t;
   }
 
@@ -473,44 +469,10 @@ class _BodyState extends State<_Body> {
   }
 
   /// 依頼の取り消し（削除）。確認のあと、承認前の自分の依頼だけ消せる。
+  /// 依頼の取り消し（削除）。「依頼取消」ボタンの長押しが完了したときに実行する。
+  /// 承認前の自分の依頼だけ消せる。担当の編集者がいれば通知する。
   Future<void> _cancelRequest() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.ink,
-        shape: RoundedRectangleBorder(
-            side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
-            borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Text('この依頼を取り消しますか？', style: AppText.dark(18)),
-        content: Text('取り消すと依頼は削除され、元に戻せません。担当の編集者がいれば通知します。',
-            style: AppText.dark(14, weight: FontWeight.w400, height: 1.5)),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.white,
-              side: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
-              minimumSize: const Size(96, 44),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md)),
-            ),
-            child: const Text('いいえ'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.amber,
-              foregroundColor: AppColors.ink,
-              minimumSize: const Size(96, 44),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md)),
-            ),
-            child: const Text('取り消す'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
+    if (!mounted) return;
     final nav = Navigator.of(context);
     await _run(() async {
       await Services.repo.cancelRequest(requestId: q.id, uid: widget.uid);
@@ -619,113 +581,24 @@ class _BodyState extends State<_Body> {
         !q.approved;
 
     final editable = ownerInquiry || ownerPending;
-    final list = ListView(
-      padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
-      children: [
-        NoticeBar(_notice()),
-        if (ownerInquiry)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => _answerInquiry(q),
-              style: TextButton.styleFrom(
-                  foregroundColor: AppColors.white,
-                  padding: EdgeInsets.symmetric(
-                      horizontal: r.x(4), vertical: r.x(6))),
-              child: Text('問合せ内容を確認する',
-                  style: AppText.dark(r.x(14),
-                          weight: FontWeight.w400, height: 21 / 14)
-                      .copyWith(
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.white)),
-            ),
-          ),
-        SizedBox(height: r.x(16)),
-        DetailCard(children: [
-          InfoRow('タイトル', _b.title,
-              onEdit: editable
-                  ? (_) => _editBrief('タイトル', _b.title,
-                      required: true, apply: (b, v) => b.copyWith(title: v))
-                  : null),
-          InfoRow('納期', dateText(_due), onEdit: editable ? _editDue : null),
-          InfoRow('長さ', length),
-          InfoRow('担当', editorLabel),
-        ]),
-        if (reviewing) ...[
-          SizedBox(height: r.x(16)),
-          Text('修正の依頼', style: AppText.dark(r.x(16), height: 26 / 16)),
-          SizedBox(height: r.x(6)),
-          TextField(
-            controller: _note,
-            minLines: 8,
-            maxLines: 8,
-            enabled: !_busy,
-            style:
-                AppText.dark(r.x(14), weight: FontWeight.w400, height: 20 / 14),
-            cursorColor: AppColors.white,
-            decoration: InputDecoration(
-              hintText: '修正してほしい内容を入力',
-              hintStyle: AppText.dark(r.x(14),
-                  weight: FontWeight.w400,
-                  color: AppColors.white.withValues(alpha: 0.7)),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: r.x(12), vertical: r.x(10)),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: BorderSide(
-                      color: AppColors.white.withValues(alpha: 0.55))),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppColors.white)),
-            ),
-          ),
-          SizedBox(height: r.x(20)),
-          Row(children: [
-            Expanded(
-              child: DetailButton('修正依頼', AppColors.white, _busy, () async {
-                final t = _note.text.trim();
-                if (t.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('エラー：修正してほしい内容を入力してください')));
-                  return;
-                }
-                await _run(
-                    () => repo.requestRevision(
-                        requestId: q.id, uid: widget.uid, instruction: t),
-                    done: '修正指示を送りました');
-              }),
-            ),
-            SizedBox(width: r.x(10)),
-            Expanded(
-              child: DetailButton('承認する', AppColors.blue, _busy, () async {
-                var cleaned = true;
-                final ok = await _run(
-                    () async => cleaned =
-                        await repo.approve(requestId: q.id, uid: widget.uid),
-                    done: '承認しました。編集者へ通知しました');
-                if (ok && !cleaned && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'エラー：添付素材の一部を削除できませんでした。通信を確認して、しばらくしてからお問い合わせください')));
-                }
-              }),
-            ),
-          ]),
-        ],
-        if (actions.isNotEmpty) ...[
-          SizedBox(height: r.y(16)),
-          for (final a in actions)
-            Padding(padding: EdgeInsets.only(bottom: r.y(8)), child: a),
-        ],
-        SizedBox(height: r.y(10)),
-        DetailCard(children: [
-          Text('指示書', style: AppText.dark(r.x(16))),
-          ..._briefRows(editable),
-        ]),
-        SizedBox(height: r.y(10)),
-        // 承認後は、添付素材を削除して承認された動画だけを保管する。
-        if (q.approved)
-          DetailCard(children: [
+    final videoLayout =
+        !_isEditor && q.requesterId == widget.uid && s == RequestStatus.review;
+    final Widget infoCard = DetailCard(children: [
+      InfoRow('タイトル', _b.title,
+          onEdit: editable
+              ? (_) => _editBrief('タイトル', _b.title,
+                  required: true, apply: (b, v) => b.copyWith(title: v))
+              : null),
+      InfoRow('納期', dateText(_due), onEdit: editable ? _editDue : null),
+      InfoRow('長さ', length),
+      InfoRow('担当', editorLabel),
+    ]);
+    final Widget briefCard = DetailCard(children: [
+      Text('指示書', style: AppText.dark(r.x(16))),
+      ..._briefRows(editable),
+    ]);
+    final Widget attachCard = q.approved
+        ? DetailCard(children: [
             Row(children: [
               Expanded(child: Text('添付資料', style: AppText.dark(r.x(16)))),
             ]),
@@ -734,8 +607,7 @@ class _BodyState extends State<_Body> {
                 child: Text('承認済みのため、添付資料は削除しました。承認された動画だけを保管しています',
                     style: AppText.dark(r.x(14), weight: FontWeight.w400))),
           ])
-        else
-          DetailCard(children: [
+        : DetailCard(children: [
             // タイトルと同じ行の右端に、資料の追加ボタン（受付待ちの自分の依頼だけ）。
             Row(children: [
               Expanded(child: Text('添付資料', style: AppText.dark(r.x(16)))),
@@ -817,19 +689,125 @@ class _BodyState extends State<_Body> {
                 ]);
               },
             ),
-          ]),
+          ]);
+    // 依頼者の動画確認の、画面下のボタン：「修正依頼」「承認する」、その下に「依頼を取り消す」。
+    final reviewButtons = Row(children: [
+      Expanded(
+        flex: 2,
+        child: DetailButton('修正依頼', AppColors.white, _busy, () async {
+          // 修正の内容は、ダイアログで入力する（問合せと同じ入力ダイアログ。音声入力もできる）。
+          final t = await _askText('修正の依頼', '修正してほしい内容を入力（音声でも入力できます）',
+              sendLabel: '送信');
+          if (t == null) return;
+          await _run(
+              () => repo.requestRevision(
+                  requestId: q.id, uid: widget.uid, instruction: t),
+              done: '修正指示を送りました');
+        }),
+      ),
+      SizedBox(width: r.x(10)),
+      Expanded(
+        flex: 2,
+        child: DetailButton('承認する', AppColors.blue, _busy, () async {
+          var cleaned = true;
+          final ok = await _run(
+              () async => cleaned =
+                  await repo.approve(requestId: q.id, uid: widget.uid),
+              done: '承認しました。編集者へ通知しました');
+          if (ok && !cleaned && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content:
+                    Text('エラー：添付素材の一部を削除できませんでした。通信を確認して、しばらくしてからお問い合わせください')));
+          }
+        }),
+      ),
+      // 幅は 修正依頼：承認する：依頼取消 ＝ 2：2：1。
+      if (canCancel) ...[
+        SizedBox(width: r.x(10)),
+        Expanded(
+          flex: 1,
+          child: HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
+        ),
+      ],
+    ]);
+
+    final list = ListView(
+      padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
+      children: [
+        NoticeBar(_notice()),
+        if (ownerInquiry)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _answerInquiry(q),
+              style: TextButton.styleFrom(
+                  foregroundColor: AppColors.white,
+                  padding: EdgeInsets.symmetric(
+                      horizontal: r.x(4), vertical: r.x(6))),
+              child: Text('問合せ内容を確認する',
+                  style: AppText.dark(r.x(14),
+                          weight: FontWeight.w400, height: 21 / 14)
+                      .copyWith(
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.white)),
+            ),
+          ),
+        SizedBox(height: r.x(16)),
+        // 依頼者の動画確認：動画を上部に置く（画面を開いたあとに再生）。基本情報・指示書・添付資料は、
+        // 右下の資料アイコンから開くダイアログにまとめる。
+        if (videoLayout) ...[
+          SubmissionPlayer(
+              request: q,
+              onDocs: () => showDialog<void>(
+                    context: context,
+                    builder: (ctx) => _DocsDialog(children: [
+                      infoCard,
+                      SizedBox(height: r.y(10)),
+                      briefCard,
+                      SizedBox(height: r.y(10)),
+                      attachCard,
+                    ]),
+                  )),
+          SizedBox(height: r.x(16)),
+        ],
+        if (!videoLayout) ...[infoCard, SizedBox(height: r.y(10))],
+        if (actions.isNotEmpty) ...[
+          SizedBox(height: r.y(16)),
+          for (final a in actions)
+            Padding(padding: EdgeInsets.only(bottom: r.y(8)), child: a),
+        ],
+        if (!videoLayout) ...[
+          briefCard,
+          SizedBox(height: r.y(10)),
+          attachCard,
+        ],
         SizedBox(height: r.y(10)),
         // 提出された動画は、編集者が初稿を提出した以降（初稿確認・修正・投稿済）の画面にだけ出す。
-        if (s == RequestStatus.review ||
-            s == RequestStatus.revision ||
-            s == RequestStatus.posted)
+        // 依頼者の動画確認では、上部のプレーヤーで見るため、ここには出さない。
+        if (!videoLayout &&
+            (s == RequestStatus.review ||
+                s == RequestStatus.revision ||
+                s == RequestStatus.posted))
           _Submissions(request: q, uid: widget.uid),
-        if (canCancel && !ownerPending && !ownerInquiry) ...[
+        if (!videoLayout && canCancel && !ownerPending && !ownerInquiry) ...[
           SizedBox(height: r.x(16)),
-          DetailButton('依頼を取り消す', AppColors.amber, _busy, _cancelRequest),
+          HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
         ],
       ],
     );
+    if (videoLayout) {
+      return Column(children: [
+        Expanded(child: list),
+        Padding(
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
+          child: reviewing
+              ? reviewButtons
+              : (canCancel
+                  ? HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest)
+                  : const SizedBox.shrink()),
+        ),
+      ]);
+    }
     if (ownerInquiry) {
       return Column(children: [
         Expanded(child: list),
@@ -848,7 +826,7 @@ class _BodyState extends State<_Body> {
           child: Row(children: [
             Expanded(
               child:
-                  DetailButton('依頼取消', AppColors.amber, _busy, _cancelRequest),
+                  HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
             ),
           ]),
         ),
@@ -1007,4 +985,44 @@ class _Notice extends StatelessWidget {
               style: AppText.dark(14, weight: FontWeight.w400)),
         ),
       );
+}
+
+/// 依頼の資料（基本情報・指示書・添付資料）をまとめて見るダイアログ。
+class _DocsDialog extends StatelessWidget {
+  const _DocsDialog({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    return Dialog(
+      backgroundColor: AppColors.ink,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+            maxWidth: screen.width < 560 ? screen.width : 480,
+            maxHeight: screen.height * 0.85),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
+            child: Row(children: [
+              Expanded(child: Text('依頼の資料', style: AppText.dark(18))),
+              IconButton(
+                tooltip: '閉じる',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: AppColors.white),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(children: children),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }

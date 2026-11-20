@@ -143,12 +143,13 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
       final q = widget.request;
       return [
         _Bubble(false, q.reviewReason ?? '問い合わせ内容はありません。',
-            sender: '${q.editorName ?? '編集者'}（編集者）'),
+            sender: '${q.editorName ?? '編集者'}（編集者）', light: true),
       ];
     }
     return [
       for (final m in _historyMessages(h))
-        _Bubble(m.fromRequester, m.text, sender: m.sender),
+        _Bubble(m.fromRequester, m.text,
+            sender: m.sender, light: !m.fromRequester),
     ];
   }
 
@@ -409,12 +410,16 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble(this.mine, this.text, {this.sender = 'ナビゲーター'});
+  const _Bubble(this.mine, this.text,
+      {this.sender = 'ナビゲーター', this.light = false});
   final bool mine;
   final String text;
 
   /// 相手側の吹き出しに添える名前。
   final String sender;
+
+  /// 白い背景で出す（編集者の問合せ）。ナビゲーターの案内は黒系、依頼者の回答は青。
+  final bool light;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -456,8 +461,10 @@ class _Bubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: mine
                           ? AppColors.blue
-                          : AppColors.white.withValues(alpha: 0.08),
-                      border: mine
+                          : (light
+                              ? AppColors.white
+                              : AppColors.white.withValues(alpha: 0.08)),
+                      border: (mine || light)
                           ? null
                           : Border.all(
                               color: AppColors.white.withValues(alpha: 0.16)),
@@ -474,8 +481,13 @@ class _Bubble extends StatelessWidget {
                                 weight: FontWeight.w400,
                                 color: AppColors.white,
                                 height: 1.5)
-                            : AppText.dark(15,
-                                weight: FontWeight.w400, height: 1.5)),
+                            : light
+                                ? AppText.noto(15,
+                                    weight: FontWeight.w400,
+                                    color: AppColors.ink,
+                                    height: 1.5)
+                                : AppText.dark(15,
+                                    weight: FontWeight.w400, height: 1.5)),
                   ),
                 ],
               ),
@@ -500,7 +512,7 @@ class InquiryHistoryScreen extends StatelessWidget {
         drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [
-            const AppHeader(title: '問合せ'),
+            const AppHeader(title: '問合せ履歴'),
             Expanded(
               child: StreamBuilder<List<Inquiry>>(
                 stream: Services.repo.watchInquiries(request.id),
@@ -537,7 +549,8 @@ class InquiryHistoryScreen extends StatelessWidget {
                       const _Bubble(false,
                           'この依頼の問合せと回答の履歴です。編集者からの問合せは左、依頼者の回答は右に表示します。'),
                       for (final m in msgs)
-                        _Bubble(m.fromRequester, m.text, sender: m.sender),
+                        _Bubble(m.fromRequester, m.text,
+                            sender: m.sender, light: !m.fromRequester),
                       if (waiting) const _Bubble(false, '依頼者の回答をお待ちください。'),
                     ],
                   );
