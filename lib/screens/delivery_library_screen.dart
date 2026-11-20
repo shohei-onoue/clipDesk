@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/swipe_actions.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -166,9 +167,15 @@ class _LibraryCard extends StatelessWidget {
         );
         // 依頼者本人のカードだけ、左にスワイプすると削除ボタンが出る。
         return request.requesterId == uid
-            ? _SwipeToDelete(
-                label: '${request.brief.title}を削除',
-                onDelete: () => _confirmDelete(context, request, uid),
+            ? SwipeActions(
+                actions: [
+                  SwipeAction(
+                    icon: Icons.delete_outline,
+                    label: '削除',
+                    color: AppColors.badgeRed,
+                    onTap: () => _confirmDelete(context, request, uid),
+                  ),
+                ],
                 child: card,
               )
             : card;
@@ -220,113 +227,6 @@ Future<void> _confirmDelete(
     messenger.showSnackBar(const SnackBar(content: Text('削除しました')));
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('失敗しました：$e')));
-  }
-}
-
-/// 左にスワイプすると、右端から削除ボタンが現れる（途中で離すと、半分を超えていれば開き、
-/// 超えていなければ閉じる。アニメーションで動く）。開いているときにカードをタップすると閉じる。
-class _SwipeToDelete extends StatefulWidget {
-  const _SwipeToDelete(
-      {required this.child, required this.onDelete, required this.label});
-  final Widget child;
-  final VoidCallback onDelete;
-  final String label;
-
-  @override
-  State<_SwipeToDelete> createState() => _SwipeToDeleteState();
-}
-
-class _SwipeToDeleteState extends State<_SwipeToDelete>
-    with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 220));
-  late final Animation<double> _t =
-      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  void _settle({double? velocity}) {
-    final open = (velocity != null && velocity.abs() > 300)
-        ? velocity < 0
-        : _c.value > 0.5;
-    _c.animateTo(open ? 1 : 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    final width = r.x(88);
-    return GestureDetector(
-      onHorizontalDragUpdate: (d) =>
-          _c.value = (_c.value - d.delta.dx / width).clamp(0.0, 1.0),
-      onHorizontalDragEnd: (d) => _settle(velocity: d.primaryVelocity),
-      child: Stack(children: [
-        // 後ろにある削除ボタン。カードが左へ動くにつれて、右端から現れる。
-        Positioned.fill(
-          child: Align(
-            alignment: Alignment.centerRight,
-            // Behind motion：ボタンは濃いまま、後ろに固定。カードが左へ滑って空いた分だけ見える
-            // （カードの背景は透けるので、閉じているときは見えないように、空いた幅で切り取る）。
-            child: AnimatedBuilder(
-              animation: _t,
-              builder: (_, child) => ClipRect(
-                child: Align(
-                    alignment: Alignment.centerRight,
-                    widthFactor: _t.value,
-                    child: child),
-              ),
-              child: Semantics(
-                button: true,
-                label: widget.label,
-                child: GestureDetector(
-                  onTap: () {
-                    _c.animateTo(0);
-                    widget.onDelete();
-                  },
-                  child: Container(
-                    width: width,
-                    margin: EdgeInsets.only(left: r.x(4)),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.badgeRed,
-                      borderRadius: BorderRadius.circular(r.x(15)),
-                    ),
-                    child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.delete_outline,
-                              color: AppColors.white, size: r.x(26)),
-                          Text('削除',
-                              style: AppText.dark(r.x(12),
-                                  color: AppColors.white)),
-                        ]),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        AnimatedBuilder(
-          animation: _t,
-          builder: (_, child) => Transform.translate(
-              offset: Offset(-(width + r.x(4)) * _t.value, 0), child: child),
-          // 開いているときは、カードのタップは閉じるだけ（再生しない）。
-          child: AnimatedBuilder(
-            animation: _c,
-            builder: (_, child) => GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _c.value > 0.05 ? () => _c.animateTo(0) : null,
-              child: IgnorePointer(ignoring: _c.value > 0.05, child: child),
-            ),
-            child: widget.child,
-          ),
-        ),
-      ]),
-    );
   }
 }
 

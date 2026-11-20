@@ -11,6 +11,7 @@ import '../data/services.dart';
 import '../domain/staff_access.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/role_chip.dart';
+import '../widgets/swipe_actions.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 
@@ -174,8 +175,7 @@ class _UserTileState extends State<_UserTile> {
         // 権限を読み込む前は「承認待ち」にしない（amber の枠が一瞬出るのを防ぐ）。
         final waiting = !snap.hasData;
         final card = Container(
-          margin: EdgeInsets.only(bottom: r.y(10)),
-          padding: EdgeInsets.fromLTRB(r.x(14), r.x(6), r.x(4), r.x(14)),
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(12), r.x(14), r.x(12)),
           decoration: BoxDecoration(
             color: AppColors.white.withValues(alpha: 0.08),
             border: Border.all(
@@ -189,17 +189,40 @@ class _UserTileState extends State<_UserTile> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                // 名前・メールアドレスの2行と、管理者権限のバッジは、同じ高さの中央にそろえる。
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: EdgeInsets.only(top: r.x(8)),
+                      padding: EdgeInsets.zero,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(u.name.isEmpty ? '（名前なし）' : u.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.dark(r.x(16))),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                    u.name.isEmpty ? '（名前なし）' : u.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.dark(r.x(16))),
+                              ),
+                              if (widget.isMe) ...[
+                                SizedBox(width: r.x(8)),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: r.x(10), vertical: r.x(2)),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.amber,
+                                    borderRadius:
+                                        BorderRadius.circular(r.x(8)),
+                                  ),
+                                  child: Text('ログイン',
+                                      style: AppText.dark(r.x(12),
+                                          color: AppColors.ink)),
+                                ),
+                              ],
+                            ],
+                          ),
                           Text(u.email,
                               style: AppText.dark(r.x(13),
                                   color:
@@ -212,62 +235,32 @@ class _UserTileState extends State<_UserTile> {
                       ),
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    tooltip: 'メニュー',
-                    icon: const Icon(Icons.more_vert, color: AppColors.white),
-                    color: AppColors.ink,
-                    shape: RoundedRectangleBorder(
-                        side: BorderSide(
-                            color: AppColors.white.withValues(alpha: 0.16)),
-                        borderRadius: BorderRadius.circular(r.x(10))),
-                    onSelected: (v) {
-                      if (v == 'edit') _edit(a);
-                      if (v == 'delete') _delete();
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                          value: 'edit',
-                          child: Text('編集',
-                              style:
-                                  AppText.dark(14, weight: FontWeight.w400))),
-                      PopupMenuItem(
-                          value: 'delete',
-                          child: Text('削除',
-                              style:
-                                  AppText.dark(14, weight: FontWeight.w400))),
-                    ],
-                  ),
+                  if (a.manager) ...[
+                    RoleChip('管理者権限', selected: true),
+                  ],
                 ],
-              ),
-              SizedBox(height: r.y(6)),
-              Padding(
-                padding: EdgeInsets.only(right: r.x(10)),
-                child: Row(children: [
-                  const Spacer(),
-                  RoleChip('管理者権限', selected: a.manager),
-                ]),
               ),
             ],
           ),
         );
-        if (!widget.isMe) return card;
-        // ログイン者バッヂ：カードの外、左上角の真上に付ける。
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding:
-                  EdgeInsets.symmetric(horizontal: r.x(12), vertical: r.x(3)),
-              decoration: BoxDecoration(
-                color: AppColors.amber,
-                borderRadius: BorderRadius.circular(r.x(8)),
-              ),
-              child: Text('ログイン',
-                  style: AppText.dark(r.x(12), color: AppColors.ink)),
-            ),
-            card,
+        // 左にスワイプすると、編集・削除ボタンが現れる。
+        final swipe = SwipeActions(
+          actions: [
+            SwipeAction(
+                icon: Icons.edit_outlined,
+                label: '編集',
+                color: AppColors.blue,
+                onTap: () => _edit(a)),
+            SwipeAction(
+                icon: Icons.delete_outline,
+                label: '削除',
+                color: AppColors.badgeRed,
+                onTap: _delete),
           ],
+          child: card,
         );
+        return Padding(
+            padding: EdgeInsets.only(bottom: r.y(10)), child: swipe);
       },
     );
   }
@@ -450,8 +443,7 @@ class _EditDialogState extends State<_EditDialog> {
           firstName: _firstName.text.trim(),
           email: email);
       if (!widget.isMe) {
-        await Services.repo
-            .setStaffAccess(widget.user.uid, manager: _manager);
+        await Services.repo.setStaffAccess(widget.user.uid, manager: _manager);
       }
       if (mounted) Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
@@ -522,11 +514,14 @@ class _EditDialogState extends State<_EditDialog> {
                       labelText: 'メールアドレス', border: OutlineInputBorder()),
                 ),
                 SizedBox(height: r.y(16)),
-                Text(widget.isMe ? '権限選択（自分の権限は変えられません）' : '権限選択',
-                    style: AppText.dark(14)),
-                SizedBox(height: r.y(8)),
                 Row(children: [
-                  const Spacer(),
+                  Expanded(
+                    child: Text('管理者はスタッフ招待権限を持ちます',
+                        style: AppText.dark(14,
+                            weight: FontWeight.w400,
+                            color: AppColors.white.withValues(alpha: 0.7))),
+                  ),
+                  SizedBox(width: r.x(8)),
                   RoleChip('管理者権限',
                       selected: _manager,
                       onChanged: widget.isMe
