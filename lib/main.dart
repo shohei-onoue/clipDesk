@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -54,11 +55,18 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
   void initState() {
     super.initState();
     AppSettings.instance.addListener(_onSettings);
+    // ログインしたユーザーが保存した設定を反映する（ユーザーごとの設定）。
+    _authSub = FirebaseAuth.instance
+        .authStateChanges()
+        .listen((u) => AppSettings.instance.bindUser(u?.uid));
   }
+
+  StreamSubscription<User?>? _authSub;
 
   @override
   void dispose() {
     AppSettings.instance.removeListener(_onSettings);
+    _authSub?.cancel();
     super.dispose();
   }
 

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -163,6 +164,22 @@ enum AppPalette {
   bool get isLight => bg.computeLuminance() > 0.5;
 }
 
+/// 読み上げの速さ。「ふつう」が従来の速さ。
+enum ReadSpeed {
+  slow('ゆっくり', 0.9, 0.4),
+  normal('ふつう', 1.25, 0.55),
+  fast('はやい', 1.6, 0.7);
+
+  const ReadSpeed(this.label, this.webRate, this.appRate);
+  final String label;
+
+  /// Web（1.0 が普通の速さ）用。
+  final double webRate;
+
+  /// Android・iOS（0.5 が普通の速さ）用。
+  final double appRate;
+}
+
 /// 表示の設定（文字の大きさ・色の組み合わせ・ふりがな）。端末に保存する。
 /// 変えると、画面全体を作り直して反映する（[ClipDeskApp] が購読する）。
 class AppSettings extends ChangeNotifier {
@@ -174,11 +191,20 @@ class AppSettings extends ChangeNotifier {
   static const _kPalette = 'settings.palette';
   static const _kRuby = 'settings.ruby';
   static const _kRead = 'settings.readAloud';
+  static const _kReadSpeed = 'settings.readSpeed';
 
   TextSizeLevel _textSize = TextSizeLevel.small;
   AppPalette _palette = AppPalette.standard;
   bool _ruby = false;
   bool _readAloud = false;
+  ReadSpeed _readSpeed = ReadSpeed.normal;
+
+  /// ログイン中のユーザーの ID。設定はこのユーザーの `users/{uid}.settings` に保存する。
+  String? _uid;
+
+  /// 画面で変えたが、まだユーザーの設定として保存していない変更があるか。
+  bool _unsaved = false;
+  bool get unsaved => _unsaved;
 
   TextSizeLevel get textSize => _textSize;
   AppPalette get palette => _palette;
@@ -188,6 +214,9 @@ class AppSettings extends ChangeNotifier {
 
   /// 文字をタップしたら読み上げるか。
   bool get readAloud => _readAloud;
+
+  /// 読み上げの速さ。
+  ReadSpeed get readSpeed => _readSpeed;
 
   /// 保存済みの設定を読む。読めなければ（初回・失敗）従来の表示のまま。
   Future<void> load() async {
@@ -201,12 +230,16 @@ class AppSettings extends ChangeNotifier {
           orElse: () => AppPalette.standard);
       _ruby = p.getBool(_kRuby) ?? false;
       _readAloud = p.getBool(_kRead) ?? false;
+      _readSpeed = ReadSpeed.values.firstWhere(
+          (e) => e.name == p.getString(_kReadSpeed),
+          orElse: () => ReadSpeed.normal);
     } catch (_) {}
   }
 
   Future<void> setTextSize(TextSizeLevel v) async {
     if (v == _textSize) return;
     _textSize = v;
+    _unsaved = true;
     notifyListeners();
     await _save((p) => p.setString(_kText, v.name));
   }
@@ -214,6 +247,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setPalette(AppPalette v) async {
     if (v == _palette) return;
     _palette = v;
+    _unsaved = true;
     notifyListeners();
     await _save((p) => p.setString(_kPalette, v.name));
   }
@@ -221,6 +255,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> setRuby(bool v) async {
     if (v == _ruby) return;
     _ruby = v;
+    _unsaved = true;
     notifyListeners();
     await _save((p) => p.setBool(_kRuby, v));
   }
@@ -228,8 +263,84 @@ class AppSettings extends ChangeNotifier {
   Future<void> setReadAloud(bool v) async {
     if (v == _readAloud) return;
     _readAloud = v;
+    _unsaved = true;
     notifyListeners();
     await _save((p) => p.setBool(_kRead, v));
+  }
+
+  Future<void> setReadSpeed(ReadSpeed v) async {
+    if (v == _readSpeed) return;
+    _readSpeed = v;
+    _unsaved = true;
+    notifyListeners();
+    await _save((p) => p.setString(_kReadSpeed, v.name));
+  }
+
+  Map<String, Object> toMap() => {
+        'textSize': _textSize.name,
+        'palette': _palette.name,
+        'ruby': _ruby,
+        'readAloud': _readAloud,
+        'readSpeed': _readSpeed.name,
+      };
+
+  void _apply(Map<String, dynamic> m) {
+    _textSize = TextSizeLevel.values.firstWhere((e) => e.name == m['textSize'],
+        orElse: () => TextSizeLevel.small);
+    _palette = AppPalette.values.firstWhere((e) => e.name == m['palette'],
+        orElse: () => AppPalette.standard);
+    _ruby = m['ruby'] == true;
+    _readAloud = m['readAloud'] == true;
+    _readSpeed = ReadSpeed.values.firstWhere((e) => e.name == m['readSpeed'],
+        orElse: () => ReadSpeed.normal);
+  }
+
+  /// ログインしたとき：そのユーザーが保存した設定を読んで反映する。
+  /// 保存したことがないユーザーは、標準の設定にする（前の人の設定を引き継がない）。
+  /// ログアウトしたとき（uid が null）は、端末の表示はそのままにして、ユーザーとの結び付きだけ外す。
+  Future<void> bindUser(String? uid) async {
+    _uid = uid;
+    _unsaved = false;
+    if (uid == null) return;
+    Map<String, dynamic>? saved;
+    try {
+      final d =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      saved = d.data()?['settings'] as Map<String, dynamic>?;
+    } catch (_) {
+      return; // 読めなければ、いまの表示のまま。
+    }
+    if (_uid != uid) return; // 読んでいる間にユーザーが変わった。
+    if (saved != null) {
+      _apply(saved);
+    } else {
+      resetForTest();
+    }
+    notifyListeners();
+    await _save((p) async {
+      await p.setString(_kText, _textSize.name);
+      await p.setString(_kPalette, _palette.name);
+      await p.setBool(_kRuby, _ruby);
+      await p.setBool(_kRead, _readAloud);
+      return p.setString(_kReadSpeed, _readSpeed.name);
+    });
+  }
+
+  /// いまの設定を、ログイン中のユーザーの設定として保存する。保存できたら true。
+  Future<bool> saveForUser() async {
+    final uid = _uid;
+    if (uid == null) return false;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({'settings': toMap()}, SetOptions(merge: true));
+      _unsaved = false;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// テスト用：保存せずに、初期の状態へ戻す。
@@ -238,6 +349,8 @@ class AppSettings extends ChangeNotifier {
     _palette = AppPalette.standard;
     _ruby = false;
     _readAloud = false;
+    _readSpeed = ReadSpeed.normal;
+    _unsaved = false;
   }
 
   Future<void> _save(Future<bool> Function(SharedPreferences) write) async {

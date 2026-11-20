@@ -4,6 +4,7 @@ import '../core/app_colors.dart';
 import '../core/app_settings.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
+import '../core/read_aloud.dart';
 import '../core/responsive.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
@@ -84,19 +85,111 @@ class SettingsScreen extends StatelessWidget {
                     _Section(
                       title: '音声読み上げ',
                       note: 'オンにすると、画面の文字をタップしたとき、その文字を声で読み上げます。',
-                      child: _RubySwitch(
-                        label: '音声で読み上げる',
-                        value: s.readAloud,
-                        onChanged: s.setReadAloud,
-                      ),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _RubySwitch(
+                              label: '音声で読み上げる',
+                              value: s.readAloud,
+                              onChanged: s.setReadAloud,
+                            ),
+                            SizedBox(height: r.x(14)),
+                            Text('読み上げの速さ', style: AppText.dark(r.x(16))),
+                            SizedBox(height: r.x(8)),
+                            Row(children: [
+                              for (final sp in ReadSpeed.values) ...[
+                                if (sp != ReadSpeed.slow)
+                                  SizedBox(width: r.x(8)),
+                                Expanded(
+                                  child: _Choice(
+                                    label: sp.label,
+                                    what: '読み上げの速さ',
+                                    selected: s.readSpeed == sp,
+                                    onTap: () async {
+                                      await s.setReadSpeed(sp);
+                                      ReadAloud.instance.speak('この速さで読み上げます。');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ]),
+                          ]),
                     ),
                   ],
                 ),
               ),
+              _SaveBar(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 画面下の保存ボタン。押すと、いまの設定をログイン中のユーザーの設定として保存する。
+class _SaveBar extends StatefulWidget {
+  @override
+  State<_SaveBar> createState() => _SaveBarState();
+}
+
+class _SaveBarState extends State<_SaveBar> {
+  bool _busy = false;
+  String? _result;
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _result = null;
+    });
+    final ok = await AppSettings.instance.saveForUser();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _result = ok
+          ? '保存しました。次にログインしたときも、この設定になります。'
+          : '保存できませんでした。通信を確認して、もう一度お試しください。';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    final unsaved = AppSettings.instance.unsaved;
+    final note = _result ??
+        (unsaved ? '変更はまだ保存していません。保存すると、あなたの設定として残ります。' : '変更はありません。');
+    return Container(
+      padding: EdgeInsets.fromLTRB(r.x(14), r.x(10), r.x(14), r.x(12)),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        border: Border(
+            top: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(note,
+            style: AppText.dark(r.x(13),
+                weight: FontWeight.w400,
+                color: AppColors.white.withValues(alpha: 0.7),
+                height: 1.5)),
+        SizedBox(height: r.x(8)),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _busy || !unsaved ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.amber,
+              foregroundColor: AppColors.ink,
+              disabledBackgroundColor: AppColors.white.withValues(alpha: 0.16),
+              disabledForegroundColor: AppColors.white.withValues(alpha: 0.7),
+              minimumSize: Size.fromHeight(r.x(56)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(r.x(10))),
+            ),
+            child: Text(_busy ? '保存しています…' : '設定を保存する',
+                style: AppText.dark(r.x(18), color: null)),
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -141,10 +234,14 @@ class _Section extends StatelessWidget {
 /// 選択ボタン（小・中・大）。選択中は blue 塗り＋「選択中」の語句＋チェック。
 class _Choice extends StatelessWidget {
   const _Choice(
-      {required this.label, required this.selected, required this.onTap});
+      {required this.label,
+      required this.selected,
+      required this.onTap,
+      this.what = '文字の大きさ'});
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final String what;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +249,7 @@ class _Choice extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '文字の大きさ$label',
+      label: '$what$label',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
