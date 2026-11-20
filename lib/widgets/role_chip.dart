@@ -4,7 +4,7 @@ import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 
-/// 権限のカード（「編集者」「依頼者」「管理者権限」）。スタッフカード、編集ダイアログ、招待画面で共有する。
+/// 権限のカード（「管理者権限」）。スタッフカード、編集ダイアログ、招待画面で共有する。
 /// 選択中は blue 塗り＋White文字、未選択は枠だけ。[onChanged] を渡すと押して切り替えられる
 /// （渡さないと表示だけ）。
 class RoleChip extends StatelessWidget {
