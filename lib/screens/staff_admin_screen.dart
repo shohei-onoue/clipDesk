@@ -16,7 +16,7 @@ import '../widgets/app_header.dart';
 
 /// スタッフ管理（責任者のみ）。登録済みのスタッフを一覧で表示し、権限を変更できる。
 /// 右下の「＋」から招待画面（/staff/invite）へ進む。
-/// 権限：編集者／依頼者／両方。責任者の印は別に付けられる。承認の取り消しもできる。
+/// 権限：全員が依頼も編集もできる。責任者の印は別に付けられる。承認の取り消しもできる。
 /// 自分自身の権限は変更できない（ルールでも拒否される）。
 class StaffAdminScreen extends StatelessWidget {
   const StaffAdminScreen({super.key});
@@ -243,9 +243,6 @@ class _UserTileState extends State<_UserTile> {
               Padding(
                 padding: EdgeInsets.only(right: r.x(10)),
                 child: Row(children: [
-                  RoleChip('編集者', selected: a.canEdit),
-                  SizedBox(width: r.x(8)),
-                  RoleChip('依頼者', selected: a.canRequest),
                   const Spacer(),
                   RoleChip('管理者権限', selected: a.manager),
                 ]),
@@ -381,7 +378,7 @@ class _InviteButton extends StatelessWidget {
   }
 }
 
-/// スタッフ情報の編集ダイアログ：名前、メールアドレス、区分（編集者・依頼者）、管理者権限。
+/// スタッフ情報の編集ダイアログ：名前、メールアドレス、管理者権限（区分は全員、依頼も編集もできる）。
 /// 暗い面・White文字（デザインシステムのダイアログ）。キャンセルと「保存する」を明確に分ける。
 class _EditDialog extends StatefulWidget {
   const _EditDialog(
@@ -402,8 +399,6 @@ class _EditDialogState extends State<_EditDialog> {
   late final _email = TextEditingController(text: widget.user.email);
   final _currentPassword = TextEditingController();
   final _newPassword = TextEditingController();
-  late bool _canRequest = widget.access.canRequest;
-  late bool _canEdit = widget.access.canEdit;
   late bool _manager = widget.access.manager;
   bool _busy = false;
   String? _error;
@@ -422,10 +417,6 @@ class _EditDialogState extends State<_EditDialog> {
     final email = _email.text.trim();
     if (!email.contains('@')) {
       setState(() => _error = 'エラー：メールアドレスの形式が正しくありません。入力し直してください');
-      return;
-    }
-    if (!_canRequest && !_canEdit) {
-      setState(() => _error = 'エラー：区分が選ばれていません。編集者か依頼者を1つ以上選んでください');
       return;
     }
     final newPassword = _newPassword.text;
@@ -459,8 +450,8 @@ class _EditDialogState extends State<_EditDialog> {
           firstName: _firstName.text.trim(),
           email: email);
       if (!widget.isMe) {
-        await Services.repo.setStaffAccess(widget.user.uid,
-            canRequest: _canRequest, canEdit: _canEdit, manager: _manager);
+        await Services.repo
+            .setStaffAccess(widget.user.uid, manager: _manager);
       }
       if (mounted) Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
@@ -535,17 +526,6 @@ class _EditDialogState extends State<_EditDialog> {
                     style: AppText.dark(14)),
                 SizedBox(height: r.y(8)),
                 Row(children: [
-                  RoleChip('編集者',
-                      selected: _canEdit,
-                      onChanged: widget.isMe
-                          ? null
-                          : (v) => setState(() => _canEdit = v)),
-                  SizedBox(width: r.x(8)),
-                  RoleChip('依頼者',
-                      selected: _canRequest,
-                      onChanged: widget.isMe
-                          ? null
-                          : (v) => setState(() => _canRequest = v)),
                   const Spacer(),
                   RoleChip('管理者権限',
                       selected: _manager,

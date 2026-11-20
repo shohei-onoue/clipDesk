@@ -8,7 +8,7 @@ service firebase.storage {
     function hasRole(r) {
       return signedIn()
         && firestore.exists(/databases/(default)/documents/roles/$(request.auth.uid))
-        && (roleOf(request.auth.uid) == r || roleOf(request.auth.uid) == 'staff');
+        && roleOf(request.auth.uid) in ['staff', 'requester', 'editor'];
     }
     function isStaff() { return hasRole('editor') || hasRole('requester'); }
     function req(requestId) {

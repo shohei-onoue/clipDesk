@@ -10,8 +10,8 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/tips_card.dart';
 
-/// スタッフ招待（責任者のみ）。メールアドレスと区分を決め、登録フォームのリンクをメールで送る。
-/// 「編集者」「依頼者」「管理者」はトグルスイッチで入り切りする。編集者・依頼者は1つ以上が必要。
+/// スタッフ招待（責任者のみ）。メールアドレスと管理者権限を決め、登録フォームのリンクをメールで送る。
+/// 区分は全員「依頼も編集もできる」で、選ばない。「管理者」だけトグルスイッチで入り切りする。
 class StaffInviteScreen extends StatefulWidget {
   const StaffInviteScreen({super.key});
 
@@ -21,8 +21,6 @@ class StaffInviteScreen extends StatefulWidget {
 
 class _StaffInviteScreenState extends State<StaffInviteScreen> {
   final _email = TextEditingController();
-  bool _canRequest = false;
-  bool _canEdit = true;
   bool _manager = false;
   bool _busy = false;
 
@@ -41,15 +39,9 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
       messenger.showSnackBar(const SnackBar(content: Text('メールアドレスを入力してください')));
       return;
     }
-    if (!_canRequest && !_canEdit) {
-      messenger.showSnackBar(const SnackBar(content: Text('区分を1つ以上選んでください')));
-      return;
-    }
     setState(() => _busy = true);
     try {
       await Services.repo.saveInvite(email,
-          canRequest: _canRequest,
-          canEdit: _canEdit,
           manager: _manager,
           invitedBy: me);
       await const InviteMailer().send(email);
@@ -84,18 +76,6 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
                         labelText: 'メールアドレス', border: OutlineInputBorder()),
                   ),
                   SizedBox(height: r.y(16)),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('編集者'),
-                    value: _canEdit,
-                    onChanged: (v) => setState(() => _canEdit = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('依頼者'),
-                    value: _canRequest,
-                    onChanged: (v) => setState(() => _canRequest = v),
-                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('管理者'),

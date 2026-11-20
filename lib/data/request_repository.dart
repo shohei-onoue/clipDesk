@@ -86,7 +86,7 @@ class RequestRepository {
   /// 依頼者・編集者のどちらにもなれる。選び直すたびにメイン画面で書き換える。
   UserRole staffMode = UserRole.requester;
 
-  /// 'staff' は [staffMode] の立場として返す。'requester'／'editor' は従来どおり固定。
+  /// 承認済み（'staff'、旧データの 'requester'／'editor' も同じ）は [staffMode] の立場として返す。
   /// 役割を購読する。ページを開いた直後など、ログインの確認が Firestore に届く前は
   /// 「permission-denied」で購読が終わることがある。その場合は、少し待って購読し直す
   /// （3回まで。それでも失敗したときだけ、エラーとして伝える）。
@@ -95,7 +95,9 @@ class RequestRepository {
       try {
         await for (final s in _db.collection('roles').doc(uid).snapshots()) {
           final v = s.data()?['role'];
-          yield v == 'staff' ? staffMode : UserRole.parse(v);
+          yield (v == 'staff' || v == 'requester' || v == 'editor')
+              ? staffMode
+              : UserRole.parse(v);
         }
         return;
       } on FirebaseException catch (e) {
@@ -125,20 +127,12 @@ class RequestRepository {
           ]);
 
   /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
-  /// 依頼者・編集者ともに false のときは承認を取り消す（roles/{uid} を削除）。
-  Future<void> setStaffAccess(String uid,
-      {required bool canRequest,
-      required bool canEdit,
-      required bool manager}) async {
-    final role =
-        StaffAccess.roleValue(canRequest: canRequest, canEdit: canEdit);
-    final ref = _db.collection('roles').doc(uid);
-    if (role == null) {
-      await ref.delete();
-    } else {
-      await ref.set({'role': role, 'manager': manager});
-    }
-  }
+  /// 区分は全員「両方」（`staff`）。責任者の印だけ切り替える。
+  Future<void> setStaffAccess(String uid, {required bool manager}) =>
+      _db
+          .collection('roles')
+          .doc(uid)
+          .set({'role': StaffAccess.roleValue, 'manager': manager});
 
   /// スタッフの名前・メールアドレス（users/{uid} の表示用の値）を直す。責任者だけ。
   /// 姓・名を別々に保存し、結合した name も同時に更新する。
@@ -169,17 +163,9 @@ class RequestRepository {
   static String inviteId(String email) => email.trim().toLowerCase();
 
   Future<void> saveInvite(String email,
-      {required bool canRequest,
-      required bool canEdit,
-      required bool manager,
-      required String invitedBy}) {
-    final role =
-        StaffAccess.roleValue(canRequest: canRequest, canEdit: canEdit);
-    if (role == null) {
-      throw ArgumentError('依頼者か編集者のどちらかを選んでください');
-    }
+      {required bool manager, required String invitedBy}) {
     return _db.collection('invites').doc(inviteId(email)).set({
-      'role': role,
+      'role': StaffAccess.roleValue,
       'manager': manager,
       'invitedBy': invitedBy,
       'createdAt': FieldValue.serverTimestamp(),

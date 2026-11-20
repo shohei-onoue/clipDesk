@@ -9,12 +9,12 @@ service cloud.firestore {
     function hasRole(r) {
       return signedIn()
         && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
-        && (roleOf(request.auth.uid) == r || roleOf(request.auth.uid) == 'staff');
+        && roleOf(request.auth.uid) in ['staff', 'requester', 'editor'];
     }
     function isEditor() { return hasRole('editor'); }
     function isRequester() { return hasRole('requester'); }
 
-    // 役割は 'requester'（依頼者）／'editor'（編集者）／'staff'（スタッフ：両方の操作が可能）。
+    // 役割は 'staff'（スタッフ：依頼も編集もできる）に統一。旧データの 'requester'／'editor' も、同じ権限として扱う。
     // 役割は管理者（Firebaseコンソール／Admin SDK）だけが設定する。
     // 利用者は自分の役割を読めるが、書き換えられない。
     // 承認画面（責任者）から、責任者だけが他人の役割を付与・変更・取り消しできる。
@@ -30,7 +30,7 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isManager());
       allow create, update: if isManager() && request.auth.uid != uid
         && request.resource.data.keys().hasOnly(['role', 'manager'])
-        && request.resource.data.role in ['requester', 'editor', 'staff']
+        && request.resource.data.role == 'staff'
         && request.resource.data.manager is bool;
       // 招待メールで登録した本人が、招待された内容どおりの権限を自分に付ける（メール確認済みのときだけ）。
       allow create: if signedIn() && request.auth.uid == uid
@@ -51,7 +51,7 @@ service cloud.firestore {
             && request.auth.token.email.lower() == email);
       allow create, update: if isManager()
         && request.resource.data.keys().hasOnly(['role', 'manager', 'invitedBy', 'createdAt'])
-        && request.resource.data.role in ['requester', 'editor', 'staff']
+        && request.resource.data.role == 'staff'
         && request.resource.data.manager is bool
         && request.resource.data.invitedBy == request.auth.uid;
       allow delete: if isManager()
