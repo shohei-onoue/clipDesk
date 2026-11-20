@@ -88,6 +88,35 @@ void main() {
     expect(isNewRequest(at(null), now), isTrue);
   });
 
+  test('依頼カードを開けるか：新規依頼と担当なしの受付待ちは誰でも、決まったあとは本人たちだけ', () {
+    final now = DateTime(2026, 11, 17, 9);
+    final fresh = DateTime(2026, 11, 16);
+    final old = DateTime(2026, 10, 1);
+    bool locked(VideoRequest q, String uid) => isRequestLockedFor(q, uid, now);
+    // 新規依頼（受付待ち・1週間以内）：誰でも。
+    expect(locked(req('a', RequestStatus.pending, createdAt: fresh), 'x'),
+        isFalse);
+    // 担当のいない受付待ち（1週間超）：誰でも。
+    expect(
+        locked(req('a', RequestStatus.pending, createdAt: old), 'x'), isFalse);
+    // 担当が決まった受付待ち（1週間超）：他の人は不可、依頼主と担当は可。
+    final assigned =
+        req('a', RequestStatus.pending, createdAt: old, editorId: 'ed');
+    expect(locked(assigned, 'x'), isTrue);
+    expect(locked(assigned, 'ed'), isFalse);
+    expect(locked(assigned, 'r'), isFalse);
+    // 編集中：他の人は不可。
+    final editing = req('a', RequestStatus.editing, editorId: 'ed');
+    expect(locked(editing, 'x'), isTrue);
+    expect(locked(editing, 'ed'), isFalse);
+    expect(locked(editing, 'r'), isFalse);
+    // 問合せ中：依頼主だけ（担当の編集者も不可）。
+    final asking = req('a', RequestStatus.needsInfo, editorId: 'ed');
+    expect(locked(asking, 'r'), isFalse);
+    expect(locked(asking, 'ed'), isTrue);
+    expect(locked(asking, 'x'), isTrue);
+  });
+
   group('ホームの絞り込み', () {
     final all = [
       req('p', RequestStatus.pending),

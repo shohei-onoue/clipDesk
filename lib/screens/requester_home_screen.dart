@@ -109,11 +109,10 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                       itemCount: list.length,
                                       itemBuilder: (context, i) {
                                         final q = list[i];
-                                        // 問合せ中の依頼は、依頼者本人だけが開ける。
-                                        // それ以外の人には、暗くして開けないようにする。
-                                        final locked = q.status ==
-                                                RequestStatus.needsInfo &&
-                                            q.requesterId != Services.uid;
+                                        // 依頼主と編集担当が決まった依頼は、本人たちだけが開ける。
+                                        // それ以外の人には、暗くして開けないようにする（「新規依頼」を除く）。
+                                        final locked = isRequestLockedFor(
+                                            q, Services.uid, DateTime.now());
                                         return ProgressCard(
                                           request: q,
                                           locked: locked,
@@ -151,7 +150,7 @@ class ProgressCard extends StatelessWidget {
 
   final VideoRequest request;
 
-  /// true なら開けない印として扱う（問合せ中で、依頼者以外が見るとき）。黒の透過率50%は、問合せ・編集中のカードに常にかかる。
+  /// true なら黒の透過率50%をかぶせる（問合せ中で、依頼者以外が見るとき）。編集中のカードは常にかかる。
   final bool locked;
   final VoidCallback? onTap;
 
@@ -185,10 +184,9 @@ class ProgressCard extends StatelessWidget {
     final value = request.status == RequestStatus.pending
         ? 0.0
         : progressValue(request.status);
-    // 編集担当が決まった「問合せ」「編集中」のカードは、黒の透過率50%をかぶせ、バッジを中央に置く。
-    final dim = locked ||
-        request.status == RequestStatus.needsInfo ||
-        request.status == RequestStatus.editing;
+    // 黒の透過率50%をかぶせるのは、編集中のカードと、問合せ中で依頼者以外が見るカード
+    // （問合せ中でも、依頼主本人にはかけない。本人が開いて回答するため）。バッジは右上のまま。
+    final dim = locked || request.status == RequestStatus.editing;
     Widget badge() => Container(
           width: r.x(70),
           height: r.x(30),
@@ -224,7 +222,6 @@ class ProgressCard extends StatelessWidget {
                       AttachmentThumb(
                           key: ValueKey(request.id),
                           attachment: thumbnailAttachment(request)),
-                      if (!dim) Positioned(right: 0, top: 0, child: badge()),
                     ],
                   ),
                 ),
@@ -293,7 +290,7 @@ class ProgressCard extends StatelessWidget {
               ],
             ),
           ),
-          if (dim) ...[
+          if (dim)
             Positioned.fill(
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -304,8 +301,8 @@ class ProgressCard extends StatelessWidget {
                 ),
               ),
             ),
-            Center(child: IgnorePointer(child: badge())),
-          ],
+          // バッジは暗転の上、カードの右上に置く。
+          Positioned(right: 0, top: 0, child: IgnorePointer(child: badge())),
         ]),
       ),
     );

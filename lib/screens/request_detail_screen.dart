@@ -9,6 +9,7 @@ import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
 import '../domain/brief.dart';
+import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
@@ -39,14 +40,14 @@ class RequestDetailScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(children: [
-          // 受付待ちの依頼（新規依頼のカードから開いたとき）は「依頼確認」、それ以外は「動画確認」。
+          // 問合せ中だけ「依頼内容」（依頼者が内容を直す画面）、それ以外は「依頼確認」。
           StreamBuilder<VideoRequest?>(
             stream: Services.repo.watchRequest(requestId),
             builder: (context, snap) => AppHeader(
                 title: switch (snap.data?.status) {
               RequestStatus.pending => '依頼確認',
               RequestStatus.needsInfo => '依頼内容',
-              _ => '動画確認',
+              _ => '依頼確認',
             }),
           ),
           Expanded(
@@ -68,10 +69,11 @@ class RequestDetailScreen extends StatelessWidget {
                   if (req == null) {
                     return const _Notice('この案件は見つかりません');
                   }
-                  // 問合せ中の依頼を見られるのは、依頼した本人だけ。
-                  if (req.status == RequestStatus.needsInfo &&
-                      req.requesterId != uid) {
-                    return const _Notice('問合せ中の依頼は、依頼者のみ閲覧できます');
+                  // 依頼主と編集担当が決まった依頼は、その二人だけが見られる。問合せ中は依頼主だけ。
+                  if (isRequestLockedFor(req, uid, DateTime.now())) {
+                    return _Notice(req.status == RequestStatus.needsInfo
+                        ? '問合せ中の依頼は、依頼者のみ閲覧できます'
+                        : 'この依頼は、依頼者と担当の編集者のみ閲覧できます');
                   }
                   // 立場は「メイン画面で選んだ立場」ではなく、権限と依頼の関係で決める。
                   // 編集者の権限があり、自分が出した依頼でなければ編集者として見る
@@ -543,6 +545,11 @@ class _BodyState extends State<_Body> {
       case RequestStatus.needsInfo:
         return '${q.editorName ?? '編集者'}様より依頼内容の問い合わせが届いています。';
       case RequestStatus.editing:
+        // 受注した編集者本人と、依頼者で言い方を分ける。
+        if (_isEditor && _isAssignee) return 'あなたが受注した案件です。';
+        if (!_isEditor && q.requesterId == widget.uid) {
+          return '${q.editorName ?? '編集者'}様が編集を承諾しました。';
+        }
         return '編集中です。';
       case RequestStatus.review:
         if (q.approved) return '承認済みです。編集者の投稿を待っています。';
@@ -565,23 +572,6 @@ class _BodyState extends State<_Body> {
 
     // 提出・投稿は、依頼を請け負った編集者だけ。
     if (_isEditor && _isAssignee) {
-      if (s == RequestStatus.editing || s == RequestStatus.revision) {
-        actions.add(DetailButton(
-            s == RequestStatus.revision ? '修正動画を提出' : '初稿動画を提出',
-            AppColors.blue,
-            _busy,
-            _pickAndSubmit));
-        if (s == RequestStatus.editing) {
-          actions.add(DetailButton('要確認にする', AppColors.amber, _busy, () async {
-            final reason = await _askText('確認したい内容', '不明点・確認事項');
-            if (reason == null) return;
-            await _run(
-                () => repo.askForInfo(
-                    requestId: q.id, uid: widget.uid, reason: reason),
-                done: '依頼者へ差し戻しました');
-          }));
-        }
-      }
       if (s == RequestStatus.review && q.approved) {
         actions.add(DetailButton(
             '投稿完了にする',
@@ -626,9 +616,7 @@ class _BodyState extends State<_Body> {
     final list = ListView(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
       children: [
-        NoticeBar(_notice(),
-            light: q.status == RequestStatus.pending ||
-                q.status == RequestStatus.needsInfo),
+        NoticeBar(_notice()),
         if (ownerInquiry)
           Align(
             alignment: Alignment.centerRight,
@@ -734,13 +722,6 @@ class _BodyState extends State<_Body> {
           DetailCard(children: [
             Row(children: [
               Expanded(child: Text('添付資料', style: AppText.dark(r.x(16)))),
-              // 受付待ちの自分の依頼だけ、ファイルを追加できる。
-              if (ownerPending)
-                IconButton(
-                  tooltip: '添付を追加',
-                  onPressed: _busy ? null : _addAttachments,
-                  icon: const Icon(Icons.add, color: AppColors.white),
-                ),
             ]),
             Padding(
                 padding: EdgeInsets.only(top: r.y(6)),
@@ -749,7 +730,18 @@ class _BodyState extends State<_Body> {
           ])
         else
           DetailCard(children: [
-            Text('添付資料', style: AppText.dark(r.x(16))),
+            // タイトルと同じ行の右端に、資料の追加ボタン（受付待ちの自分の依頼だけ）。
+            Row(children: [
+              Expanded(child: Text('添付資料', style: AppText.dark(r.x(16)))),
+              if (ownerPending)
+                IconButton(
+                  tooltip: '資料を追加',
+                  onPressed: _busy ? null : _addAttachments,
+                  // ダウンロードアイコン（Icons.download）と同じ24px。
+                  icon: const AppIcon(AppIcons.addCircle,
+                      size: 24, color: AppColors.white),
+                ),
+            ]),
             // ダウンロードは編集者権限のスタッフだけ。それ以外は動画の再生で閲覧する。
             StreamBuilder<StaffAccess>(
               stream: Services.repo.watchAccess(widget.uid),
@@ -799,17 +791,13 @@ class _BodyState extends State<_Body> {
                             ),
                       trailing: canDownload
                           ? Builder(
-                              builder: (bctx) => GestureDetector(
-                                // ひと押しで端末に保存。長押しで、クラウドへの保存も選べる。
-                                onLongPress: () => showSaveMenu(bctx,
+                              // タップで保存先のメニューを開く（端末・Dropbox・Google ドライブ・OneDrive）。
+                              builder: (bctx) => IconButton(
+                                tooltip: 'ダウンロード（保存先を選ぶ）',
+                                color: AppColors.white,
+                                icon: const Icon(Icons.download),
+                                onPressed: () => showSaveMenu(bctx,
                                     path: a.path, name: a.name),
-                                child: IconButton(
-                                  tooltip: 'ダウンロード（長押しで保存先を選ぶ）',
-                                  color: AppColors.white,
-                                  icon: const Icon(Icons.download),
-                                  onPressed: () => saveToDevice(bctx,
-                                      path: a.path, name: a.name),
-                                ),
                               ),
                             )
                           : null,
@@ -857,6 +845,19 @@ class _BodyState extends State<_Body> {
                   DetailButton('依頼取消', AppColors.amber, _busy, _cancelRequest),
             ),
           ]),
+        ),
+      ]);
+    }
+    // 受注した編集者本人の、編集中・修正中：画面下の「動画を提出」。
+    final submit = _isEditor &&
+        _isAssignee &&
+        (s == RequestStatus.editing || s == RequestStatus.revision);
+    if (submit) {
+      return Column(children: [
+        Expanded(child: list),
+        Padding(
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
+          child: DetailButton('動画を提出', AppColors.blue, _busy, _pickAndSubmit),
         ),
       ]);
     }

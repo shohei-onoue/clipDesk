@@ -87,6 +87,20 @@ bool isNewRequest(VideoRequest r, DateTime now) {
   return n.difference(d).inDays <= newRequestDays;
 }
 
+/// この人が、依頼カード（依頼確認画面）を開けないか。
+/// 誰でも開けるのは、バッジが「新規依頼」のカードと、まだ担当の編集者がいない受付待ちのカード。
+/// 依頼主と編集担当が決まったあとは、依頼主本人と担当の編集者だけが開ける。
+/// ただし問合せ中は、依頼主本人だけ。
+bool isRequestLockedFor(VideoRequest r, String? uid, DateTime now) {
+  if (uid != null && r.requesterId == uid) return false;
+  if (r.status == RequestStatus.needsInfo) return true;
+  if (uid != null && r.editorId == uid) return false;
+  if (r.status == RequestStatus.pending) {
+    return r.editorId != null && !isNewRequest(r, now);
+  }
+  return true;
+}
+
 /// ダッシュボードのタブ。どの進捗の依頼かで分ける（暫定の対応。FigJamで未確定）。
 /// 依頼＝受付待ち・要確認、編集＝編集中・修正、確認＝初稿確認。投稿済はライブラリで見る。
 enum DashboardTab {
