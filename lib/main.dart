@@ -38,6 +38,23 @@ class ClipDeskApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final routes = <String, WidgetBuilder>{
+      '/': (_) => const LoginScreen(),
+      '/register': (_) => const RegisterScreen(),
+      '/staff': (_) => const StaffAdminScreen(),
+      '/staff/invite': (_) => const StaffInviteScreen(),
+      '/menu': (_) => const MenuScreen(),
+      '/progress': (_) => const ProgressScreen(),
+      // ホームは依頼者ページのUIに差し替え中。元のホーム画面は '/home_old' に残している。
+      '/home': (_) => const RequesterHomeScreen(),
+      '/home_old': (_) => const HomeScreen(),
+      '/requester': (_) => const RequesterHomeScreen(),
+      '/drawer': (_) => const RequestListScreen(),
+      '/chat': (_) => const ChatScreen(),
+      '/brief': (_) => const BriefConfirmScreen(),
+      '/notifications': (_) => const NotificationsScreen(),
+      '/library': (_) => const DeliveryLibraryScreen(),
+    };
     return MaterialApp(
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
@@ -55,23 +72,15 @@ class ClipDeskApp extends StatelessWidget {
               FirebaseAuth.instance.isSignInWithEmailLink(Uri.base.toString())
           ? '/register'
           : (autoLoggedIn ? '/menu' : '/'),
-      routes: {
-        '/': (_) => const LoginScreen(),
-        '/register': (_) => const RegisterScreen(),
-        '/staff': (_) => const StaffAdminScreen(),
-        '/staff/invite': (_) => const StaffInviteScreen(),
-        '/menu': (_) => const MenuScreen(),
-        '/progress': (_) => const ProgressScreen(),
-        // ホームは依頼者ページのUIに差し替え中。元のホーム画面は '/home_old' に残している。
-        '/home': (_) => const RequesterHomeScreen(),
-        '/home_old': (_) => const HomeScreen(),
-        '/requester': (_) => const RequesterHomeScreen(),
-        '/drawer': (_) => const RequestListScreen(),
-        '/chat': (_) => const ChatScreen(),
-        '/brief': (_) => const BriefConfirmScreen(),
-        '/notifications': (_) => const NotificationsScreen(),
-        '/library': (_) => const DeliveryLibraryScreen(),
-      },
+      routes: routes,
+      // 最初の画面は1枚だけにする。標準では「/menu」から始めると、下にログイン画面（/）が
+      // 積まれ、戻る操作が重なるとログイン画面（＝ログアウトしたように見える）へ戻ってしまう。
+      onGenerateInitialRoutes: (name) => [
+        MaterialPageRoute<void>(
+          settings: RouteSettings(name: name),
+          builder: routes[name] ?? routes['/']!,
+        ),
+      ],
       onGenerateRoute: (settings) {
         if (settings.name == '/request' && settings.arguments is String) {
           return MaterialPageRoute<void>(

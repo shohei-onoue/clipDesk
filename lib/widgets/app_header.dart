@@ -39,6 +39,21 @@ class AppHeader extends StatelessWidget {
   final String? leadingTooltip;
   final VoidCallback? onLeading;
 
+  /// 左端ボタンの操作。次の2つの誤操作を防ぐ。
+  /// - 戻る操作の途中（画面が閉じていく間）の二重タップ：2画面分戻ってしまう。
+  /// - 画面が切り替わっている最中のタップ：戻った先の画面の同じ位置にある
+  ///   ボタン（メイン画面ではログアウト）を、意図せず押してしまう。
+  void _onLeading(BuildContext context) {
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      if (!route.isCurrent) return;
+      final moving = route.animation?.status != AnimationStatus.completed ||
+          route.secondaryAnimation?.status != AnimationStatus.dismissed;
+      if (moving) return;
+    }
+    (onLeading ?? () => Navigator.of(context).maybePop())();
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -68,10 +83,9 @@ class AppHeader extends StatelessWidget {
                 height: tap,
                 child: IconButton(
                   tooltip: leadingTooltip ?? '戻る',
-                  onPressed:
-                      onLeading ?? () => Navigator.of(context).maybePop(),
+                  onPressed: () => _onLeading(context),
                   icon: AppIcon(leadingIcon ?? AppIcons.back,
-                      size: r.x(32), color: AppColors.white),
+                      size: r.x(26), color: AppColors.white),
                 ),
               ),
             ),
