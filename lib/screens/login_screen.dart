@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../widgets/intro_painter.dart';
 
 import '../core/app_colors.dart';
+import '../core/boot.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../widgets/ruby_text.dart';
@@ -33,7 +34,10 @@ class _LoginScreenState extends State<LoginScreen>
   /// 入力中に見えたキーボードの高さの最大値。メール欄とパスワード欄で
   /// キーボードの高さが違っても、フォームの位置が変わらないようにそろえる。
   double _keyboardMax = 0;
-  bool _showForm = false;
+  bool _wantForm = false;
+
+  /// ログインフォームは、読み込み（Firebase など）が終わるまで表示しない。
+  bool get _showForm => _wantForm && Boot.ready.value;
   late final AnimationController _intro;
   final _time = ValueNotifier<double>(0);
   final _hide = ValueNotifier<double>(0);
@@ -49,6 +53,13 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    Boot.ready.addListener(_onBootReady);
+    // 最初の画面を出す前に読み込みが終わっていた場合も、同じ動きにする。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Boot.ready.value && (Boot.openedByInviteLink || Boot.autoLoggedIn)) {
+        _onBootReady();
+      }
+    });
     _emailFocus.addListener(_onFocusChange);
     _passwordFocus.addListener(_onFocusChange);
     _intro = AnimationController(
@@ -80,6 +91,18 @@ class _LoginScreenState extends State<LoginScreen>
       // ローカル動画が読めない場合もログインへ進める。
       debugPrint('Opening video: $error');
       if (mounted) _openForm();
+    }
+  }
+
+  /// 読み込みが終わったとき。招待リンクなら登録フォームへ、自動ログイン済みならメイン画面へ進む。
+  void _onBootReady() {
+    if (!mounted || !Boot.ready.value) return;
+    if (Boot.openedByInviteLink) {
+      Navigator.of(context).pushReplacementNamed('/register');
+    } else if (Boot.autoLoggedIn) {
+      Navigator.of(context).pushReplacementNamed('/menu');
+    } else {
+      setState(() {});
     }
   }
 
@@ -125,15 +148,16 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _openForm() {
+    if (!Boot.ready.value) return; // 読み込み中は開かない。
     _intro.value = 1;
     _hide.value = 1;
-    setState(() => _showForm = true);
+    setState(() => _wantForm = true);
   }
 
   void _replay() {
     FocusScope.of(context).unfocus();
     _hide.value = 0;
-    setState(() => _showForm = false);
+    setState(() => _wantForm = false);
     _intro.value = 0;
     _intro.forward();
   }
@@ -235,6 +259,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    Boot.ready.removeListener(_onBootReady);
     _intro.dispose();
     _time.dispose();
     _hide.dispose();
@@ -339,19 +364,24 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       );
                     },
-                    child: ElevatedButton(
-                      onPressed: _openForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.onBlue,
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Text('ログインする',
-                          maxLines: 1,
-                          softWrap: false,
-                          style: AppText.noto(r.x(13),
-                              color: AppColors.onBlue, height: 1.3)),
-                    ),
+                    child: !Boot.ready.value
+                        ? Center(
+                            child: Text('読み込み中…',
+                                style: AppText.noto(r.x(13),
+                                    color: AppColors.white, height: 1.3)))
+                        : ElevatedButton(
+                            onPressed: _openForm,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.blue,
+                              foregroundColor: AppColors.onBlue,
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: Text('ログインする',
+                                maxLines: 1,
+                                softWrap: false,
+                                style: AppText.noto(r.x(13),
+                                    color: AppColors.onBlue, height: 1.3)),
+                          ),
                   ),
                 )),
               ),

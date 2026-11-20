@@ -19,7 +19,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <style>
-    html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    html, body { background: #1A1D20; touch-action: manipulation; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
     /* 背景動画（プラットフォームビュー）が画面全体のタップを奪い、Safariで入力欄にフォーカスできなくなるのを防ぐ */
     flt-platform-view, flt-platform-view *, video { pointer-events: none !important; }
   </style>
@@ -63,6 +63,12 @@
     // 1文字入力するたびにキーボードが日本語（かな）へ戻ることがある。
     // メール・パスワード欄は英字入力にしたいので、作られた入力欄にlang="en"などを付ける。
     (function () {
+      // 属性は「値が違うときだけ」書き換える。Flutterは1文字入力するたびに入力欄の属性を
+      // 付け直すため、毎回書き換えると、iPhoneがそのたびに入力の設定を読み直して
+      // キーボードが日本語（かな）へ戻ってしまう。
+      function setIfDiff(el, name, value) {
+        if (el.getAttribute(name) !== value) el.setAttribute(name, value);
+      }
       function fix(el) {
         if (!el || !el.tagName) return;
         if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return;
@@ -70,25 +76,22 @@
         var mode = el.getAttribute('inputmode');
         var ascii = type === 'password' || type === 'email' || mode === 'email';
         if (!ascii) return;
-        if (el.getAttribute('lang') !== 'en') el.setAttribute('lang', 'en');
-        el.setAttribute('autocapitalize', 'none');
-        el.setAttribute('autocorrect', 'off');
-        el.setAttribute('spellcheck', 'false');
+        setIfDiff(el, 'lang', 'en');
+        setIfDiff(el, 'autocapitalize', 'none');
+        setIfDiff(el, 'autocorrect', 'off');
+        setIfDiff(el, 'spellcheck', 'false');
       }
       function scan(node) {
         if (!node || node.nodeType !== 1) return;
         fix(node);
         if (node.querySelectorAll) node.querySelectorAll('input,textarea').forEach(fix);
       }
+      // 入力欄が新しく作られたときだけ見る（属性の変化は見ない。自分の書き換えで繰り返し呼ばれないように）。
       new MutationObserver(function (muts) {
         muts.forEach(function (m) {
-          if (m.type === 'attributes') fix(m.target);
           m.addedNodes && m.addedNodes.forEach(scan);
         });
-      }).observe(document.documentElement, {
-        childList: true, subtree: true, attributes: true,
-        attributeFilter: ['type', 'inputmode']
-      });
+      }).observe(document.documentElement, { childList: true, subtree: true });
     })();
   </script>
   <script>

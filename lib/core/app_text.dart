@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 import 'responsive.dart';
@@ -68,7 +67,8 @@ class AppText {
     double? height,
     double? letterSpacing,
   }) =>
-      GoogleFonts.oswald(
+      TextStyle(
+        fontFamily: 'Oswald', // 端末に入れてあるフォント（assets/fonts）を使う。通信しない。
         fontSize: size,
         fontWeight: FontWeight.w700,
         color: color,

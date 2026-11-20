@@ -22,7 +22,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// 文字の大きさ（中・大）・ふりがな・色の組み合わせを変えたときに、
 /// 画面の部品がはみ出さない（RenderFlex overflow が出ない）ことを確かめる。
@@ -40,7 +39,6 @@ void main() {
   final settings = AppSettings.instance;
 
   setUp(() async {
-    GoogleFonts.config.allowRuntimeFetching = false;
     db = FakeFirebaseFirestore();
     final repo = RequestRepository(db: db, storage: _FakeStorage());
     Services.repo = repo;
