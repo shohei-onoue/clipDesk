@@ -8,29 +8,22 @@ import 'ruby_text.dart';
 
 /// 画面上部のAppBar（ダークテイスト）。高さ61。背景は ink、下端だけ accent へ変わる線。
 /// 左に戻る（前の画面へ。[leadingIcon] で差し替え可）、中央にタイトル、右に [actions] とハンバーガー（ドロワーを開く）を置く。
-/// ホーム画面だけは [showSettings] で、ハンバーガーのかわりに設定（歯車のアイコン）を置く。
+/// 設定へはドロワーのメニューからのみ入る（ヘッダーには設定アイコンを置かない）。
 /// ボタンは必ず左端・右端に寄せ、タイトルだけを中央にする。アイコンには label（tooltip）を付ける。
 class AppHeader extends StatelessWidget {
   const AppHeader({
     super.key,
     required this.title,
     this.onMenu,
-    this.showSettings = false,
-    this.onSettings,
     this.actions = const [],
     this.leadingIcon,
     this.leadingTooltip,
     this.onLeading,
+    this.alwaysBack = true,
   });
 
   final String title;
   final VoidCallback? onMenu;
-
-  /// ホーム画面用。右端をハンバーガーではなく設定（調整のアイコン）にする。
-  final bool showSettings;
-
-  /// 設定画面は予定のため、未接続の間は押しても何も起きない。
-  final VoidCallback? onSettings;
 
   /// 右端（ハンバーガー・設定の手前）に並べるボタン。
   final List<Widget> actions;
@@ -39,6 +32,11 @@ class AppHeader extends StatelessWidget {
   final AppIcons? leadingIcon;
   final String? leadingTooltip;
   final VoidCallback? onLeading;
+
+  /// true のとき、戻れる画面が下に無くても戻るボタンを消さない（メイン画面へ戻る）。
+  /// 画面の積み重なりが崩れた（ドロワーからの遷移・再読み込みなど）ときに、
+  /// 戻るボタンが消えて行き場がなくなるのを防ぐ。ログイン前の登録画面だけ false。
+  final bool alwaysBack;
 
   /// 左端ボタンの操作。次の2つの誤操作を防ぐ。
   /// - 戻る操作の途中（画面が閉じていく間）の二重タップ：2画面分戻ってしまう。
@@ -52,7 +50,14 @@ class AppHeader extends StatelessWidget {
           route.secondaryAnimation?.status != AnimationStatus.dismissed;
       if (moving) return;
     }
-    (onLeading ?? () => Navigator.of(context).maybePop())();
+    if (onLeading != null) {
+      onLeading!();
+    } else if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      // 戻り先が無いときは、メイン画面（/menu）へ。
+      Navigator.of(context).pushNamedAndRemoveUntil('/menu', (_) => false);
+    }
   }
 
   @override
@@ -60,8 +65,8 @@ class AppHeader extends StatelessWidget {
     final r = context.r;
     final hasDrawer = Scaffold.maybeOf(context)?.hasDrawer ?? false;
     final canPop = Navigator.of(context).canPop();
-    final showMenu = !showSettings && (hasDrawer || onMenu != null);
-    final showLeading = leadingIcon != null || canPop;
+    final showMenu = hasDrawer || onMenu != null;
+    final showLeading = leadingIcon != null || canPop || alwaysBack;
     final tap = r.x(48); // タップ領域
     return Container(
       height: r.x(61),
@@ -109,13 +114,6 @@ class AppHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ...actions,
-                if (showSettings)
-                  _HeaderIcon(
-                      icon: AppIcons.settings,
-                      tooltip: '設定',
-                      onTap: onSettings,
-                      size: tap,
-                      iconSize: 26), // ログアウト（左端）のアイコンと同じ大きさ
                 if (showMenu)
                   _HeaderIcon(
                     icon: AppIcons.menu,
@@ -138,14 +136,12 @@ class _HeaderIcon extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.size,
-    this.iconSize = 32,
     this.onTap,
   });
 
   final AppIcons icon;
   final String tooltip;
   final double size;
-  final double iconSize;
   final VoidCallback? onTap;
 
   @override
@@ -157,7 +153,7 @@ class _HeaderIcon extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onTap,
-        icon: AppIcon(icon, size: r.x(iconSize), color: AppColors.white),
+        icon: AppIcon(icon, size: r.x(32), color: AppColors.white),
       ),
     );
   }

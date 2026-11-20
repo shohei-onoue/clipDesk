@@ -281,8 +281,9 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.white))
-                          : Text('回答する', style: AppText.dark(15)),
+                                  strokeWidth: 2, color: AppColors.onBlue))
+                          : Text('回答する',
+                              style: AppText.dark(15, color: AppColors.onBlue)),
                     ),
                   ),
                 ]),
@@ -422,7 +423,7 @@ class _Bubble extends StatelessWidget {
                         style: mine
                             ? AppText.noto(15,
                                 weight: FontWeight.w400,
-                                color: AppColors.white,
+                                color: AppColors.onBlue,
                                 height: 1.5)
                             : light
                                 ? AppText.noto(15,

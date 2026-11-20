@@ -42,8 +42,6 @@ class MenuScreen extends StatelessWidget {
           children: [
             AppHeader(
               title: 'ホーム',
-              showSettings: true,
-              onSettings: () => Navigator.of(context).pushNamed('/settings'),
               leadingIcon: AppIcons.logout,
               leadingTooltip: 'ログアウト',
               onLeading: () => confirmAndLogout(context),
@@ -182,7 +180,11 @@ class _MenuCard extends StatelessWidget {
           AppColors.blue,
           AppColors.blue
         ],
-        stops: [0, 0.60629, 0.90123, 1],
+        // 青が明るい配色（onBlue が暗い色）では、文字が濃い側にかかると見えなくなる。
+        // 文字の位置（カードの中ほど）より手前で明るい色に変え、文字全体を明るい面に載せる。
+        stops: AppColors.blue.computeLuminance() > 0.4
+            ? [0, 0.05, 0.25, 1]
+            : [0, 0.60629, 0.90123, 1],
       );
 
   @override
@@ -227,7 +229,7 @@ class _MenuCard extends StatelessWidget {
                           Text(ruby,
                               style: AppText.noto(r.x(14),
                                   weight: FontWeight.w400,
-                                  color: AppColors.onDark)),
+                                  color: AppColors.onBlue)),
                         // 長い題名（編集者ダッシュボード）は、枠に収まるよう縮める。
                         FittedBox(
                           fit: BoxFit.scaleDown,
@@ -235,7 +237,7 @@ class _MenuCard extends StatelessWidget {
                           child: Text(title,
                               style: AppText.noto(r.x(24),
                                   weight: FontWeight.w400,
-                                  color: AppColors.onDark)),
+                                  color: AppColors.onBlue)),
                         ),
                       ] else
                         FittedBox(
@@ -251,13 +253,13 @@ class _MenuCard extends StatelessWidget {
                                     Text(rb ?? ' ',
                                         style: AppText.noto(r.x(14),
                                             weight: FontWeight.w400,
-                                            color: AppColors.onDark)),
+                                            color: AppColors.onBlue)),
                                     // 手で付けたふりがながあるので、自動のふりがなは付けない。
                                     Text(text,
                                         ruby: false,
                                         style: AppText.noto(r.x(24),
                                             weight: FontWeight.w400,
-                                            color: AppColors.onDark)),
+                                            color: AppColors.onBlue)),
                                   ],
                                 ),
                             ],

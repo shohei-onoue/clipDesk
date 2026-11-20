@@ -343,14 +343,14 @@ class _LoginScreenState extends State<LoginScreen>
                       onPressed: _openForm,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.blue,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onBlue,
                         padding: EdgeInsets.zero,
                       ),
                       child: Text('ログインする',
                           maxLines: 1,
                           softWrap: false,
                           style: AppText.noto(r.x(13),
-                              color: Colors.white, height: 1.3)),
+                              color: AppColors.onBlue, height: 1.3)),
                     ),
                   ),
                 )),
@@ -419,10 +419,10 @@ class _LoginScreenState extends State<LoginScreen>
                               onPressed: _busy ? null : _login,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.blue,
-                                foregroundColor: Colors.white,
+                                foregroundColor: AppColors.onBlue,
                                 // ログイン中は黒（ink）にして、文字の代わりに回るアイコンを出す。
                                 disabledBackgroundColor: AppColors.bg,
-                                disabledForegroundColor: Colors.white,
+                                disabledForegroundColor: AppColors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                     borderRadius:
@@ -432,13 +432,13 @@ class _LoginScreenState extends State<LoginScreen>
                                   ? SizedBox(
                                       width: r.x(20),
                                       height: r.x(20),
-                                      child: const CircularProgressIndicator(
+                                      child: CircularProgressIndicator(
                                           strokeWidth: 2.5,
-                                          color: Colors.white),
+                                          color: AppColors.white),
                                     )
                                   : Text('ログイン',
                                       style: AppText.noto(r.x(13),
-                                          color: Colors.white, height: 1.3)),
+                                          color: AppColors.onBlue, height: 1.3)),
                             ),
                           ),
                           SizedBox(height: r.y(14)),
@@ -465,7 +465,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                     child: _keep
                                         ? Icon(Icons.check,
-                                            size: r.x(16), color: Colors.white)
+                                            size: r.x(16), color: AppColors.onBlue)
                                         : null,
                                   ),
                                   SizedBox(width: r.x(8)),

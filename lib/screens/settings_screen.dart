@@ -5,6 +5,7 @@ import '../core/app_settings.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
 import '../core/responsive.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/ruby_text.dart';
 
@@ -21,6 +22,8 @@ class SettingsScreen extends StatelessWidget {
       data: nightTheme,
       child: Scaffold(
         backgroundColor: AppColors.bg,
+        drawer: const AppDrawer(),
+        drawerScrimColor: const Color(0x8A000000),
         body: SafeArea(
           child: Column(
             children: [
@@ -261,7 +264,7 @@ class _PaletteTile extends StatelessWidget {
                     Icon(Icons.check, size: r.x(16), color: palette.onBlue),
                     SizedBox(width: r.x(4)),
                     Text('選択中',
-                        style: AppText.dark(r.x(12), color: palette.white)),
+                        style: AppText.dark(r.x(12), color: palette.onBlue)),
                   ]),
                 ),
             ]),

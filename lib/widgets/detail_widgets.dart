@@ -143,7 +143,7 @@ class DetailButton extends StatelessWidget {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.white))
+                        strokeWidth: 2, color: fg))
                 : Text(label,
                     textAlign: TextAlign.center,
                     style: AppText.noto(r.x(14),

@@ -33,6 +33,9 @@ class AppColors {
   /// グラデーション（メインカード・ドロワー）の濃い側。
   static Color get deep => _p.deep;
 
+  /// ドロワーのグラデーションの終わり側。
+  static Color get drawerEnd => _p.drawerEnd ?? _p.blue;
+
   /// 青で塗った面（ボタン・バッジ・自分の吹き出し）の上の文字。デフォルトでは white と同じ。
   static Color get onBlue => _p.onBlue;
 

@@ -38,7 +38,7 @@ class StaffAdminScreen extends StatelessWidget {
           backgroundColor: AppColors.blue,
           foregroundColor: AppColors.onBlue,
           onPressed: () => Navigator.of(context).pushNamed('/staff/invite'),
-          child: AppIcon(AppIcons.addCircle, size: 32, color: AppColors.white),
+          child: AppIcon(AppIcons.addCircle, size: 32, color: AppColors.onBlue),
         ),
         body: SafeArea(
           child: Column(children: [

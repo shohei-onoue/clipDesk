@@ -39,7 +39,7 @@ class AppDrawer extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.deep, AppColors.blue],
+            colors: [AppColors.deep, AppColors.drawerEnd],
           ),
           border: Border.all(color: AppColors.onDark.withValues(alpha: 0.16)),
         ),

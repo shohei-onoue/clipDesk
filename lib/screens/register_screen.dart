@@ -105,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(children: [
-            const AppHeader(title: 'スタッフ登録'),
+            const AppHeader(title: 'スタッフ登録', alwaysBack: false),
             Expanded(
               child: Center(
                 child: ConstrainedBox(
@@ -157,10 +157,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: AppColors.white))
+                                      strokeWidth: 2, color: AppColors.onBlue))
                               : Text('登録する',
                                   style:
-                                      AppText.noto(16, color: AppColors.white)),
+                                      AppText.noto(16, color: AppColors.onBlue)),
                         ),
                       ),
                     ],
