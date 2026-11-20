@@ -78,6 +78,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'firstName': firstName,
           'name': name,
           'updatedAt': FieldValue.serverTimestamp(),
+          // 使わない項目は保存しない（過去の登録で入った分も消す）。
+          'phone': FieldValue.delete(),
+          'displayName': FieldValue.delete(),
         }, SetOptions(merge: true));
         // 招待された権限を、自分の権限にする。招待が無ければ承認待ちのまま。
         await Services.repo.claimInvite(user.uid, user.email ?? email);
@@ -159,8 +162,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: AppColors.onBlue))
                               : Text('登録する',
-                                  style:
-                                      AppText.noto(16, color: AppColors.onBlue)),
+                                  style: AppText.noto(16,
+                                      color: AppColors.onBlue)),
                         ),
                       ),
                     ],

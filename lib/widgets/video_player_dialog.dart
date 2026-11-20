@@ -14,7 +14,10 @@ import 'ruby_text.dart';
 /// Storage上の動画（[audio] なら音声）を再生するダイアログ。YouTube風：黒い面に動画、赤いバーと白い丸、
 /// 再生・一時停止・秒数、題名。右上の×で閉じる。
 Future<void> showVideoDialog(BuildContext context,
-    {required String path, required String title, bool audio = false}) {
+    {required String path,
+    required String title,
+    bool audio = false,
+    VoidCallback? onDocs}) {
   return showDialog<void>(
     context: context,
     builder: (ctx) {
@@ -29,7 +32,11 @@ Future<void> showVideoDialog(BuildContext context,
           height: screen.height * 0.85,
           child: Stack(children: [
             VideoPanel(
-                key: ValueKey(path), path: path, title: title, audio: audio),
+                key: ValueKey(path),
+                path: path,
+                title: title,
+                audio: audio,
+                onDocs: onDocs),
             Positioned(
               right: 4,
               top: 4,

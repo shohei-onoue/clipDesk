@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/app_settings.dart';
 import '../core/app_text.dart';
+import '../core/read_aloud.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import 'ruby_text.dart';
@@ -9,8 +11,12 @@ import 'ruby_text.dart';
 // 案件詳細（RequestDetailScreen）と指示書確認（BriefConfirmScreen）で共有する部品。
 
 class DetailCard extends StatelessWidget {
-  const DetailCard({super.key, required this.children});
+  const DetailCard({super.key, required this.children, this.speech});
   final List<Widget> children;
+
+  /// 音声読み上げがオンのとき、エリア右上に読み上げアイコンを出し、
+  /// タップでこの文章（エリア内のテキスト全て）を読み上げる。
+  final String? speech;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +29,23 @@ class DetailCard extends StatelessWidget {
         border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(r.x(15)),
       ),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (speech != null && AppSettings.instance.readAloud)
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'このエリアを読み上げる',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints:
+                  BoxConstraints.tightFor(width: r.x(40), height: r.x(40)),
+              onPressed: () => ReadAloud.instance.speak(speech!),
+              icon: Icon(Icons.record_voice_over_outlined,
+                  size: r.x(26), color: AppColors.white),
+            ),
+          ),
+        ...children,
+      ]),
     );
   }
 }
@@ -142,8 +163,7 @@ class DetailButton extends StatelessWidget {
                 ? SizedBox(
                     width: 22,
                     height: 22,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: fg))
+                    child: CircularProgressIndicator(strokeWidth: 2, color: fg))
                 : Text(label,
                     textAlign: TextAlign.center,
                     style: AppText.noto(r.x(14),

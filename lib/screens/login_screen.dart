@@ -438,7 +438,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     )
                                   : Text('ログイン',
                                       style: AppText.noto(r.x(13),
-                                          color: AppColors.onBlue, height: 1.3)),
+                                          color: AppColors.onBlue,
+                                          height: 1.3)),
                             ),
                           ),
                           SizedBox(height: r.y(14)),
@@ -465,7 +466,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                     child: _keep
                                         ? Icon(Icons.check,
-                                            size: r.x(16), color: AppColors.onBlue)
+                                            size: r.x(16),
+                                            color: AppColors.onBlue)
                                         : null,
                                   ),
                                   SizedBox(width: r.x(8)),
@@ -553,8 +555,10 @@ class _Field extends StatelessWidget {
       maxLines: 1,
       textAlignVertical: TextAlignVertical.center,
       // iOS Safariは16px未満の入力欄でフォーカス時に拡大するため16px以上にする
+      // 入力欄はいつも白い面なので、文字・カーソルは配色に関わらず濃い色（onLight）で固定する。
+      cursorColor: AppColors.onLight,
       style: AppText.noto(r.x(13) < 16 ? 16 : r.x(13),
-          weight: FontWeight.w400, height: 1.3),
+          weight: FontWeight.w400, color: AppColors.onLight, height: 1.3),
       decoration: InputDecoration(
         constraints: BoxConstraints.tightFor(height: height),
         filled: true,

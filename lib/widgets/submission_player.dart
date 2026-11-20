@@ -242,7 +242,8 @@ class _VideoPanelState extends State<VideoPanel> {
         padding: const EdgeInsets.all(16),
         child: Text('エラー：動画を再生できません。通信を確認して、もう一度開いてください',
             textAlign: TextAlign.center,
-            style: AppText.dark(14, weight: FontWeight.w400)),
+            style: AppText.dark(14,
+                weight: FontWeight.w400, color: AppColors.onDark)),
       ));
     }
     if (c == null) {
@@ -317,7 +318,8 @@ class _VideoPanelState extends State<VideoPanel> {
               ),
               Text(
                   '${_fmt(Duration(milliseconds: pos.round()))} / ${_fmt(v.duration)}',
-                  style: AppText.dark(13, weight: FontWeight.w400)),
+                  style: AppText.dark(13,
+                      weight: FontWeight.w400, color: AppColors.onDark)),
               const Spacer(),
               if (widget.onDocs != null)
                 IconButton(
@@ -335,7 +337,7 @@ class _VideoPanelState extends State<VideoPanel> {
                   child: Text(widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.dark(14)),
+                      style: AppText.dark(14, color: AppColors.onDark)),
                 ),
               ]),
             ),

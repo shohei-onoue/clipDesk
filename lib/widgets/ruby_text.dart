@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart' as m;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/app_settings.dart';
+import '../core/read_aloud.dart';
 import '../core/ruby_dictionary.dart';
 
 /// アプリ全体で使う文字の部品。標準の `Text` と同じ使い方で、設定でふりがなを「オン」にすると、
@@ -48,8 +50,17 @@ class Text extends StatelessWidget {
   /// false なら、設定がオンでもふりがなを付けない（すでに手でふりがなを付けている箇所用）。
   final bool ruby;
 
+  /// 読み上げがオンのとき、0.2秒を超える長押しで、この文字を読み上げる（タップだけでは読み上げない）。
+  /// 0.2秒以内のタップは、ボタンの操作として働く（読み上げない）。
+  Widget _speakable(Widget child) {
+    if (!AppSettings.instance.readAloud) return child;
+    return _LongPressSpeak(text: semanticsLabel ?? data, child: child);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _speakable(_content(context));
+
+  Widget _content(BuildContext context) {
     final plain = m.Text(
       data,
       style: style,
@@ -115,6 +126,32 @@ class Text extends StatelessWidget {
       textWidthBasis: textWidthBasis,
       textHeightBehavior: textHeightBehavior,
       selectionColor: selectionColor,
+    );
+  }
+}
+
+/// 読み上げの長押しの長さ。
+const readAloudHold = Duration(milliseconds: 200);
+
+class _LongPressSpeak extends StatelessWidget {
+  const _LongPressSpeak({required this.text, required this.child});
+  final String text;
+  final Widget child;
+
+  /// 0.2秒以内のタップは、ボタンの操作（画面遷移・ダイアログ）として働く。
+  /// 0.2秒を超える長押しになった時点で読み上げに切り替わり、ボタンの操作は働かない。
+  /// 指を動かした（スクロール）ときは、どちらにもならない。
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      gestures: {
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(duration: readAloudHold),
+          (r) => r.onLongPress = () => ReadAloud.instance.speak(text),
+        ),
+      },
+      child: child,
     );
   }
 }

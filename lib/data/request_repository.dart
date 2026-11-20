@@ -144,6 +144,9 @@ class RequestRepository {
         'firstName': firstName,
         'name': joinName(lastName, firstName),
         'email': email,
+        // 使わない項目は、編集時にあわせて消す。
+        'phone': FieldValue.delete(),
+        'displayName': FieldValue.delete(),
       }, SetOptions(merge: true));
 
   /// スタッフ情報の削除：権限（roles）と登録情報（users）を消す。責任者だけ（ルールでも拒否）。

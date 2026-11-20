@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show SemanticsBinding;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_settings.dart';
@@ -30,6 +31,9 @@ Future<void> main() async {
   // ただしデバッグ実行（ポート 5001／5002）だけは、テスト用アカウントで自動ログインする。
   await AppSettings.instance.load();
   final auto = await debugAutoLogin();
+  // Web でも、VoiceOver・TalkBack・ブラウザの読み上げ機能が画面の文字を読めるよう、
+  // アクセシビリティ情報（セマンティクス）を最初からオンにする。
+  SemanticsBinding.instance.ensureSemantics();
   runApp(ClipDeskApp(autoLoggedIn: auto));
 }
 

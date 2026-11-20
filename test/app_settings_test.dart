@@ -42,13 +42,13 @@ void main() {
 
   test('設定を保存して、読み込める', () async {
     await settings.setTextSize(TextSizeLevel.large);
-    await settings.setPalette(AppPalette.plum);
+    await settings.setPalette(AppPalette.light);
     await settings.setRuby(true);
     settings.resetForTest();
     expect(settings.textSize, TextSizeLevel.small);
     await settings.load();
     expect(settings.textSize, TextSizeLevel.large);
-    expect(settings.palette, AppPalette.plum);
+    expect(settings.palette, AppPalette.light);
     expect(settings.ruby, isTrue);
   });
 

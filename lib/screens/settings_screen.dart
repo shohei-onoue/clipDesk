@@ -75,8 +75,19 @@ class SettingsScreen extends StatelessWidget {
                       title: 'ふりがな',
                       note: '漢字の上に、ふりがなを表示します。利用者が入力した名前などには付きません。',
                       child: _RubySwitch(
+                        label: 'ふりがなを表示する',
                         value: s.ruby,
                         onChanged: s.setRuby,
+                      ),
+                    ),
+                    SizedBox(height: r.x(16)),
+                    _Section(
+                      title: '音声読み上げ',
+                      note: 'オンにすると、画面の文字をタップしたとき、その文字を声で読み上げます。',
+                      child: _RubySwitch(
+                        label: '音声で読み上げる',
+                        value: s.readAloud,
+                        onChanged: s.setReadAloud,
                       ),
                     ),
                   ],
@@ -296,39 +307,36 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-/// ふりがなのオン・オフ。「オン」「オフ」の語句も添える。
+/// オン・オフの切り替え（ふりがな・音声読み上げ）。「オン」「オフ」の語句も添える。
 class _RubySwitch extends StatelessWidget {
-  const _RubySwitch({required this.value, required this.onChanged});
+  const _RubySwitch(
+      {required this.label, required this.value, required this.onChanged});
+  final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return Semantics(
-      toggled: value,
-      label: 'ふりがなを表示する',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(!value),
-        child: ExcludeSemantics(
-          child: Row(children: [
-            Expanded(
-              child: Text('ふりがなを表示する（${value ? 'オン' : 'オフ'}）',
-                  style: AppText.dark(r.x(16))),
-            ),
-            SizedBox(width: r.x(8)),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeThumbColor: AppColors.onBlue,
-              activeTrackColor: AppColors.blue,
-              inactiveThumbColor: AppColors.white.withValues(alpha: 0.7),
-              inactiveTrackColor: AppColors.gray,
-            ),
-          ]),
+    // 押せるのはスイッチの部分だけ。文字をタップしたときは、音声読み上げ（オンのとき）だけが働く。
+    return Row(children: [
+      Expanded(
+        child: Text('$label（${value ? 'オン' : 'オフ'}）',
+            style: AppText.dark(r.x(16))),
+      ),
+      SizedBox(width: r.x(8)),
+      Semantics(
+        toggled: value,
+        label: label,
+        child: Switch(
+          value: value,
+          onChanged: onChanged,
+          activeThumbColor: AppColors.onBlue,
+          activeTrackColor: AppColors.blue,
+          inactiveThumbColor: AppColors.white.withValues(alpha: 0.7),
+          inactiveTrackColor: AppColors.gray,
         ),
       ),
-    );
+    ]);
   }
 }

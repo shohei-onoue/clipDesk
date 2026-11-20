@@ -185,12 +185,20 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                   Text(b.title.isEmpty ? '（題名なし）' : b.title,
                       style: AppText.dark(r.x(20), height: 1.5)),
                   SizedBox(height: r.x(10)),
-                  DetailCard(children: [
-                    InfoRow('納期', dateText(d.dueDate)),
-                    InfoRow('長さ', length),
-                    const InfoRow('担当', '未定'),
-                    InfoRow('用途', b.platform.isEmpty ? '未設定' : b.platform),
-                  ]),
+                  DetailCard(
+                      speech: [
+                        'タイトル、${b.title.isEmpty ? '題名なし' : b.title}',
+                        '納期、${dateText(d.dueDate)}',
+                        '長さ、$length',
+                        '担当、未定',
+                        '用途、${b.platform.isEmpty ? '未設定' : b.platform}',
+                      ].join('。'),
+                      children: [
+                        InfoRow('納期', dateText(d.dueDate)),
+                        InfoRow('長さ', length),
+                        const InfoRow('担当', '未定'),
+                        InfoRow('用途', b.platform.isEmpty ? '未設定' : b.platform),
+                      ]),
                   if (errors.isNotEmpty) ...[
                     SizedBox(height: r.x(12)),
                     DetailCard(children: [
@@ -199,25 +207,41 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                     ]),
                   ],
                   SizedBox(height: r.x(12)),
-                  DetailCard(children: [
-                    Text('指示書', style: AppText.dark(r.x(16))),
-                    if (b.videoType.isNotEmpty) DetailRow('動画の種類', b.videoType),
-                    if (b.platform.isNotEmpty) DetailRow('投稿先', b.platform),
-                    if (b.audience.isNotEmpty) DetailRow('視聴者', b.audience),
-                    DetailRow('目的', b.purpose),
-                    if (b.structure.isNotEmpty) DetailRow('構成', b.structure),
-                    for (final line in _delivery(b.deliveryTerms))
-                      DetailRow(
-                          line.split('：').first,
-                          line.contains('：')
-                              ? line.split('：').skip(1).join('：')
-                              : ''),
-                    if (b.otherNotes.isNotEmpty)
-                      DetailRow('その他指示', b.otherNotes),
-                    for (var i = 0; i < b.scenes.length; i++)
-                      DetailRow('場面${i + 1}',
-                          '${b.scenes[i].title}\n${b.scenes[i].instruction}'),
-                  ]),
+                  DetailCard(
+                      speech: [
+                        '指示書',
+                        if (b.videoType.isNotEmpty) '動画の種類、${b.videoType}',
+                        if (b.platform.isNotEmpty) '投稿先、${b.platform}',
+                        if (b.audience.isNotEmpty) '視聴者、${b.audience}',
+                        '目的、${b.purpose}',
+                        if (b.structure.isNotEmpty) '構成、${b.structure}',
+                        for (final line in _delivery(b.deliveryTerms))
+                          line.replaceFirst('：', '、'),
+                        if (b.otherNotes.isNotEmpty) 'その他指示、${b.otherNotes}',
+                        for (var i = 0; i < b.scenes.length; i++)
+                          '場面${i + 1}、${b.scenes[i].title}。${b.scenes[i].instruction}',
+                      ].join('。'),
+                      children: [
+                        Text('指示書', style: AppText.dark(r.x(16))),
+                        if (b.videoType.isNotEmpty)
+                          DetailRow('動画の種類', b.videoType),
+                        if (b.platform.isNotEmpty) DetailRow('投稿先', b.platform),
+                        if (b.audience.isNotEmpty) DetailRow('視聴者', b.audience),
+                        DetailRow('目的', b.purpose),
+                        if (b.structure.isNotEmpty)
+                          DetailRow('構成', b.structure),
+                        for (final line in _delivery(b.deliveryTerms))
+                          DetailRow(
+                              line.split('：').first,
+                              line.contains('：')
+                                  ? line.split('：').skip(1).join('：')
+                                  : ''),
+                        if (b.otherNotes.isNotEmpty)
+                          DetailRow('その他指示', b.otherNotes),
+                        for (var i = 0; i < b.scenes.length; i++)
+                          DetailRow('場面${i + 1}',
+                              '${b.scenes[i].title}\n${b.scenes[i].instruction}'),
+                      ]),
                   SizedBox(height: r.x(12)),
                   DetailCard(children: [
                     Text('添付ファイル（${files.length}件）',

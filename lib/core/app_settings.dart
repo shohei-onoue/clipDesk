@@ -173,16 +173,21 @@ class AppSettings extends ChangeNotifier {
   static const _kText = 'settings.textSize';
   static const _kPalette = 'settings.palette';
   static const _kRuby = 'settings.ruby';
+  static const _kRead = 'settings.readAloud';
 
   TextSizeLevel _textSize = TextSizeLevel.small;
   AppPalette _palette = AppPalette.standard;
   bool _ruby = false;
+  bool _readAloud = false;
 
   TextSizeLevel get textSize => _textSize;
   AppPalette get palette => _palette;
 
   /// 漢字にふりがなを付けるか。
   bool get ruby => _ruby;
+
+  /// 文字をタップしたら読み上げるか。
+  bool get readAloud => _readAloud;
 
   /// 保存済みの設定を読む。読めなければ（初回・失敗）従来の表示のまま。
   Future<void> load() async {
@@ -195,6 +200,7 @@ class AppSettings extends ChangeNotifier {
           (e) => e.name == p.getString(_kPalette),
           orElse: () => AppPalette.standard);
       _ruby = p.getBool(_kRuby) ?? false;
+      _readAloud = p.getBool(_kRead) ?? false;
     } catch (_) {}
   }
 
@@ -219,11 +225,19 @@ class AppSettings extends ChangeNotifier {
     await _save((p) => p.setBool(_kRuby, v));
   }
 
+  Future<void> setReadAloud(bool v) async {
+    if (v == _readAloud) return;
+    _readAloud = v;
+    notifyListeners();
+    await _save((p) => p.setBool(_kRead, v));
+  }
+
   /// テスト用：保存せずに、初期の状態へ戻す。
   void resetForTest() {
     _textSize = TextSizeLevel.small;
     _palette = AppPalette.standard;
     _ruby = false;
+    _readAloud = false;
   }
 
   Future<void> _save(Future<bool> Function(SharedPreferences) write) async {

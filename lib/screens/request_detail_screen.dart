@@ -102,8 +102,15 @@ class RequestDetailScreen extends StatelessWidget {
 }
 
 class _Body extends StatefulWidget {
-  const _Body({required this.request, required this.uid, required this.role});
+  const _Body(
+      {required this.request,
+      required this.uid,
+      required this.role,
+      this.docsOnly = false});
   final VideoRequest request;
+
+  /// true なら、基本情報と指示書だけを出す（ライブラリの依頼詳細ダイアログ用。添付資料は出さない）。
+  final bool docsOnly;
   final String uid;
   final UserRole role;
 
@@ -290,6 +297,22 @@ class _BodyState extends State<_Body> {
       _InquiryHistoryRow(q, asEditor: _isEditor),
       for (var i = 0; i < b.scenes.length; i++) _sceneRow(i, editable),
     ];
+  }
+
+  /// 指示書エリアの読み上げ文（エリア内のテキスト全て）。
+  String _briefSpeech() {
+    final b = _b;
+    String v(String x) => x.isEmpty ? '未設定' : x;
+    return [
+      '指示書',
+      '動画の種類、${v(b.videoType)}',
+      '投稿先、${v(b.platform)}',
+      '目的、${v(b.purpose)}',
+      '納品条件、${v(b.deliveryTerms)}',
+      'その他指示、${v(_plainNotes(b.otherNotes))}',
+      for (var i = 0; i < b.scenes.length; i++)
+        '場面${i + 1}、${b.scenes[i].title}。${b.scenes[i].instruction}',
+    ].join('。');
   }
 
   Widget _sceneRow(int i, bool editable) {
@@ -608,20 +631,34 @@ class _BodyState extends State<_Body> {
     final editable = ownerInquiry || ownerPending;
     final videoLayout =
         !_isEditor && q.requesterId == widget.uid && s == RequestStatus.review;
-    final Widget infoCard = DetailCard(children: [
-      InfoRow('タイトル', _b.title,
-          onEdit: editable
-              ? (_) => _editBrief('タイトル', _b.title,
-                  required: true, apply: (b, v) => b.copyWith(title: v))
-              : null),
-      InfoRow('納期', dateText(_due), onEdit: editable ? _editDue : null),
-      InfoRow('長さ', length),
-      InfoRow('担当', editorLabel),
-    ]);
-    final Widget briefCard = DetailCard(children: [
+    final Widget infoCard = DetailCard(
+        speech: [
+          'タイトル、${_b.title}',
+          '納期、${dateText(_due)}',
+          '長さ、$length',
+          '担当、$editorLabel',
+        ].join('。'),
+        children: [
+          InfoRow('タイトル', _b.title,
+              onEdit: editable
+                  ? (_) => _editBrief('タイトル', _b.title,
+                      required: true, apply: (b, v) => b.copyWith(title: v))
+                  : null),
+          InfoRow('納期', dateText(_due), onEdit: editable ? _editDue : null),
+          InfoRow('長さ', length),
+          InfoRow('担当', editorLabel),
+        ]);
+    final Widget briefCard = DetailCard(speech: _briefSpeech(), children: [
       Text('指示書', style: AppText.dark(r.x(16))),
       ..._briefRows(editable),
     ]);
+    if (widget.docsOnly) {
+      return Column(children: [
+        infoCard,
+        SizedBox(height: r.y(10)),
+        briefCard,
+      ]);
+    }
     final Widget attachCard = q.approved
         ? DetailCard(children: [
             Row(children: [
@@ -1109,6 +1146,20 @@ class _Notice extends StatelessWidget {
               style: AppText.dark(14, weight: FontWeight.w400)),
         ),
       );
+}
+
+/// ライブラリの動画から開く、依頼詳細のダイアログ。基本情報と指示書だけを出す
+/// （承認後に添付資料は削除されているので、添付資料は出さない）。
+Future<void> showRequestDocsDialog(BuildContext context,
+    {required VideoRequest request,
+    required String uid,
+    required UserRole role}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _DocsDialog(children: [
+      _Body(request: request, uid: uid, role: role, docsOnly: true)
+    ]),
+  );
 }
 
 /// 依頼の資料（基本情報・指示書・添付資料）をまとめて見るダイアログ。

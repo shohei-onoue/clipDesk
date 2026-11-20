@@ -17,6 +17,7 @@ import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/video_player_dialog.dart';
 import '../widgets/ruby_text.dart';
+import 'request_detail_screen.dart';
 
 /// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
@@ -59,7 +60,7 @@ class DeliveryLibraryScreen extends StatelessWidget {
                       for (final q in approved)
                         Padding(
                           padding: EdgeInsets.only(bottom: r.x(12)),
-                          child: _LibraryCard(request: q, uid: uid),
+                          child: _LibraryCard(request: q, uid: uid, role: role),
                         ),
                     ],
                   );
@@ -81,9 +82,11 @@ String _dateTime(DateTime? t) {
 
 /// 動画1本分のカード：左に再生サムネイル、右に題名・承認日時・編集者名。
 class _LibraryCard extends StatelessWidget {
-  const _LibraryCard({required this.request, required this.uid});
+  const _LibraryCard(
+      {required this.request, required this.uid, required this.role});
   final VideoRequest request;
   final String uid;
+  final UserRole role;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +104,10 @@ class _LibraryCard extends StatelessWidget {
             onTap: video == null
                 ? () => openRequest(context, request.id)
                 : () => showVideoDialog(context,
-                    path: video.path, title: request.brief.title),
+                    path: video.path,
+                    title: request.brief.title,
+                    onDocs: () => showRequestDocsDialog(context,
+                        request: request, uid: uid, role: role)),
             child: Container(
               padding: EdgeInsets.all(r.x(9)),
               decoration: BoxDecoration(
