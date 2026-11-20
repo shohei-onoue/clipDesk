@@ -47,7 +47,7 @@ class SubmissionPlayer extends StatelessWidget {
                           ? '読み込んでいます…'
                           : '提出された動画はありません',
                       style: AppText.dark(14, weight: FontWeight.w400)))
-              : _Player(
+              : VideoPanel(
                   key: ValueKey(pick.path),
                   path: pick.path,
                   onDocs: onDocs,
@@ -101,10 +101,19 @@ class _Frame extends StatelessWidget {
   }
 }
 
-class _Player extends StatefulWidget {
-  const _Player(
-      {super.key, required this.path, required this.title, this.onDocs});
+/// 動画の再生パネル：動画、再生位置のバー（赤＋白い丸、ドラッグで移動）、
+/// 再生・一時停止・秒数・題名。依頼確認画面の上部と、動画のダイアログで使う。
+class VideoPanel extends StatefulWidget {
+  const VideoPanel(
+      {super.key,
+      required this.path,
+      required this.title,
+      this.onDocs,
+      this.audio = false});
   final String path;
+
+  /// 音声だけのファイル。映像の代わりに音符を出す。
+  final bool audio;
 
   /// 動画の題名（依頼時のタイトル）。操作列の下の行に出す。
   final String title;
@@ -113,10 +122,10 @@ class _Player extends StatefulWidget {
   final VoidCallback? onDocs;
 
   @override
-  State<_Player> createState() => _PlayerState();
+  State<VideoPanel> createState() => _VideoPanelState();
 }
 
-class _PlayerState extends State<_Player> {
+class _VideoPanelState extends State<VideoPanel> {
   VideoPlayerController? _c;
   Object? _error;
 
@@ -242,8 +251,10 @@ class _PlayerState extends State<_Player> {
     return Column(children: [
       Expanded(
         child: Center(
-            child: AspectRatio(
-                aspectRatio: c.value.aspectRatio, child: VideoPlayer(c))),
+            child: widget.audio
+                ? const Icon(Icons.music_note, size: 96, color: AppColors.white)
+                : AspectRatio(
+                    aspectRatio: c.value.aspectRatio, child: VideoPlayer(c))),
       ),
       // 再生位置のバー：赤い線に白い丸。丸をタップして左右に動かすと、再生位置が動く。
       ValueListenableBuilder<VideoPlayerValue>(

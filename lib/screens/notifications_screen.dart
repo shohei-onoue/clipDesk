@@ -10,11 +10,12 @@ import '../widgets/app_header.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/notice_card.dart';
 import '../widgets/role_builder.dart';
+import '../widgets/status_style.dart';
+import '../domain/home_logic.dart';
 import '../widgets/unread_builder.dart';
 
 /// 通知一覧。タップで該当の案件詳細を開く。
-/// 既読は暫定で「この画面を開いていた時刻」までを既読とする（通知ごとの既読はFigJamで未確定）。
-/// 開いている間は新着（未読）に印を付け、離れるときに既読にする。
+/// 通知ごとに、内容の画面へ移ると既読にする。未読は枠とベルをamberで示す。
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -23,17 +24,6 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  void _markSeen() {
-    final uid = Services.uid;
-    if (uid != null) Services.repo.markNotificationsSeen(uid);
-  }
-
-  @override
-  void dispose() {
-    _markSeen();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -60,9 +50,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Padding(
                           padding: EdgeInsets.only(bottom: r.y(8)),
                           child: NoticeCard(
-                            text: unreadIds.contains(n.id)
-                                ? '【新着】${n.message}'
-                                : n.message,
+                            caption: dateText(n.createdAt),
+                            text: notificationTitle(n.message),
                             // 既読は枠とベルを暗くして、新着と区別する（新着は語句【新着】も付く）。
                             borderColor: unreadIds.contains(n.id)
                                 ? AppColors.amber
@@ -71,7 +60,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ? AppColors.amber
                                 : AppColors.white.withValues(alpha: 0.7),
                             onTap: () {
-                              _markSeen();
+                              // 通知の内容の画面へ移ると、既読にする。
+                              Services.repo.markNotificationRead(uid, n.id);
                               // 取り消された依頼は削除済みで、詳細を開けない。
                               if (n.type != NotificationType.cancelled) {
                                 openRequest(context, n.requestId);

@@ -189,8 +189,9 @@ service cloud.firestore {
       // 依頼者は、承認前（投稿済みでない）の自分の依頼を取り消せる（削除）。
       allow delete: if signedIn() && isRequester()
         && resource.data.requesterId == request.auth.uid
-        && resource.data.status != 'posted'
-        && resource.data.approvedVersion == null;
+        // 投稿済み（ライブラリ）の依頼は、依頼者がいつでも削除できる。
+        && (resource.data.status == 'posted'
+          || (resource.data.status != 'posted' && resource.data.approvedVersion == null));
 
       // 提出動画の記録。依頼の更新と同時に、担当編集者だけが追加できる。
       match /submissions/{sid} {
@@ -206,7 +207,8 @@ service cloud.firestore {
         // また、承認したあとは、依頼者が、承認されなかった版の記録を消せる。
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
-          && ((get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+          && (get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted'
+            || (get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
               && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null)
             || (get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion != null
               && resource.data.version != get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion));
@@ -224,8 +226,9 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
+          && (get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted'
+            || (get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+              && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null));
       }
       // 問合せの履歴。編集者が問い合わせるたびに積み、依頼者が回答を書き足す。
       match /inquiries/{iid} {
@@ -243,8 +246,9 @@ service cloud.firestore {
         // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
+          && (get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted'
+            || (get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+              && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null));
       }
     }
 

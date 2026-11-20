@@ -207,4 +207,28 @@ void main() {
     expect([for (final x in unreadOf(list, seen)) x.id], ['new', 'pending']);
     expect(unreadOf(list, null).length, 3);
   });
+
+  test('通知の状態：既読・削除・旧方式の既読時刻と、タイトルの取り出し', () {
+    AppNotification n(String id, DateTime? at) => AppNotification(
+          id: id,
+          requestId: 'r',
+          type: NotificationType.newRequest,
+          message: id,
+          createdAt: at,
+        );
+    final list = [
+      n('a', DateTime(2026, 11, 6, 13)),
+      n('b', DateTime(2026, 11, 6, 13)),
+      n('old', DateTime(2026, 11, 6, 11)),
+    ];
+    final st = NotificationState(
+        readIds: {'a'}, hiddenIds: {'b'}, seenAt: DateTime(2026, 11, 6, 12));
+    expect([for (final x in st.visible(list)) x.id], ['a', 'old']);
+    // 既読：a（記録あり）・old（旧方式の時刻より前）。b は削除済みなので一覧に出ない。
+    expect([for (final x in st.unread(st.visible(list))) x.id], isEmpty);
+    expect(const NotificationState().unread(list).length, 3);
+    expect(notificationTitle('初稿が届きました：テスト依頼'), '初稿が届きました');
+    expect(notificationTitle('○○様より問合せ：題名\n尺は？'), '○○様より問合せ');
+    expect(notificationTitle('メッセージのみ'), 'メッセージのみ');
+  });
 }

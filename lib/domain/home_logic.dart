@@ -171,7 +171,40 @@ List<VideoRequest> sortForHome(List<VideoRequest> list, UserRole role) {
   return out;
 }
 
-/// 未読の通知（最後に通知画面を開いた時刻より新しいもの）。
+/// 通知ごとの既読・削除の状態（自分の users/{uid} に持つ）。
+class NotificationState {
+  const NotificationState(
+      {this.readIds = const {}, this.hiddenIds = const {}, this.seenAt});
+  final Set<String> readIds;
+  final Set<String> hiddenIds;
+
+  /// 旧方式の「最後に通知画面を開いた時刻」。これ以前の通知は既読として扱う。
+  final DateTime? seenAt;
+
+  bool isRead(AppNotification n) =>
+      readIds.contains(n.id) ||
+      (seenAt != null && n.createdAt != null && !n.createdAt!.isAfter(seenAt!));
+
+  /// 削除（非表示）していない通知。
+  List<AppNotification> visible(List<AppNotification> all) => [
+        for (final n in all)
+          if (!hiddenIds.contains(n.id)) n
+      ];
+
+  List<AppNotification> unread(List<AppNotification> all) => [
+        for (final n in all)
+          if (!isRead(n)) n
+      ];
+}
+
+/// 通知のタイトル。メッセージの1行目の、「：」より前（「初稿が届きました」など）。
+String notificationTitle(String message) {
+  final first = message.split('\n').first.trim();
+  final i = first.indexOf('：');
+  return i > 0 ? first.substring(0, i) : first;
+}
+
+/// 未読の通知（最後に通知画面を開いた時刻より新しいもの）。旧方式。
 List<AppNotification> unreadOf(List<AppNotification> all, DateTime? seenAt) => [
       for (final n in all)
         if (seenAt == null ||

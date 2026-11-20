@@ -49,8 +49,10 @@ service firebase.storage {
       // 承認後、依頼者が、承認されなかった提出動画を削除する。承認された版は消せない。
       allow delete: if hasRole('requester') && reqExists(requestId)
         && req(requestId).requesterId == request.auth.uid
-        && req(requestId).approvedVersion != null
-        && version != 'v' + string(req(requestId).approvedVersion);
+        && ((req(requestId).approvedVersion != null
+            && version != 'v' + string(req(requestId).approvedVersion))
+          // 投稿済み（ライブラリ）の依頼を削除するときは、承認された版も消せる。
+          || req(requestId).status == 'posted');
       allow read: if signedIn() && reqExists(requestId) && (
         req(requestId).requesterId == request.auth.uid || isStaff());
     }

@@ -341,6 +341,31 @@ void main() {
         throwsA(isA<RequestStateException>()));
   });
 
+  test('投稿済みの依頼は、依頼者本人だけが削除できる（動画・記録も消える）', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    // 投稿前は削除できない。
+    await expectLater(repo.deletePostedRequest(requestId: 'r1', uid: 'req'),
+        throwsA(isA<RequestStateException>()));
+    await repo.approve(requestId: 'r1', uid: 'req');
+    await repo.markPosted(requestId: 'r1', uid: 'ed');
+    // 依頼者以外は不可。
+    await expectLater(repo.deletePostedRequest(requestId: 'r1', uid: 'ed'),
+        throwsA(isA<RequestStateException>()));
+    await repo.deletePostedRequest(requestId: 'r1', uid: 'req');
+    expect((await db.collection('requests').doc('r1').get()).exists, isFalse);
+    expect(
+        (await db
+                .collection('requests')
+                .doc('r1')
+                .collection('submissions')
+                .get())
+            .docs,
+        isEmpty);
+    expect(storage.deleted.any((p) => p.contains('videos/r1/v1/')), isTrue);
+  });
+
   test('承認すると、添付素材と承認されなかった動画をStorageから消し、承認版だけ残す', () async {
     await create();
     await repo.startEditing(requestId: 'r1', uid: 'ed');
@@ -530,10 +555,14 @@ void main() {
     expect((await notes()).where((n) => n['type'] == 'needsInfo').length, 2);
   });
 
-  test('通知の既読：最後に開いた時刻を users/{uid} に保存し、役割は書き換えない', () async {
-    expect(await repo.watchNotificationsSeenAt('u1').first, isNull);
-    await repo.markNotificationsSeen('u1');
-    expect(await repo.watchNotificationsSeenAt('u1').first, isNotNull);
+  test('通知の既読・削除：通知ごとに users/{uid} へ保存し、役割は書き換えない', () async {
+    expect((await repo.watchNotificationState('u1').first).readIds, isEmpty);
+    await repo.markNotificationRead('u1', 'a');
+    await repo.markNotificationsRead('u1', ['b', 'c']);
+    await repo.hideNotifications('u1', ['a']);
+    final st = await repo.watchNotificationState('u1').first;
+    expect(st.readIds, {'a', 'b', 'c'});
+    expect(st.hiddenIds, {'a'});
     final doc = await db.collection('users').doc('u1').get();
     expect(doc.data()!.containsKey('role'), isFalse);
   });

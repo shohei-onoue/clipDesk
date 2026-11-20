@@ -87,11 +87,23 @@ class RequestRepository {
   UserRole staffMode = UserRole.requester;
 
   /// 'staff' は [staffMode] の立場として返す。'requester'／'editor' は従来どおり固定。
-  Stream<UserRole?> watchRole(String uid) =>
-      _db.collection('roles').doc(uid).snapshots().map((s) {
-        final v = s.data()?['role'];
-        return v == 'staff' ? staffMode : UserRole.parse(v);
-      });
+  /// 役割を購読する。ページを開いた直後など、ログインの確認が Firestore に届く前は
+  /// 「permission-denied」で購読が終わることがある。その場合は、少し待って購読し直す
+  /// （3回まで。それでも失敗したときだけ、エラーとして伝える）。
+  Stream<UserRole?> watchRole(String uid) async* {
+    for (var attempt = 0;; attempt++) {
+      try {
+        await for (final s in _db.collection('roles').doc(uid).snapshots()) {
+          final v = s.data()?['role'];
+          yield v == 'staff' ? staffMode : UserRole.parse(v);
+        }
+        return;
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied' || attempt >= 3) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 600 * (attempt + 1)));
+      }
+    }
+  }
 
   // ---- スタッフの権限・承認（責任者のみ書き込み可）----
   Stream<StaffAccess> watchAccess(String uid) =>
@@ -206,19 +218,44 @@ class RequestRepository {
   Stream<List<VideoRequest>> watchAllRequests() =>
       _requests.snapshots().map((q) => _toRequests(q.docs));
 
-  // ---- 通知の既読（暫定：最後に通知画面を開いた時刻）----
-  // 通知ごとの既読はFigJamで未確定のため、users/{uid}.notificationsSeenAt より
-  // 新しい通知を「未読」として扱う。
-  Stream<DateTime?> watchNotificationsSeenAt(String uid) => _db
-      .collection('users')
-      .doc(uid)
-      .snapshots()
-      .map((s) => (s.data()?['notificationsSeenAt'] as Timestamp?)?.toDate());
+  // ---- 通知の既読 ----
+  // 通知は全員向けのものを共有しているので、既読・削除（非表示）は通知ごとに、
+  // 自分の users/{uid} に持つ（readNotificationIds／hiddenNotificationIds）。
+  // 旧方式の notificationsSeenAt より前の通知は、既読として扱う（過去の通知が未読に戻らないように）。
+  Stream<NotificationState> watchNotificationState(String uid) =>
+      _db.collection('users').doc(uid).snapshots().map((s) => NotificationState(
+            readIds: {
+              for (final x in (s.data()?['readNotificationIds'] as List? ?? []))
+                x as String
+            },
+            hiddenIds: {
+              for (final x
+                  in (s.data()?['hiddenNotificationIds'] as List? ?? []))
+                x as String
+            },
+            seenAt: (s.data()?['notificationsSeenAt'] as Timestamp?)?.toDate(),
+          ));
 
-  Future<void> markNotificationsSeen(String uid) =>
-      _db.collection('users').doc(uid).set(
-          {'notificationsSeenAt': FieldValue.serverTimestamp()},
-          SetOptions(merge: true));
+  /// 通知を既読にする（その通知の内容の画面へ移るとき）。
+  Future<void> markNotificationRead(String uid, String id) =>
+      markNotificationsRead(uid, [id]);
+
+  /// 通知をまとめて既読にする（「すべて既読」）。
+  Future<void> markNotificationsRead(String uid, Iterable<String> ids) async {
+    if (ids.isEmpty) return;
+    await _db.collection('users').doc(uid).set(
+        {'readNotificationIds': FieldValue.arrayUnion(ids.toList())},
+        SetOptions(merge: true));
+  }
+
+  /// 既読の通知を、自分の一覧から削除する（「既読メッセージを削除」）。
+  /// 通知そのものは共有なので消さず、自分だけ非表示にする。
+  Future<void> hideNotifications(String uid, Iterable<String> ids) async {
+    if (ids.isEmpty) return;
+    await _db.collection('users').doc(uid).set(
+        {'hiddenNotificationIds': FieldValue.arrayUnion(ids.toList())},
+        SetOptions(merge: true));
+  }
 
   // ---- 読み取り ----
 
@@ -806,6 +843,41 @@ class RequestRepository {
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
+    await batch.commit();
+  }
+
+  /// 依頼者が、投稿済み（ライブラリにある）自分の依頼を削除する。元には戻せない。
+  /// Storage の動画を消してから、提出動画・修正指示・問合せ履歴の記録と、依頼を消す。
+  /// Storage から消せなかったときは、記録を残したまま失敗にする（あとでやり直せる）。
+  Future<void> deletePostedRequest(
+      {required String requestId, required String uid}) async {
+    final ref = _requests.doc(requestId);
+    final snap = await ref.get();
+    if (!snap.exists) throw RequestStateException('依頼が見つかりません');
+    final r = _Snapshot.from(snap);
+    if (r.requesterId != uid) {
+      throw RequestStateException('依頼者本人だけが削除できます');
+    }
+    if (r.status != RequestStatus.posted) {
+      throw RequestStateException('投稿済みの依頼だけ削除できます');
+    }
+    final subs = await ref.collection('submissions').get();
+    final revs = await ref.collection('revisions').get();
+    var inquiries = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    try {
+      inquiries = (await ref.collection('inquiries').get()).docs;
+    } catch (_) {}
+    for (final d in subs.docs) {
+      final path = Submission.fromMap(d.data()).path;
+      if (path.isNotEmpty && !await _storage.delete(path)) {
+        throw RequestStateException('動画を削除できませんでした。通信を確認して、もう一度お試しください');
+      }
+    }
+    final batch = _db.batch();
+    for (final d in [...subs.docs, ...revs.docs, ...inquiries]) {
+      batch.delete(d.reference);
+    }
+    batch.delete(ref);
     await batch.commit();
   }
 

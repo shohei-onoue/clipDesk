@@ -5,7 +5,8 @@ import '../domain/home_logic.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 
-/// 通知の一覧と、そのうちの未読を渡す。
+/// 通知の一覧（削除していないもの）と、そのうちの未読を渡す。
+/// 既読・削除は通知ごとの状態（[NotificationState]）で決める。
 class UnreadBuilder extends StatelessWidget {
   const UnreadBuilder({
     super.key,
@@ -21,22 +22,14 @@ class UnreadBuilder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DateTime?>(
-      stream: Services.repo.watchNotificationsSeenAt(uid),
-      builder: (context, seen) => StreamBuilder<List<AppNotification>>(
+    return StreamBuilder<NotificationState>(
+      stream: Services.repo.watchNotificationState(uid),
+      builder: (context, state) => StreamBuilder<List<AppNotification>>(
         stream: Services.repo.watchNotifications(uid, role),
         builder: (context, snap) {
-          final all = snap.data ?? const <AppNotification>[];
-          // 処理が必要な通知は、見ても消さない。承認・取り消しは、見たら外す。
-          final open = [
-            for (final n in all)
-              if (n.type != NotificationType.approved &&
-                  n.type != NotificationType.cancelled)
-                n
-              else if (unreadOf([n], seen.data).isNotEmpty)
-                n,
-          ];
-          return builder(context, open, open);
+          final st = state.data ?? const NotificationState();
+          final all = st.visible(snap.data ?? const <AppNotification>[]);
+          return builder(context, all, st.unread(all));
         },
       ),
     );

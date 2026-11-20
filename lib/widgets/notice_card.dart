@@ -10,6 +10,7 @@ class NoticeCard extends StatelessWidget {
   const NoticeCard({
     super.key,
     required this.text,
+    this.caption,
     this.background,
     this.borderColor = AppColors.amber,
     this.bellColor = AppColors.amber,
@@ -17,6 +18,9 @@ class NoticeCard extends StatelessWidget {
   });
 
   final String text;
+
+  /// タイトルの上に小さく出す文字（通知された日付など）。
+  final String? caption;
   final Color? background;
   final Color borderColor;
   final Color bellColor;
@@ -41,9 +45,20 @@ class NoticeCard extends StatelessWidget {
                 size: r.x(28), color: bellColor),
             SizedBox(width: r.x(10)),
             Expanded(
-              child: Text(text,
-                  style: AppText.dark(r.x(14),
-                      weight: FontWeight.w400, height: 24 / 14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (caption != null)
+                    Text(caption!,
+                        style: AppText.dark(r.x(12),
+                            weight: FontWeight.w400,
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            height: 16 / 12)),
+                  Text(text,
+                      style: AppText.dark(r.x(14),
+                          weight: FontWeight.w400, height: 24 / 14)),
+                ],
+              ),
             ),
             Icon(Icons.chevron_right, size: r.x(24), color: AppColors.white),
           ],

@@ -571,19 +571,6 @@ class _BodyState extends State<_Body> {
     final r = context.r;
     final repo = Services.repo;
     final s = q.status;
-    final actions = <Widget>[];
-
-    // 提出・投稿は、依頼を請け負った編集者だけ。
-    if (_isEditor && _isAssignee) {
-      if (s == RequestStatus.review && q.approved) {
-        actions.add(DetailButton(
-            '投稿完了にする',
-            AppColors.blue,
-            _busy,
-            () => _run(() => repo.markPosted(requestId: q.id, uid: widget.uid),
-                done: '投稿済にしました')));
-      }
-    } else if (!_isEditor && q.requesterId == widget.uid) {}
 
     // 納品条件の先頭が長さ（例：「30秒・縦型・字幕あり」）。
     final length = q.brief.deliveryTerms.isEmpty
@@ -642,7 +629,7 @@ class _BodyState extends State<_Body> {
             ]),
             Padding(
                 padding: EdgeInsets.only(top: r.y(6)),
-                child: Text('承認済みのため、添付資料は削除しました。承認された動画だけを保管しています',
+                child: Text('承認済みのため、添付資料は削除しました。\n承認された動画のみ保管しています。',
                     style: AppText.dark(r.x(14), weight: FontWeight.w400))),
           ])
         : DetailCard(children: [
@@ -799,11 +786,6 @@ class _BodyState extends State<_Body> {
           ),
         SizedBox(height: r.x(16)),
         if (!videoLayout) ...[infoCard, SizedBox(height: r.y(10))],
-        if (actions.isNotEmpty) ...[
-          SizedBox(height: r.y(16)),
-          for (final a in actions)
-            Padding(padding: EdgeInsets.only(bottom: r.y(8)), child: a),
-        ],
         if (!videoLayout) ...[
           briefCard,
           SizedBox(height: r.y(10)),
@@ -882,6 +864,24 @@ class _BodyState extends State<_Body> {
                   HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
             ),
           ]),
+        ),
+      ]);
+    }
+    // 受注した編集者本人の、承認済み：画面下の「投稿完了にする」。
+    final post =
+        _isEditor && _isAssignee && s == RequestStatus.review && q.approved;
+    if (post) {
+      return Column(children: [
+        Expanded(child: list),
+        Padding(
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
+          child: DetailButton(
+              '投稿完了にする',
+              AppColors.blue,
+              _busy,
+              () => _run(
+                  () => repo.markPosted(requestId: q.id, uid: widget.uid),
+                  done: '投稿済にしました')),
         ),
       ]);
     }
@@ -1007,8 +1007,7 @@ class _Submissions extends StatelessWidget {
               textColor: AppColors.white,
               iconColor: AppColors.white,
               leading: const Icon(Icons.play_circle_outline),
-              title: Text(
-                  '${s.version == 1 ? '初稿' : '修正動画'}（v${s.version}）${s.version == request.approvedVersion ? '　承認済み' : ''}',
+              title: Text('${s.version == 1 ? '初稿' : '修正動画'}（v${s.version}）',
                   style: AppText.dark(14, weight: FontWeight.w400)),
               subtitle: Text(s.name,
                   style: AppText.dark(12,
@@ -1016,6 +1015,20 @@ class _Submissions extends StatelessWidget {
                       color: AppColors.white.withValues(alpha: 0.7))),
               // 修正の依頼があった動画には、ダウンロードの左に「！」。完成品のダウンロードは依頼者権限のスタッフだけ。
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                // 承認された動画には、blue の「承認済み」バッジ。題名と動画名の2行分の高さ。
+                if (s.version == request.approvedVersion)
+                  Container(
+                    height: 40,
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.blue,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text('承認済み',
+                        style: AppText.noto(12, color: AppColors.white)),
+                  ),
                 if ((revisions[s.version] ?? '').isNotEmpty)
                   IconButton(
                     tooltip: '修正の依頼を読む',

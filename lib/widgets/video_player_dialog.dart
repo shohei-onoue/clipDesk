@@ -7,18 +7,43 @@ import '../data/local_video.dart';
 import '../data/services.dart';
 import '../domain/video_request.dart';
 import 'attachment_thumb.dart';
+import 'submission_player.dart';
 import '../data/storage_service.dart';
 
-/// Storage上の動画を再生するダイアログ。
+/// Storage上の動画（[audio] なら音声）を再生するダイアログ。YouTube風：黒い面に動画、赤いバーと白い丸、
+/// 再生・一時停止・秒数、題名。右上の×で閉じる。
 Future<void> showVideoDialog(BuildContext context,
-    {required String path, required String title}) {
+    {required String path, required String title, bool audio = false}) {
   return showDialog<void>(
     context: context,
-    builder: (_) => _VideoDialog(
-      title: title,
-      create: () async => VideoPlayerController.networkUrl(
-          Uri.parse(await Services.repo.downloadUrl(path))),
-    ),
+    builder: (ctx) {
+      final screen = MediaQuery.sizeOf(ctx);
+      return Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: screen.width < 560 ? double.maxFinite : 480,
+          height: screen.height * 0.85,
+          child: Stack(children: [
+            VideoPanel(
+                key: ValueKey(path), path: path, title: title, audio: audio),
+            Positioned(
+              right: 4,
+              top: 4,
+              child: IconButton(
+                tooltip: '閉じる',
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.55)),
+                icon: const Icon(Icons.close, color: AppColors.white),
+              ),
+            ),
+          ]),
+        ),
+      );
+    },
   );
 }
 
@@ -31,15 +56,8 @@ Future<void> showAttachmentDialog(BuildContext context,
     case AttachmentType.video:
       return showVideoDialog(context, path: attachment.path, title: name);
     case AttachmentType.audio:
-      return showDialog<void>(
-        context: context,
-        builder: (_) => _VideoDialog(
-          title: name,
-          audio: true,
-          create: () async => VideoPlayerController.networkUrl(
-              Uri.parse(await Services.repo.downloadUrl(attachment.path))),
-        ),
-      );
+      return showVideoDialog(context,
+          path: attachment.path, title: name, audio: true);
     case AttachmentType.image:
       return showDialog<void>(
         context: context,
@@ -164,11 +182,8 @@ Future<void> showLocalVideoDialog(BuildContext context,
 }
 
 class _VideoDialog extends StatefulWidget {
-  const _VideoDialog(
-      {required this.create, required this.title, this.audio = false});
+  const _VideoDialog({required this.create, required this.title});
 
-  /// 音声だけのファイル。映像の代わりに音符を出す。
-  final bool audio;
   final Future<VideoPlayerController> Function() create;
   final String title;
 
@@ -235,15 +250,9 @@ class _VideoDialogState extends State<_VideoDialog> {
                       ConstrainedBox(
                         constraints:
                             BoxConstraints(maxHeight: screen.height * 0.5),
-                        child: widget.audio
-                            ? const SizedBox(
-                                height: 120,
-                                child: Center(
-                                    child: Icon(Icons.music_note,
-                                        size: 56, color: AppColors.white)))
-                            : AspectRatio(
-                                aspectRatio: c.value.aspectRatio,
-                                child: VideoPlayer(c)),
+                        child: AspectRatio(
+                            aspectRatio: c.value.aspectRatio,
+                            child: VideoPlayer(c)),
                       ),
                       VideoProgressIndicator(c, allowScrubbing: true),
                       ValueListenableBuilder<VideoPlayerValue>(

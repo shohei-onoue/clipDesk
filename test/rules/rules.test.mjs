@@ -167,6 +167,24 @@ test('動画の確認中: 依頼者は添付を追加だけできる（外す・
   await assertFails(updateDoc(doc(db(REQ), 'requests', 'r1'), { attachments: [...old, add, add], title: 'x', updatedAt: serverTimestamp() }));
 });
 
+test('投稿済みの依頼: 依頼者本人だけが、記録ごと削除できる', async () => {
+  await seed(newReq({ editorId: ED, status: 'posted', approvedVersion: 1, submissionCount: 1 }));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'requests', 'r1', 'submissions', 'v1'), { version: 1, name: 'a.mp4', path: 'videos/r1/v1/a.mp4', size: 1, uploadedBy: ED });
+  });
+  await assertFails(deleteDoc(doc(db(ED), 'requests', 'r1', 'submissions', 'v1')));
+  await assertFails(deleteDoc(doc(db(OTHER), 'requests', 'r1')));
+  const b = writeBatch(db(REQ));
+  b.delete(doc(db(REQ), 'requests', 'r1', 'submissions', 'v1'));
+  b.delete(doc(db(REQ), 'requests', 'r1'));
+  await assertSucceeds(b.commit());
+});
+
+test('承認済み・投稿前の依頼は、依頼者でも削除できない', async () => {
+  await seed(newReq({ editorId: ED, status: 'review', approvedVersion: 1, submissionCount: 1 }));
+  await assertFails(deleteDoc(doc(db(REQ), 'requests', 'r1')));
+});
+
 test('通知: 状態更新なしの単独作成・他人宛ての偽装は不可', async () => {
   await seed(newReq({ editorId: ED, status: 'editing' }));
   await assertFails(setDoc(doc(db(REQ), 'notifications', 'x'), note('approved', { recipientId: ED, actorId: REQ })));
