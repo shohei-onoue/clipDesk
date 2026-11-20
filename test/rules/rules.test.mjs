@@ -113,7 +113,7 @@ test('受付待ちに戻った依頼の再開は、担当の編集者だけ', as
 
 test('要確認: 理由必須・通知は相手宛て。再送信は依頼者のみ', async () => {
   await seed(newReq());
-  const upd = { status: 'needsInfo', reviewReason: '', reviewRound: 1, updatedAt: serverTimestamp() };
+  const upd = { status: 'needsInfo', reviewReason: '', reviewRound: 1, inquirerIds: [ED], updatedAt: serverTimestamp() };
   await assertFails(updateDoc(doc(db(ED), 'requests', 'r1'), upd));
   const b = writeBatch(db(ED));
   b.update(doc(db(ED), 'requests', 'r1'), { ...upd, reviewReason: '尺が不明' });
@@ -122,9 +122,9 @@ test('要確認: 理由必須・通知は相手宛て。再送信は依頼者の
   // 問合せは担当の決定ではない（担当は変わらない）。担当を名乗る更新は不可。
   assert.equal((await getDoc(doc(db(ED), 'requests', 'r1'))).data().editorId, null);
   // 担当がいない間は、別の編集者も続けて問い合わせられる（履歴は同時に積む）。
-  await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', editorId: ED2, reviewReason: 'y', reviewRound: 2, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', editorId: ED2, reviewReason: 'y', reviewRound: 2, inquirerIds: [ED, ED2], updatedAt: serverTimestamp() }));
   const b2 = writeBatch(db(ED2));
-  b2.update(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', reviewReason: '字幕は？', reviewRound: 2, updatedAt: serverTimestamp() });
+  b2.update(doc(db(ED2), 'requests', 'r1'), { status: 'needsInfo', reviewReason: '字幕は？', reviewRound: 2, inquirerIds: [ED, ED2], updatedAt: serverTimestamp() });
   b2.set(doc(db(ED2), 'notifications', 'r1_needsinfo_2'), note('needsInfo', { recipientId: REQ, actorId: ED2 }));
   b2.set(doc(db(ED2), 'requests', 'r1', 'inquiries', 'r2'), { round: 2, question: '字幕は？', editorId: ED2, editorName: 'B', askedAt: serverTimestamp(), answer: null, answeredAt: null });
   await assertSucceeds(b2.commit());

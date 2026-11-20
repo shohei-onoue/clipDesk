@@ -90,11 +90,15 @@ bool isNewRequest(VideoRequest r, DateTime now) {
 /// この人が、依頼カード（依頼確認画面）を開けないか。
 /// 誰でも開けるのは、バッジが「新規依頼」のカードと、まだ担当の編集者がいない受付待ちのカード。
 /// 依頼主と編集担当が決まったあとは、依頼主本人と担当の編集者だけが開ける。
-/// 問合せ中でも、担当がまだいなければ誰でも開ける（編集者どうしが問合せの履歴を見て、重複を避けられる）。
-/// 担当が決まっている依頼の問合せ中は、依頼主本人だけ。
+/// 承認待ち（動画を提出したあと、承認前）は、依頼主本人だけ。
+/// 問合せ中は、依頼主本人と、問合せをした編集者だけ（それ以外は暗転して開けない）。
 bool isRequestLockedFor(VideoRequest r, String? uid, DateTime now) {
   if (uid != null && r.requesterId == uid) return false;
-  if (r.status == RequestStatus.needsInfo) return r.editorId != null;
+  if (r.status == RequestStatus.needsInfo) {
+    return uid == null || !r.inquirerIds.contains(uid);
+  }
+  // 動画を提出して承認待ちの間は、依頼主だけ（提出した編集者も開けない）。
+  if (r.status == RequestStatus.review && !r.approved) return true;
   if (uid != null && r.editorId == uid) return false;
   if (r.status == RequestStatus.pending) {
     return r.editorId != null && !isNewRequest(r, now);

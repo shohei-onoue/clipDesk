@@ -115,6 +115,7 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                             q, Services.uid, DateTime.now());
                                         return ProgressCard(
                                           request: q,
+                                          viewerId: Services.uid,
                                           locked: locked,
                                           onTap: locked
                                               ? null
@@ -146,31 +147,42 @@ class ProgressCard extends StatelessWidget {
       required this.request,
       this.onTap,
       this.now,
+      this.viewerId,
       this.locked = false});
 
   final VideoRequest request;
 
-  /// true なら黒の透過率50%をかぶせる（問合せ中で、依頼者以外が見るとき）。編集中のカードは常にかかる。
+  /// true なら黒の透過率50%をかぶせ、開けないものとして扱う（`isRequestLockedFor`）。
   final bool locked;
   final VoidCallback? onTap;
+
+  /// 見ている人のuid。問合せ中のカードで、依頼主本人には「回答待ち」と出すために使う。
+  final String? viewerId;
 
   /// 「新規依頼」の判定に使う今日。テスト用（省略時は現在時刻）。
   final DateTime? now;
 
   /// バッジ（文言・色・塗りか枠か）。タブごとに：
-  /// 依頼＝新規依頼／受付待ち／問合せ、編集＝編集中／修正中、確認＝確認中／承認済、完了。
+  /// 依頼＝新規依頼／受付待ち／問合せ中（依頼主には回答待ち）、編集＝編集中／修正中、確認＝承認待ち／承認済、完了。
   (String, Color, bool) get _badge => switch (request.status) {
         RequestStatus.pending => (
             isNewRequest(request, now ?? DateTime.now()) ? '新規依頼' : '受付待ち',
             AppColors.amber,
             true
           ),
-        RequestStatus.needsInfo => ('問合せ', AppColors.amber, false),
+        RequestStatus.needsInfo => (
+            // 問い合わせを受けた依頼主には「回答待ち」、それ以外の人には「問合せ中」。
+            viewerId != null && request.requesterId == viewerId
+                ? '回答待ち'
+                : '問合せ中',
+            AppColors.amber,
+            false
+          ),
         RequestStatus.editing => ('編集中', AppColors.blue, true),
         RequestStatus.revision => ('修正中', AppColors.blue, true),
         RequestStatus.review => request.approved
             ? ('承認済', AppColors.blue, false)
-            : ('確認中', AppColors.amber, false),
+            : ('承認待ち', AppColors.amber, false),
         RequestStatus.posted => ('完了', AppColors.blue, false),
       };
 
@@ -184,9 +196,9 @@ class ProgressCard extends StatelessWidget {
     final value = request.status == RequestStatus.pending
         ? 0.0
         : progressValue(request.status);
-    // 黒の透過率50%をかぶせるのは、編集中のカードと、問合せ中で依頼者以外が見るカード
-    // （問合せ中でも、依頼主本人にはかけない。本人が開いて回答するため）。バッジは右上のまま。
-    final dim = locked || request.status == RequestStatus.editing;
+    // 黒の透過率50%をかぶせるのは、そのユーザーが開けないカード（`locked`）だけ。
+    // 担当した編集者の「編集中」のカードは暗転しない。バッジは右上のまま。
+    final dim = locked;
     Widget badge() => Container(
           width: r.x(70),
           height: r.x(30),

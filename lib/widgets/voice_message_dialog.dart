@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../core/japanese_speech.dart';
+
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
@@ -43,6 +45,9 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
   late final _text = TextEditingController(text: widget.initialText);
   final _speech = SpeechToText();
   bool _ready = false;
+
+  /// 端末の音声認識が持つ日本語のロケールID。
+  String? _localeId;
   bool _listening = false;
   String? _notice;
 
@@ -86,6 +91,8 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
       }
       return;
     }
+    // 日本語で聞き取る。端末が報告する日本語のロケールIDがあればそれを使う（なければ ja_JP）。
+    _localeId ??= await findJapaneseLocale(_speech);
     _base = _text.text.trim();
     setState(() {
       _listening = true;
@@ -93,7 +100,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
     });
     await _speech.listen(
       listenOptions:
-          SpeechListenOptions(partialResults: true, localeId: 'ja_JP'),
+          SpeechListenOptions(partialResults: true, localeId: _localeId),
       onResult: (r) {
         final spoken = r.recognizedWords;
         final joined = _base.isEmpty ? spoken : '$_base $spoken';

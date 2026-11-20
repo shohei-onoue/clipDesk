@@ -544,7 +544,7 @@ class _BodyState extends State<_Body> {
             : '編集者の受注待ちです。';
       case RequestStatus.needsInfo:
         if (_isEditor) {
-          return '依頼者へ問合せ中です。回答をお待ちください。問合せ履歴で、ほかの編集者の問合せも確認できます。';
+          return '依頼者へ問合せ中です。回答をお待ちください。';
         }
         return '編集者より依頼内容の問い合わせが届いています。';
       case RequestStatus.editing:

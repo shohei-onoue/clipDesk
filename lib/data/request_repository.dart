@@ -611,6 +611,8 @@ class RequestRepository {
       update: (r) => {
         'reviewReason': reason.trim(),
         'reviewRound': r.reviewRound + 1,
+        // 問合せ中の依頼を開けるのは、依頼主と、問合せをした編集者だけ。
+        'inquirerIds': FieldValue.arrayUnion([uid]),
       },
       // 問合せの履歴は、状態の更新と同時に記録する（番号は更新後の回数）。
       extra: (tx, r) => tx.set(

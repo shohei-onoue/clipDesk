@@ -226,6 +226,7 @@ void main() {
     await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺は？');
     await repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: '字幕は？');
     expect((await doc())['editorId'], isNull);
+    expect((await doc())['inquirerIds'], ['ed', 'ed2']);
     var list = await repo.watchInquiries('r1').first;
     expect(list.map((i) => i.question), ['尺は？', '字幕は？']);
     expect(list.every((i) => i.answer == null), isTrue);

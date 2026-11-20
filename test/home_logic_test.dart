@@ -12,6 +12,7 @@ VideoRequest req(
   DateTime? due,
   DateTime? createdAt,
   String? editorId,
+  List<String> inquirerIds = const [],
 }) =>
     VideoRequest(
       id: id,
@@ -26,6 +27,7 @@ VideoRequest req(
       submissionCount: 0,
       approvedVersion: approvedVersion,
       createdAt: createdAt,
+      inquirerIds: inquirerIds,
     );
 
 void main() {
@@ -110,15 +112,25 @@ void main() {
     expect(locked(editing, 'x'), isTrue);
     expect(locked(editing, 'ed'), isFalse);
     expect(locked(editing, 'r'), isFalse);
-    // 問合せ中で担当がいない：誰でも（編集者どうしで問合せの履歴を見られる）。
-    final asking = req('a', RequestStatus.needsInfo);
+    // 承認待ち（提出後・承認前）：依頼主だけ。提出した編集者も不可。
+    final waiting = req('a', RequestStatus.review, editorId: 'ed');
+    expect(locked(waiting, 'r'), isFalse);
+    expect(locked(waiting, 'ed'), isTrue);
+    expect(locked(waiting, 'x'), isTrue);
+    // 承認済みで投稿待ち：担当の編集者は開ける（投稿するため）。
+    final approvedReq =
+        req('a', RequestStatus.review, editorId: 'ed', approvedVersion: 1);
+    expect(locked(approvedReq, 'ed'), isFalse);
+    expect(locked(approvedReq, 'x'), isTrue);
+    // 問合せ中：依頼主と、問合せをした編集者だけ。それ以外は担当の有無に関わらず不可。
+    final asking = req('a', RequestStatus.needsInfo, inquirerIds: ['ed']);
     expect(locked(asking, 'r'), isFalse);
-    expect(locked(asking, 'x'), isFalse);
-    // 問合せ中で担当がいる：依頼主だけ。
-    final askingAssigned = req('a', RequestStatus.needsInfo, editorId: 'ed');
-    expect(locked(askingAssigned, 'r'), isFalse);
-    expect(locked(askingAssigned, 'ed'), isTrue);
-    expect(locked(askingAssigned, 'x'), isTrue);
+    expect(locked(asking, 'ed'), isFalse);
+    expect(locked(asking, 'x'), isTrue);
+    final askingAssigned =
+        req('a', RequestStatus.needsInfo, editorId: 'e2', inquirerIds: ['ed']);
+    expect(locked(askingAssigned, 'e2'), isTrue);
+    expect(locked(askingAssigned, 'ed'), isFalse);
   });
 
   group('ホームの絞り込み', () {

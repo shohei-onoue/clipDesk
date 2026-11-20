@@ -102,6 +102,7 @@ class VideoRequest {
     required this.createdAt,
     this.approvedAt,
     this.editorName,
+    this.inquirerIds = const [],
   });
 
   final String id;
@@ -110,6 +111,9 @@ class VideoRequest {
 
   /// 担当編集者の名前（編集を開始した編集者のログイン名）。未記録の古い依頼は null。
   final String? editorName;
+
+  /// 問合せをした編集者（uid）。問合せ中の依頼を開けるのは、依頼主とこの人たちだけ。
+  final List<String> inquirerIds;
   final RequestStatus status;
   final Brief brief;
   final DateTime? dueDate;
@@ -162,6 +166,10 @@ class VideoRequest {
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
       approvedAt: (m['approvedAt'] as Timestamp?)?.toDate(),
       editorName: m['editorName'] as String?,
+      inquirerIds: [
+        for (final x in (m['inquirerIds'] as List?) ?? const [])
+          if (x is String) x,
+      ],
     );
   }
 }

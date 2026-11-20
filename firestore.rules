@@ -152,8 +152,9 @@ service cloud.firestore {
             && request.resource.data.reviewReason is string
             && request.resource.data.reviewReason.size() > 0
             && request.resource.data.reviewRound == resource.data.reviewRound + 1
+            && request.auth.uid in request.resource.data.inquirerIds
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['reviewReason', 'reviewRound', 'status', 'updatedAt']))
+                .hasOnly(['reviewReason', 'reviewRound', 'inquirerIds', 'status', 'updatedAt']))
           // 編集者: 編集中／修正 → 初稿確認（動画の保存記録と同時のみ）
           || (isEditor() && resource.data.editorId == request.auth.uid
             && (resource.data.status == 'editing' || resource.data.status == 'revision')
