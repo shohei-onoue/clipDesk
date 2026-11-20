@@ -112,6 +112,19 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
     );
   }
 
+  /// 入力した内容（音声の認識結果も）を消して、最初から入力し直す。聞き取り中なら止める。
+  Future<void> _redo() async {
+    if (_listening) await _speech.cancel();
+    _base = '';
+    _text.clear();
+    if (mounted) {
+      setState(() {
+        _listening = false;
+        _notice = null;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppRadius.md);
@@ -128,49 +141,43 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _text,
-              autofocus: true,
-              minLines: 4,
-              maxLines: 6,
-              style: AppText.dark(15, weight: FontWeight.w400, height: 1.5),
-              cursorColor: AppColors.white,
-              decoration: InputDecoration(
-                hintText: widget.hint,
-                hintStyle: AppText.dark(15,
-                    weight: FontWeight.w400,
-                    color: AppColors.white.withValues(alpha: 0.7)),
-                contentPadding: const EdgeInsets.all(12),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: radius,
-                    borderSide: BorderSide(
-                        color: AppColors.white.withValues(alpha: 0.55))),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: radius,
-                    borderSide: const BorderSide(color: AppColors.white)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              IconButton.filled(
-                tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
-                style: IconButton.styleFrom(
-                  backgroundColor:
-                      _listening ? AppColors.amber : AppColors.blue,
-                  foregroundColor: _listening ? AppColors.ink : AppColors.white,
-                  minimumSize: const Size(48, 48),
-                ),
-                onPressed: _toggle,
-                icon: Icon(_listening ? Icons.stop : Icons.mic),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  _listening ? '聞き取り中です。話し終えたら止めてください' : 'マイクを押すと、話した内容が入力されます',
-                  style: AppText.dark(12,
+            Stack(children: [
+              TextField(
+                controller: _text,
+                autofocus: true,
+                minLines: 4,
+                maxLines: 6,
+                style: AppText.dark(15, weight: FontWeight.w400, height: 1.5),
+                cursorColor: AppColors.white,
+                decoration: InputDecoration(
+                  hintText: widget.hint,
+                  hintStyle: AppText.dark(15,
                       weight: FontWeight.w400,
-                      color: AppColors.white.withValues(alpha: 0.7),
-                      height: 1.4),
+                      color: AppColors.white.withValues(alpha: 0.7)),
+                  contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 46),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: BorderSide(
+                          color: AppColors.white.withValues(alpha: 0.55))),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: radius,
+                      borderSide: const BorderSide(color: AppColors.white)),
+                ),
+              ),
+              // 聞き間違いのとき、入力を消して最初からやり直す。入力欄の右下の最前面。
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: TextButton.icon(
+                  onPressed: _redo,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('やり直し'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.white,
+                    backgroundColor: AppColors.ink.withValues(alpha: 0.85),
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                 ),
               ),
             ]),
@@ -184,7 +191,20 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           ],
         ),
       ),
+      // マイクは「キャンセル」「送信」と同じ行の左端。
+      actionsAlignment: MainAxisAlignment.start,
       actions: [
+        IconButton.filled(
+          tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
+          style: IconButton.styleFrom(
+            backgroundColor: _listening ? AppColors.amber : AppColors.blue,
+            foregroundColor: _listening ? AppColors.ink : AppColors.white,
+            minimumSize: const Size(44, 44),
+          ),
+          onPressed: _toggle,
+          icon: Icon(_listening ? Icons.stop : Icons.mic),
+        ),
+        const SizedBox(width: 24),
         OutlinedButton(
           onPressed: () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(

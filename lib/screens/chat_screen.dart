@@ -14,6 +14,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/chat_widgets.dart';
 import '../widgets/status_style.dart';
+import '../widgets/voice_input.dart';
 import '../widgets/voice_message_dialog.dart';
 import '../widgets/app_icon.dart';
 
@@ -59,6 +60,18 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// 「その他」「直接入力」を選んだあと、自由入力を待っている間は true。
   bool _awaitText = false;
+
+  /// 「指示を入力する」を選んだあと、その他の指示の入力を待っている間は true。
+  bool _awaitNotes = false;
+
+  /// 投稿先を1つ選んだあと、「ほかにありますか？」の「はい／いいえ」を待っている間は true。
+  bool _askMorePlatform = false;
+
+  /// 「ほかにありますか？」に「はい」と答えたあと、追加の投稿先を選んでいる間は true。
+  bool _addingPlatform = false;
+
+  /// マイクでの音声入力（入力欄の左のクリップが、入力待ちの間だけマイクになる）。
+  final _voice = VoiceInput();
 
   /// 納品条件（長さ・向き・字幕）を組み立てる途中の値。
   String _length = '';
@@ -110,7 +123,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _voice.addListener(_onVoice);
+  }
+
+  void _onVoice() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _voice.removeListener(_onVoice);
+    _voice.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -154,6 +179,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void _send() {
     final text = _input.text.trim();
     if (text.isEmpty) return;
+    _voice.cancel();
+    if (_awaitNotes) {
+      setState(() {
+        _awaitNotes = false;
+        _input.clear();
+        d.brief = d.brief.copyWith(otherNotes: text);
+        _me(_notesText(text), step: _Step.notes);
+        _next(_Step.video);
+      });
+      return;
+    }
     final handled = switch (_step) {
       _Step.videoType ||
       _Step.platform ||
@@ -170,6 +206,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _me(text, step: _editable.contains(_step) ? _step : null);
       _input.clear();
       _awaitText = false;
+      _addingPlatform = false;
       switch (_step) {
         case _Step.title:
           d.brief = d.brief.copyWith(title: text);
@@ -178,8 +215,10 @@ class _ChatScreenState extends State<ChatScreen> {
           d.brief = d.brief.copyWith(videoType: text);
           _next(_Step.platform);
         case _Step.platform:
-          d.brief = d.brief.copyWith(platform: text);
-          _next(_Step.purpose);
+          // 投稿先は複数選べる。1つ選ぶたびに「ほかにありますか？」と聞く。
+          _syncPlatform();
+          _askMorePlatform = true;
+          _say('ほかに投稿先はありますか？');
         case _Step.purpose:
           d.brief = d.brief.copyWith(purpose: text);
           _next(_Step.length);
@@ -199,6 +238,16 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     });
   }
+
+  /// これまでに答えた投稿先（回答の吹き出し）を、指示書の投稿先に反映する。
+  void _syncPlatform() {
+    d.brief = d.brief.copyWith(platform: _platforms.join('、'));
+  }
+
+  List<String> get _platforms => [
+        for (final m in _msgs)
+          if (m.mine && m.step == _Step.platform) m.text
+      ];
 
   /// 選び直しができる質問。
   static const _editable = {
@@ -307,7 +356,7 @@ class _ChatScreenState extends State<ChatScreen> {
         case _Step.videoType:
           d.brief = d.brief.copyWith(videoType: text);
         case _Step.platform:
-          d.brief = d.brief.copyWith(platform: text);
+          _syncPlatform();
         case _Step.purpose:
           d.brief = d.brief.copyWith(purpose: text);
         case _Step.length:
@@ -357,16 +406,12 @@ class _ChatScreenState extends State<ChatScreen> {
     return picked == '指示はなし' ? '' : _askNotes();
   }
 
-  /// 「その他の指示」で「あり」：入力してもらい、指示書に反映して次へ。
-  Future<void> _notesYes() async {
-    final t = await _askNotes();
-    if (t == null || !mounted) return;
-    setState(() {
-      d.brief = d.brief.copyWith(otherNotes: t);
-      _me(_notesText(t), step: _Step.notes);
-      _next(_Step.video);
-    });
-  }
+  /// 「その他の指示」で「指示を入力する」：入力欄（マイクでも入力できる）で答えてもらう。
+  void _notesYes() => setState(() {
+        _me('指示を入力する');
+        _say('指示を入力してください。入力欄の左のマイクで、音声でも入力できます。');
+        _awaitNotes = true;
+      });
 
   void _notesNo() => setState(() {
         d.brief = d.brief.copyWith(otherNotes: '');
@@ -625,6 +670,18 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  /// 「ほかにありますか？」の答え。「はい」なら選択肢を出し直し、「いいえ」なら次の質問へ。
+  void _morePlatform(bool more) => setState(() {
+        _me(more ? 'はい' : 'いいえ');
+        _askMorePlatform = false;
+        if (more) {
+          _addingPlatform = true;
+          _say('追加する投稿先を選んでください。');
+        } else {
+          _next(_Step.purpose);
+        }
+      });
+
   /// 「その他」「直接入力」を選んだとき：選択肢を消して、自由入力を待つ。
   void _askFree(String label, String question) => setState(() {
         _me(label);
@@ -633,7 +690,13 @@ class _ChatScreenState extends State<ChatScreen> {
       });
 
   List<Widget> _options() {
-    if (_awaitText) return const [];
+    if (_awaitText || _awaitNotes) return const [];
+    if (_step == _Step.platform && _askMorePlatform) {
+      return [
+        AppChip('はい', onTap: () => _morePlatform(true)),
+        AppChip('いいえ', onTap: () => _morePlatform(false)),
+      ];
+    }
     switch (_step) {
       case _Step.video:
         // 動画・画像は、入力欄の左のクリップから追加する。完了は入力欄の位置の「完了」ボタン。
@@ -669,12 +732,18 @@ class _ChatScreenState extends State<ChatScreen> {
         ];
       default:
         final choices = _choices[_step] ?? const <String>[];
+        // 投稿先の2つ目以降は、選択済みの項目をグレーアウトして選べなくする。
+        final chosen = _step == _Step.platform && _addingPlatform
+            ? _platforms.toSet()
+            : const <String>{};
         return [
           for (final label in choices)
             AppChip(label,
-                onTap: label == 'その他'
-                    ? () => _askFree('その他', '内容を入力してください。')
-                    : () => _choose(label))
+                onTap: chosen.contains(label)
+                    ? null
+                    : label == 'その他'
+                        ? () => _askFree('その他', '内容を入力してください。')
+                        : () => _choose(label))
         ];
     }
   }
@@ -688,7 +757,10 @@ class _ChatScreenState extends State<ChatScreen> {
       _Step.platform,
       _Step.purpose,
     }.contains(_step);
-    final freeInput = textStep || _awaitText;
+    final freeInput = textStep || _awaitText || _awaitNotes;
+    // 添付を選ぶ質問に進むまでは、クリップの代わりにマイクを出す。
+    final voiceMode =
+        d.original == null && _step != _Step.video && _step != _Step.review;
     final options = _options();
     // ナビゲーターが連続して話すときは、連続の最初のメッセージを画面トップに出す。
     var lastQuestion = _msgs.lastIndexWhere((m) => !m.mine);
@@ -700,97 +772,104 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
-        child: Column(
-          children: [
-            AppHeader(title: d.original == null ? '指示作成' : '指示書の修正'),
-            Expanded(
-              child: BottomAlignedScroll(
-                alignTop: true,
-                latestOnTop: true,
-                controller: _scroll,
-                children: [
-                  for (var i = 0; i < _msgs.length; i++)
-                    KeyedSubtree(
-                      key: i == lastQuestion ? _latestKey : null,
-                      child: _ChatBubble(_msgs[i],
-                          onTap: _msgs[i].mine &&
-                                  _msgs[i].step != null &&
-                                  !_picking
-                              ? (at) => _editAnswer(i, at)
-                              : null),
-                    ),
-                  if (_picking)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text('添付ファイルを読み込んでいます…',
-                          style: AppText.dark(14, weight: FontWeight.w400)),
-                    ),
-                  if (d.original == null)
-                    for (final file in [...d.videos, ...d.references])
-                      ListTile(
-                        dense: true,
-                        tileColor: AppColors.white.withValues(alpha: 0.08),
-                        textColor: AppColors.white,
-                        iconColor: AppColors.white,
-                        shape: RoundedRectangleBorder(
-                            side: BorderSide(
-                                color: AppColors.white.withValues(alpha: 0.16)),
-                            borderRadius: BorderRadius.circular(AppRadius.lg)),
-                        leading: d.videos.contains(file)
-                            ? const Icon(Icons.videocam_outlined)
-                            : const AppIcon(AppIcons.attachFile,
-                                size: 24, color: AppColors.white),
-                        title: Text(file.name,
-                            maxLines: 2, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                            '${(file.size / 1024 / 1024).toStringAsFixed(1)} MB'),
-                        trailing: IconButton(
-                          tooltip: '添付を削除',
-                          icon: const Icon(Icons.close),
-                          onPressed: _picking
-                              ? null
-                              : () => setState(() {
-                                    d.videos.remove(file);
-                                    d.references.remove(file);
-                                  }),
+        child: Stack(children: [
+          Column(
+            children: [
+              AppHeader(title: d.original == null ? '指示作成' : '指示書の修正'),
+              Expanded(
+                child: BottomAlignedScroll(
+                  alignTop: true,
+                  latestOnTop: true,
+                  controller: _scroll,
+                  children: [
+                    for (var i = 0; i < _msgs.length; i++)
+                      KeyedSubtree(
+                        key: i == lastQuestion ? _latestKey : null,
+                        child: _ChatBubble(_msgs[i],
+                            onTap: _msgs[i].mine &&
+                                    _msgs[i].step != null &&
+                                    !_picking
+                                ? (at) => _editAnswer(i, at)
+                                : null),
+                      ),
+                    if (_picking)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text('添付ファイルを読み込んでいます…',
+                            style: AppText.dark(14, weight: FontWeight.w400)),
+                      ),
+                    if (d.original == null)
+                      for (final file in [...d.videos, ...d.references])
+                        ListTile(
+                          dense: true,
+                          tileColor: AppColors.white.withValues(alpha: 0.08),
+                          textColor: AppColors.white,
+                          iconColor: AppColors.white,
+                          shape: RoundedRectangleBorder(
+                              side: BorderSide(
+                                  color:
+                                      AppColors.white.withValues(alpha: 0.16)),
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.lg)),
+                          leading: d.videos.contains(file)
+                              ? const Icon(Icons.videocam_outlined)
+                              : const AppIcon(AppIcons.attachFile,
+                                  size: 24, color: AppColors.white),
+                          title: Text(file.name,
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                              '${(file.size / 1024 / 1024).toStringAsFixed(1)} MB'),
+                          trailing: IconButton(
+                            tooltip: '添付を削除',
+                            icon: const Icon(Icons.close),
+                            onPressed: _picking
+                                ? null
+                                : () => setState(() {
+                                      d.videos.remove(file);
+                                      d.references.remove(file);
+                                    }),
+                          ),
+                        ),
+                    if (options.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: r.y(10)),
+                        // 選択肢は、ユーザー側（右）に縦に並べる。
+                        // 幅は、いちばん長い選択肢にそろえる。
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: IntrinsicWidth(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (var i = 0; i < options.length; i++) ...[
+                                    if (i > 0) SizedBox(height: r.y(8)),
+                                    options[i],
+                                  ],
+                                ]),
+                          ),
                         ),
                       ),
-                  if (options.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: r.y(10)),
-                      // 選択肢は、ユーザー側（右）に縦に並べる。
-                      // 幅は、いちばん長い選択肢にそろえる。
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: IntrinsicWidth(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                for (var i = 0; i < options.length; i++) ...[
-                                  if (i > 0) SizedBox(height: r.y(8)),
-                                  options[i],
-                                ],
-                              ]),
-                        ),
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            _InputBar(
-              controller: _input,
-              enabled: freeInput,
-              onSend: _send,
-              onAttach: _picking || d.original != null ? null : _attachments,
-              // 添付を選んでいる間は、入力欄を「完了」ボタンにする（動画が1つ以上で押せる）。
-              attaching: _step == _Step.video || _step == _Step.review,
-              onDone:
-                  _picking || (_step == _Step.video && d.attachmentCount == 0)
-                      ? null
-                      : _complete,
-            ),
-          ],
-        ),
+              _InputBar(
+                controller: _input,
+                enabled: freeInput && !(_askMorePlatform && !_awaitText),
+                onSend: _send,
+                voice: voiceMode ? _voice : null,
+                onAttach: _picking || d.original != null ? null : _attachments,
+                // 添付を選んでいる間は、入力欄を「完了」ボタンにする（動画が1つ以上で押せる）。
+                attaching: _step == _Step.video || _step == _Step.review,
+                onDone:
+                    _picking || (_step == _Step.video && d.attachmentCount == 0)
+                        ? null
+                        : _complete,
+              ),
+            ],
+          ),
+          // 音声入力中は、画面の中心に大きなマイクを出す。
+          VoiceListeningOverlay(listening: _voice.listening),
+        ]),
       ),
     );
   }
@@ -878,6 +957,7 @@ class _InputBar extends StatelessWidget {
       required this.enabled,
       required this.onSend,
       this.onAttach,
+      this.voice,
       this.attaching = false,
       this.onDone});
 
@@ -885,6 +965,9 @@ class _InputBar extends StatelessWidget {
   final bool enabled;
   final VoidCallback onSend;
   final VoidCallback? onAttach;
+
+  /// 渡すと、クリップの代わりにマイク（音声入力）を出す。
+  final VoiceInput? voice;
 
   /// 添付を選んでいる間は true。入力欄と送信の代わりに「完了」ボタンを出す。
   final bool attaching;
@@ -898,72 +981,90 @@ class _InputBar extends StatelessWidget {
           color: AppColors.white.withValues(alpha: 0.08),
           border: Border(
               top: BorderSide(color: AppColors.white.withValues(alpha: 0.16)))),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          IconButton(
-              tooltip: 'ファイルを添付',
-              onPressed: onAttach,
-              icon: AppIcon(AppIcons.attachFile,
-                  size: 32, color: AppColors.white.withValues(alpha: 0.7))),
-          if (attaching)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 4, right: 8),
-                child: FilledButton(
-                  onPressed: onDone,
-                  style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      backgroundColor: AppColors.blue,
-                      foregroundColor: AppColors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24))),
-                  child: Text('完了', style: AppText.dark(16)),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (voice?.notice != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(voice!.notice!,
+                  style: AppText.dark(12,
+                      weight: FontWeight.w400, color: AppColors.amber)),
+            ),
+          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (voice != null)
+              VoiceMicButton(
+                  voice: voice!, controller: controller, enabled: enabled)
+            else
+              IconButton(
+                  tooltip: 'ファイルを添付',
+                  onPressed: onAttach,
+                  icon: AppIcon(AppIcons.attachFile,
+                      size: 32, color: AppColors.white.withValues(alpha: 0.7))),
+            if (attaching)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 8),
+                  child: FilledButton(
+                    onPressed: onDone,
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: AppColors.blue,
+                        foregroundColor: AppColors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24))),
+                    child: Text('完了', style: AppText.dark(16)),
+                  ),
+                ),
+              )
+            else ...[
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  style: AppText.dark(15, weight: FontWeight.w400),
+                  cursorColor: AppColors.white,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.ink,
+                    hintStyle: AppText.dark(15,
+                        weight: FontWeight.w400,
+                        color: AppColors.white.withValues(alpha: 0.7)),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none),
+                    hintText: voice?.listening == true
+                        ? '聞き取り中です…'
+                        : (enabled ? 'メッセージを入力' : '選択肢から回答'),
+                  ),
                 ),
               ),
-            )
-          else ...[
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: enabled,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                style: AppText.dark(15, weight: FontWeight.w400),
-                cursorColor: AppColors.white,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.ink,
-                  hintStyle: AppText.dark(15,
-                      weight: FontWeight.w400,
-                      color: AppColors.white.withValues(alpha: 0.7)),
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none),
-                  hintText: enabled ? 'メッセージを入力' : '選択肢から回答',
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (_, value, __) => IconButton(
+                  tooltip: '回答を送信',
+                  onPressed:
+                      enabled && value.text.trim().isNotEmpty ? onSend : null,
+                  icon: AppIcon(AppIcons.send,
+                      size: 32,
+                      color: enabled && value.text.trim().isNotEmpty
+                          ? AppColors.blue
+                          : AppColors.white.withValues(alpha: 0.16)),
                 ),
               ),
-            ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (_, value, __) => IconButton(
-                tooltip: '回答を送信',
-                onPressed:
-                    enabled && value.text.trim().isNotEmpty ? onSend : null,
-                icon: AppIcon(AppIcons.send,
-                    size: 32,
-                    color: enabled && value.text.trim().isNotEmpty
-                        ? AppColors.blue
-                        : AppColors.white.withValues(alpha: 0.16)),
-              ),
-            ),
+            ],
           ],
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }

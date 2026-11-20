@@ -137,6 +137,36 @@ test('要確認: 理由必須・通知は相手宛て。再送信は依頼者の
   await assertSucceeds(r.commit());
 });
 
+test('修正の依頼への問合せ: 担当の編集者だけが問い合わせ、依頼者の回答で修正に戻る', async () => {
+  await seed(newReq({ editorId: ED, status: 'revision', revisionNote: '直して', submissionCount: 1, inquirerIds: [] }));
+  const ask = { status: 'needsInfo', reviewReason: 'どこを？', reviewRound: 1, inquirerIds: [ED], inquiryFrom: 'revision', updatedAt: serverTimestamp() };
+  // 担当ではない編集者は不可
+  await assertFails(updateDoc(doc(db(ED2), 'requests', 'r1'), { ...ask, inquirerIds: [ED2] }));
+  const a = writeBatch(db(ED));
+  a.update(doc(db(ED), 'requests', 'r1'), ask);
+  a.set(doc(db(ED), 'notifications', 'r1_needsinfo_1'), note('needsInfo', { recipientId: REQ, actorId: ED }));
+  a.set(doc(db(ED), 'requests', 'r1', 'inquiries', 'r1'), { round: 1, question: 'どこを？', editorId: ED, editorName: 'A', askedAt: serverTimestamp(), answer: null, answeredAt: null });
+  await assertSucceeds(a.commit());
+  // 回答は、受付待ちではなく修正に戻る
+  await assertFails(updateDoc(doc(db(REQ), 'requests', 'r1'), { status: 'pending', title: 'n', brief, dueDate: new Date('2026-12-02'), reviewReason: null, inquiryFrom: null, updatedAt: serverTimestamp() }));
+  const r = writeBatch(db(REQ));
+  r.update(doc(db(REQ), 'requests', 'r1'), { status: 'revision', title: 'n', brief, dueDate: new Date('2026-12-02'), reviewReason: null, inquiryFrom: null, updatedAt: serverTimestamp() });
+  r.set(doc(db(REQ), 'notifications', 'r1_resubmit_1_' + ED), note('resubmitted', { recipientId: ED, actorId: REQ }));
+  await assertSucceeds(r.commit());
+});
+
+test('動画の確認中: 依頼者は添付を追加だけできる（外す・他人・承認後は不可）', async () => {
+  await seed(newReq({ editorId: ED, status: 'review', submissionCount: 1 }));
+  const old = newReq().attachments;
+  const add = { name: 'b.pdf', path: 'uploads/req/r1/reference_1-b.pdf', size: 1, kind: 'reference' };
+  await assertSucceeds(updateDoc(doc(db(REQ), 'requests', 'r1'), { attachments: [...old, add], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db(OTHER), 'requests', 'r1'), { attachments: [...old, add, add], updatedAt: serverTimestamp() }));
+  // 外す（件数が増えない）ことは不可
+  await assertFails(updateDoc(doc(db(REQ), 'requests', 'r1'), { attachments: [add], updatedAt: serverTimestamp() }));
+  // 他の項目は同時に変えられない
+  await assertFails(updateDoc(doc(db(REQ), 'requests', 'r1'), { attachments: [...old, add, add], title: 'x', updatedAt: serverTimestamp() }));
+});
+
 test('通知: 状態更新なしの単独作成・他人宛ての偽装は不可', async () => {
   await seed(newReq({ editorId: ED, status: 'editing' }));
   await assertFails(setDoc(doc(db(REQ), 'notifications', 'x'), note('approved', { recipientId: ED, actorId: REQ })));

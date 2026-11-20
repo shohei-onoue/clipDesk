@@ -255,6 +255,14 @@ class RequestRepository {
             for (final d in q.docs) Submission.fromMap(d.data())
           ]..sort((a, b) => a.version.compareTo(b.version)));
 
+  /// 修正の依頼の内容。動画の版（提出された動画のv番号）ごとに1件。
+  Stream<Map<int, String>> watchRevisions(String id) =>
+      _requests.doc(id).collection('revisions').snapshots().map((q) => {
+            for (final d in q.docs)
+              (d.data()['version'] as num?)?.toInt() ?? 0:
+                  (d.data()['instruction'] as String?) ?? ''
+          });
+
   /// 問合せの履歴（古い順）。
   Stream<List<Inquiry>> watchInquiries(String id) =>
       _requests.doc(id).collection('inquiries').snapshots().map((q) => [
@@ -311,9 +319,11 @@ class RequestRepository {
     if ((await ref.get()).exists) return; // 送信済み（再試行）
     final attachments = await _uploadAttachments(
         requesterId, requestId, videos, references, onProgress);
+    final requesterName = await _displayName(requesterId);
     final batch = _db.batch();
     batch.set(ref, {
       'requesterId': requesterId,
+      if (requesterName != null) 'requesterName': requesterName,
       'editorId': null,
       'status': RequestStatus.pending.name,
       'title': brief.title.trim(),
@@ -384,8 +394,11 @@ class RequestRepository {
     if (data['requesterId'] != uid) {
       throw RequestStateException('この依頼の添付は変更できません');
     }
-    if (data['status'] != RequestStatus.pending.name) {
-      throw RequestStateException('受付待ちの間だけ、添付を変更できます');
+    final status = data['status'];
+    final inReview =
+        status == RequestStatus.review.name && data['approvedVersion'] == null;
+    if (status != RequestStatus.pending.name && !inReview) {
+      throw RequestStateException('受付待ちと、動画の確認中だけ、添付を変更できます');
     }
     if (keep.length + add.length < 1) {
       throw RequestStateException('添付は1件以上必要です。入れ替えるときは「変更」を使ってください');
@@ -394,6 +407,10 @@ class RequestRepository {
       for (final m in (data['attachments'] as List? ?? const []))
         Attachment.fromMap(Map<String, Object?>.from(m as Map))
     ];
+    // 動画の確認中は、追加だけできる（これまでの添付は外せない）。
+    if (inReview && keep.length != before.length) {
+      throw RequestStateException('動画の確認中は、添付の追加だけできます');
+    }
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final added = <Attachment>[];
     for (var i = 0; i < add.length; i++) {
@@ -431,6 +448,7 @@ class RequestRepository {
   }) async {
     // 要確認への回答のとき：回答を問合せ履歴に残し、問い合わせた編集者全員に通知する。
     final hasAnswer = answer != null && answer.trim().isNotEmpty;
+    final answererName = hasAnswer ? await _displayName(uid) : null;
     var wasNeedsInfo = false;
     final asked = <String>{};
     final open = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
@@ -456,6 +474,7 @@ class RequestRepository {
         'brief': brief.toMap(),
         'dueDate': Timestamp.fromDate(dueDate),
         'reviewReason': null,
+        if (r.inquiryFromRevision) 'inquiryFrom': null,
       },
       // 要確認への回答のときだけ通知する（受付待ちの内容編集は通知しない）。
       // 通知先は、問い合わせた編集者全員と、担当の編集者。
@@ -471,7 +490,7 @@ class RequestRepository {
                 'recipientId': id,
                 'actorId': uid,
                 'message': hasAnswer
-                    ? '問合せへの回答：${brief.title.trim()}\n${answer.trim()}'
+                    ? '${answererName == null ? '依頼者' : '$answererName様'}から回答がありました：${brief.title.trim()}\n${answer.trim()}'
                     : '指示書が再送信されました：${brief.title.trim()}',
                 'createdAt': FieldValue.serverTimestamp(),
               });
@@ -564,7 +583,9 @@ class RequestRepository {
     return _deleteUnapprovedFiles(requestId);
   }
 
-  /// 承認後のStorage整理：依頼時の添付素材（動画・画像・BGM・資料）と、承認されなかった提出動画を消す。
+  /// 承認後の整理：依頼時の添付素材（動画・画像・BGM・資料）と、承認されなかった提出動画を、
+  /// Storage から消す。承認されなかった提出動画の記録（Firestore の submissions）も消す。
+  /// Storage から消せなかった動画の記録は、あとでやり直せるように残す。
   Future<bool> _deleteUnapprovedFiles(String requestId) async {
     try {
       final snap = await _requests.doc(requestId).get();
@@ -572,18 +593,26 @@ class RequestRepository {
       if (data == null) return false;
       final r = VideoRequest.fromDoc(snap.id, data);
       if (r.approvedVersion == null) return false;
-      final paths = <String>[
-        for (final a in r.attachments) a.path,
+      var ok = true;
+      for (final a in r.attachments) {
+        if (a.path.isNotEmpty && !await _storage.delete(a.path)) ok = false;
+      }
+      final unapproved = [
         for (final d
             in (await _requests.doc(requestId).collection('submissions').get())
                 .docs)
-          if (Submission.fromMap(d.data()).version != r.approvedVersion)
-            Submission.fromMap(d.data()).path,
+          if (Submission.fromMap(d.data()).version != r.approvedVersion) d
       ];
-      var ok = true;
-      for (final p in paths) {
-        if (p.isNotEmpty && !await _storage.delete(p)) ok = false;
+      final batch = _db.batch();
+      for (final d in unapproved) {
+        final path = Submission.fromMap(d.data()).path;
+        if (path.isEmpty || await _storage.delete(path)) {
+          batch.delete(d.reference);
+        } else {
+          ok = false;
+        }
       }
+      await batch.commit();
       return ok;
     } catch (_) {
       return false;
@@ -613,6 +642,8 @@ class RequestRepository {
         'reviewRound': r.reviewRound + 1,
         // 問合せ中の依頼を開けるのは、依頼主と、問合せをした編集者だけ。
         'inquirerIds': FieldValue.arrayUnion([uid]),
+        // 修正の依頼への問合せは、回答のあと修正に戻す印を付ける。
+        if (r.status == RequestStatus.revision) 'inquiryFrom': 'revision',
       },
       // 問合せの履歴は、状態の更新と同時に記録する（番号は更新後の回数）。
       extra: (tx, r) => tx.set(
@@ -805,7 +836,8 @@ class RequestRepository {
           current: r.status,
           action: action,
           role: role,
-          approved: r.approvedVersion != null);
+          approved: r.approvedVersion != null,
+          inquiryFromRevision: r.inquiryFromRevision);
       if (!owner || next == null || (guard != null && !guard(r))) {
         throw RequestStateException('依頼の状態が変わっています。画面を更新して確認してください');
       }
@@ -864,7 +896,8 @@ class _Snapshot {
         title = (s.data()!['title'] as String?) ?? '',
         submissionCount = (s.data()!['submissionCount'] as num?)?.toInt() ?? 0,
         approvedVersion = (s.data()!['approvedVersion'] as num?)?.toInt(),
-        reviewRound = (s.data()!['reviewRound'] as num?)?.toInt() ?? 0;
+        reviewRound = (s.data()!['reviewRound'] as num?)?.toInt() ?? 0,
+        inquiryFromRevision = s.data()!['inquiryFrom'] == 'revision';
 
   final RequestStatus status;
   final String requesterId;
@@ -873,6 +906,7 @@ class _Snapshot {
   final int submissionCount;
   final int? approvedVersion;
   final int reviewRound;
+  final bool inquiryFromRevision;
 }
 
 /// 2つのクエリ購読を結合し、どちらかが更新されるたびに重複なしで流す。

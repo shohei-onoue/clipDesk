@@ -8,6 +8,7 @@ import '../data/services.dart';
 import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import 'app_icon.dart';
+import 'confirm_logout.dart';
 
 /// 左から出るドロワー（Figma 291:504）。幅は 354/390、画面の高さいっぱい。
 /// ink→brand の縦グラデーションの面に、ロゴ・項目・区切り線・ログアウト・バージョンを縦に並べる。
@@ -20,10 +21,6 @@ class AppDrawer extends StatelessWidget {
     if (mode != null) Services.repo.staffMode = mode;
     Navigator.of(context)
         .pushNamedAndRemoveUntil(route, (r) => r.settings.name == '/menu');
-  }
-
-  void _go(BuildContext context, String route) {
-    Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
   }
 
   @override
@@ -102,10 +99,8 @@ class AppDrawer extends StatelessWidget {
                 thickness: 1),
             _Tile(
                 AppIcon(AppIcons.logout, size: r.x(24), color: AppColors.white),
-                'ログアウト', () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) _go(context, '/');
-            }),
+                'ログアウト',
+                () => confirmAndLogout(context)),
             SizedBox(height: r.y(4)),
             Text('Version 1.0.0',
                 style: AppText.noto(r.x(12),

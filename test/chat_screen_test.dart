@@ -5,6 +5,7 @@ import 'package:clipdesk/data/request_repository.dart';
 import 'package:clipdesk/data/services.dart';
 import 'package:clipdesk/domain/brief.dart';
 import 'package:clipdesk/screens/chat_screen.dart';
+import 'package:clipdesk/widgets/chat_widgets.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -60,17 +61,15 @@ void main() {
                 (widget) => widget is IconButton && widget.tooltip == '回答を送信'))
             .onPressed,
         isNull);
-    await tester.tap(find.byTooltip('ファイルを添付'));
-    await tester.pumpAndSettle();
-    expect(find.text('編集する動画'), findsOneWidget);
-    expect(find.text('参考画像・写真'), findsOneWidget);
-    expect(find.text('参考動画・ファイル'), findsOneWidget);
-    Navigator.of(tester.element(find.text('編集する動画'))).pop();
-    await tester.pumpAndSettle();
+    // 依頼名の入力中は、クリップがマイク（音声入力）になる。
+    expect(find.byTooltip('音声で入力する'), findsOneWidget);
+    expect(find.byTooltip('ファイルを添付'), findsNothing);
     await tester.enterText(find.byType(TextField), '秋の会社紹介');
     await tester.pump();
     await tester.tap(find.byTooltip('回答を送信'));
     await tester.pumpAndSettle();
+    // 添付を選ぶ質問までは、選択肢の質問でもマイクのまま。
+    expect(find.byTooltip('ファイルを添付'), findsNothing);
     await tester.tap(find.text('会社紹介'));
     await tester.pumpAndSettle();
     expect(find.text('どこに投稿しますか？'), findsOneWidget);
@@ -84,6 +83,17 @@ void main() {
       image.dispose();
     });
     await tester.tap(find.text('Instagram'));
+    await tester.pumpAndSettle();
+    // 投稿先は複数選べる。「ほかにありますか？」に「はい」で、選択済みをグレーアウトして出し直す。
+    expect(find.text('ほかに投稿先はありますか？'), findsOneWidget);
+    await tester.tap(find.text('はい'));
+    await tester.pumpAndSettle();
+    final chosen =
+        tester.widget<AppChip>(find.widgetWithText(AppChip, 'Instagram'));
+    expect(chosen.onTap, isNull);
+    await tester.tap(find.text('TikTok'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('いいえ'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('認知を広げたい'));
     await tester.pumpAndSettle();
@@ -116,10 +126,24 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(find.text('その他の指示はありますか？'), findsOneWidget);
-    await tester.tap(find.text('指示はなし'));
+    // 「指示を入力する」はダイアログではなく、入力欄（マイク）で答える。
+    await tester.tap(find.text('指示を入力する'));
     await tester.pumpAndSettle();
-    expect(find.text('その他指示：なし'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byTooltip('音声で入力する'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '明るく');
+    await tester.pump();
+    await tester.tap(find.byTooltip('回答を送信'));
+    await tester.pumpAndSettle();
+    expect(find.text('その他指示：明るく'), findsOneWidget);
     expect(find.textContaining('添付してください'), findsOneWidget);
+    // 添付の質問からは、マイクがクリップに変わる。
+    expect(find.byTooltip('音声で入力する'), findsNothing);
+    await tester.tap(find.byTooltip('ファイルを添付'));
+    await tester.pumpAndSettle();
+    expect(find.text('編集する動画'), findsOneWidget);
+    expect(find.text('参考画像・写真'), findsOneWidget);
+    expect(find.text('参考動画・ファイル'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

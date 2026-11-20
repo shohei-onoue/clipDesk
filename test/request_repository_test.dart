@@ -206,6 +206,17 @@ void main() {
     expect((await notes()).length, 2); // 新規依頼・担当決定のみ
   });
 
+  test('依頼に依頼主の名前（requesterName）を残す。名前がなければ残さない', () async {
+    await db.collection('users').doc('req').set({'name': '山田 太郎'});
+    await create();
+    expect((await doc())['requesterName'], '山田 太郎');
+    await create('r2').then((_) {});
+    await db.collection('users').doc('req').delete();
+    await create('r3');
+    final d3 = await db.collection('requests').doc('r3').get();
+    expect(d3.data()!.containsKey('requesterName'), isFalse);
+  });
+
   test('問合せは担当の決定ではない。担当になるのは「受注」だけ', () async {
     await create();
     await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺が不明');
@@ -263,6 +274,73 @@ void main() {
     expect((await doc())['status'], 'review');
   });
 
+  test('修正の依頼の内容は、修正を依頼した動画の版ごとに読める（再提出しても残る）', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    await repo.requestRevision(requestId: 'r1', uid: 'req', instruction: '直して');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v2.mp4'));
+    expect(await repo.watchRevisions('r1').first, {1: '直して'});
+  });
+
+  test('修正の依頼の内容を問合せできる。回答すると、受付待ちではなく修正に戻る', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    await repo.requestRevision(requestId: 'r1', uid: 'req', instruction: '直して');
+    // 担当の編集者が、修正の内容を問い合わせる。
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: 'どこを？');
+    expect((await doc())['status'], 'needsInfo');
+    expect((await doc())['editorId'], 'ed');
+    expect((await doc())['inquiryFrom'], 'revision');
+    // 担当ではない編集者は、問い合わせられない。
+    await expectLater(repo.askForInfo(requestId: 'r1', uid: 'ed2', reason: 'x'),
+        throwsA(isA<RequestStateException>()));
+    // 依頼者の回答で、修正に戻る（問合せの印は消える）。
+    await repo.resubmitBrief(
+        requestId: 'r1',
+        uid: 'req',
+        brief: brief,
+        dueDate: due,
+        answer: '冒頭です');
+    expect((await doc())['status'], 'revision');
+    expect((await doc())['editorId'], 'ed');
+    expect((await doc())['inquiryFrom'], isNull);
+    final list = await repo.watchInquiries('r1').first;
+    expect(list.single.answer, '冒頭です');
+    // 修正の動画を提出できる。
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v2.mp4'));
+    expect((await doc())['status'], 'review');
+  });
+
+  test('編集中の問合せへの回答は、これまでどおり受付待ちに戻る', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.askForInfo(requestId: 'r1', uid: 'ed', reason: '尺は？');
+    expect((await doc())['inquiryFrom'], isNull);
+    await repo.resubmitBrief(
+        requestId: 'r1', uid: 'req', brief: brief, dueDate: due, answer: '30秒');
+    expect((await doc())['status'], 'pending');
+  });
+
+  test('動画の確認中は、添付を追加だけできる（外せない）', () async {
+    await create();
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    await repo.submitVideo(requestId: 'r1', uid: 'ed', file: _file('v1.mp4'));
+    final before = VideoRequest.fromDoc('r1', await doc()).attachments;
+    await repo.updateAttachments(
+        requestId: 'r1',
+        uid: 'req',
+        keep: before,
+        add: [(file: _file('memo.pdf'), kind: 'reference')]);
+    expect(VideoRequest.fromDoc('r1', await doc()).attachments.length,
+        before.length + 1);
+    await expectLater(
+        repo.updateAttachments(
+            requestId: 'r1', uid: 'req', keep: [before.first]),
+        throwsA(isA<RequestStateException>()));
+  });
+
   test('承認すると、添付素材と承認されなかった動画をStorageから消し、承認版だけ残す', () async {
     await create();
     await repo.startEditing(requestId: 'r1', uid: 'ed');
@@ -275,6 +353,9 @@ void main() {
     expect(storage.deleted.any((p) => p.contains('uploads/req/r1/')), isTrue);
     expect(storage.deleted.any((p) => p.contains('videos/r1/v1/')), isTrue);
     expect(storage.deleted.any((p) => p.contains('videos/r1/v2/')), isFalse);
+    // 承認されなかった版（v1）の記録も消え、承認版（v2）だけが残る。
+    final left = await repo.watchSubmissions('r1').first;
+    expect(left.map((s) => s.version), [2]);
   });
 
   test('削除に失敗しても承認は完了し、false を返す', () async {

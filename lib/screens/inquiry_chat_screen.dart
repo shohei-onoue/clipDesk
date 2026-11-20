@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart';
-
-import '../core/japanese_speech.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
@@ -11,6 +8,7 @@ import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/voice_input.dart';
 
 /// 問合せ履歴の1件の発言（編集者の問合せ、または依頼者の回答）。
 class _HistoryMsg {
@@ -91,16 +89,10 @@ class InquiryChatScreen extends StatefulWidget {
 class _InquiryChatScreenState extends State<InquiryChatScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _speech = SpeechToText();
+  final _voice = VoiceInput();
   final _msgs = <({bool mine, String text})>[];
-  bool _ready = false;
-
-  /// 端末の音声認識が持つ日本語のロケールID。
-  String? _localeId;
-  bool _listening = false;
   String? _notice;
   String? _reply;
-  String _base = '';
   bool _sending = false;
 
   /// これまでの問合せと回答（全員分）。読み込めるまでは、依頼の最新の問合せだけを出す。
@@ -109,9 +101,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   static const _ackText =
       '回答を受け付けました。このまま編集者へ送るときは「回答する」、指示書も直したいときは「依頼内容に戻る」を押してください。';
 
-  @override
-  void initState() {
-    super.initState();
+  void _load() {
     Services.repo.watchInquiries(widget.request.id).first.then((h) {
       if (mounted) {
         setState(() => _history = h);
@@ -129,8 +119,20 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _voice.addListener(_onVoice);
+    _load();
+  }
+
+  void _onVoice() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
-    _speech.cancel();
+    _voice.removeListener(_onVoice);
+    _voice.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -164,9 +166,8 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   void _send() {
     final t = _input.text.trim();
     if (t.isEmpty) return;
-    if (_listening) _speech.stop();
+    _voice.cancel();
     setState(() {
-      _listening = false;
       _reply = t;
       _msgs.add((mine: true, text: t));
       _msgs.add((mine: false, text: _ackText));
@@ -215,56 +216,6 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
     }
   }
 
-  Future<void> _toggleMic() async {
-    if (_listening) {
-      await _speech.stop();
-      if (mounted) setState(() => _listening = false);
-      return;
-    }
-    if (!_ready) {
-      _ready = await _speech.initialize(
-        onStatus: (s) {
-          if (mounted && (s == 'done' || s == 'notListening')) {
-            setState(() => _listening = false);
-          }
-        },
-        onError: (e) {
-          if (mounted) {
-            setState(() {
-              _listening = false;
-              _notice = 'エラー：音声を聞き取れませんでした。もう一度マイクを押してください';
-            });
-          }
-        },
-      );
-    }
-    if (!_ready) {
-      if (mounted) {
-        setState(() =>
-            _notice = 'エラー：このブラウザ・端末では音声入力が使えません。マイクの許可を確認するか、文字で入力してください');
-      }
-      return;
-    }
-    // 日本語で聞き取る。端末が報告する日本語のロケールIDがあればそれを使う（なければ ja_JP）。
-    _localeId ??= await findJapaneseLocale(_speech);
-    _base = _input.text.trim();
-    setState(() {
-      _listening = true;
-      _notice = null;
-    });
-    await _speech.listen(
-      listenOptions:
-          SpeechListenOptions(partialResults: true, localeId: _localeId),
-      onResult: (r) {
-        final joined =
-            _base.isEmpty ? r.recognizedWords : '$_base ${r.recognizedWords}';
-        _input.value = TextEditingValue(
-            text: joined,
-            selection: TextSelection.collapsed(offset: joined.length));
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final answered = _reply != null;
@@ -272,70 +223,74 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
       backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
-        child: Column(children: [
-          const AppHeader(title: '問合せ'),
-          Expanded(
-            child: ListView(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-              children: [
-                const _Bubble(false, '依頼者への問合せの履歴です。編集者の問合せに、まとめて回答してください。'),
-                ..._historyBubbles(),
-                for (final m in _msgs) _Bubble(m.mine, m.text),
-              ],
+        child: Stack(children: [
+          Column(children: [
+            const AppHeader(title: '問合せ'),
+            Expanded(
+              child: ListView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                children: [
+                  const _Bubble(false, '依頼者への問合せの履歴です。編集者の問合せに、まとめて回答してください。'),
+                  ..._historyBubbles(),
+                  for (final m in _msgs) _Bubble(m.mine, m.text),
+                ],
+              ),
             ),
-          ),
-          if (answered && _notice != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-              child: Text(_notice!,
-                  style: AppText.dark(12,
-                      weight: FontWeight.w400, color: AppColors.amber)),
-            ),
-          if (answered)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-              child: Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _sending
-                        ? null
-                        : () => Navigator.pop(
-                            context, InquiryResult(_reply!, submit: false)),
-                    style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        backgroundColor: AppColors.ink,
-                        foregroundColor: AppColors.blue,
-                        side: const BorderSide(color: AppColors.blue),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24))),
-                    child: Text('依頼内容に戻る',
-                        style: AppText.dark(15, color: AppColors.blue)),
+            if (answered && _notice != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+                child: Text(_notice!,
+                    style: AppText.dark(12,
+                        weight: FontWeight.w400, color: AppColors.amber)),
+              ),
+            if (answered)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                child: Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _sending
+                          ? null
+                          : () => Navigator.pop(
+                              context, InquiryResult(_reply!, submit: false)),
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          backgroundColor: AppColors.ink,
+                          foregroundColor: AppColors.blue,
+                          side: const BorderSide(color: AppColors.blue),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24))),
+                      child: Text('依頼内容に戻る',
+                          style: AppText.dark(15, color: AppColors.blue)),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _sending ? null : _submit,
-                    style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24))),
-                    child: _sending
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AppColors.white))
-                        : Text('回答する', style: AppText.dark(15)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _sending ? null : _submit,
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          backgroundColor: AppColors.blue,
+                          foregroundColor: AppColors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24))),
+                      child: _sending
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: AppColors.white))
+                          : Text('回答する', style: AppText.dark(15)),
+                    ),
                   ),
-                ),
-              ]),
-            )
-          else
-            _bar(),
+                ]),
+              )
+            else
+              _bar(),
+          ]),
+          // 音声入力中は、画面の中心にマイクを大きく出す（操作は通す）。
+          VoiceListeningOverlay(listening: _voice.listening),
         ]),
       ),
     );
@@ -349,26 +304,15 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                 top: BorderSide(
                     color: AppColors.white.withValues(alpha: 0.16)))),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_notice != null)
+          if ((_voice.notice ?? _notice) != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-              child: Text(_notice!,
+              child: Text((_voice.notice ?? _notice)!,
                   style: AppText.dark(12,
                       weight: FontWeight.w400, color: AppColors.amber)),
             ),
           Row(children: [
-            IconButton(
-              tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
-              onPressed: _toggleMic,
-              style: IconButton.styleFrom(
-                  backgroundColor:
-                      _listening ? AppColors.amber : Colors.transparent),
-              icon: Icon(_listening ? Icons.stop : Icons.mic,
-                  size: 28,
-                  color: _listening
-                      ? AppColors.ink
-                      : AppColors.white.withValues(alpha: 0.7)),
-            ),
+            VoiceMicButton(voice: _voice, controller: _input),
             Expanded(
               child: TextField(
                 controller: _input,
@@ -380,7 +324,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                   filled: true,
                   fillColor: AppColors.ink,
                   isDense: true,
-                  hintText: _listening ? '聞き取り中です…' : '回答を入力',
+                  hintText: _voice.listening ? '聞き取り中です…' : '回答を入力',
                   hintStyle: AppText.dark(15,
                       weight: FontWeight.w400,
                       color: AppColors.white.withValues(alpha: 0.7)),

@@ -104,7 +104,7 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                         crossAxisCount: 2,
                                         crossAxisSpacing: r.x(17),
                                         mainAxisSpacing: r.x(29),
-                                        mainAxisExtent: r.x(310),
+                                        mainAxisExtent: r.x(330),
                                       ),
                                       itemCount: list.length,
                                       itemBuilder: (context, i) {
@@ -163,7 +163,7 @@ class ProgressCard extends StatelessWidget {
   final DateTime? now;
 
   /// バッジ（文言・色・塗りか枠か）。タブごとに：
-  /// 依頼＝新規依頼／受付待ち／問合せ中（依頼主には回答待ち）、編集＝編集中／修正中、確認＝承認待ち／承認済、完了。
+  /// 依頼＝新規依頼／受付待ち／問合せ中（依頼主には回答待ち）、編集＝編集中／修正依頼、確認＝承認待ち／承認済、完了。
   (String, Color, bool) get _badge => switch (request.status) {
         RequestStatus.pending => (
             isNewRequest(request, now ?? DateTime.now()) ? '新規依頼' : '受付待ち',
@@ -179,7 +179,7 @@ class ProgressCard extends StatelessWidget {
             false
           ),
         RequestStatus.editing => ('編集中', AppColors.blue, true),
-        RequestStatus.revision => ('修正中', AppColors.blue, true),
+        RequestStatus.revision => ('修正依頼', AppColors.blue, true),
         RequestStatus.review => request.approved
             ? ('承認済', AppColors.blue, false)
             : ('承認待ち', AppColors.amber, false),
@@ -192,13 +192,36 @@ class ProgressCard extends StatelessWidget {
     final done = request.status == RequestStatus.posted;
     final (badgeText, badgeColor, badgeFilled) = _badge;
     final b = request.brief;
-    final summary = b.purpose.isNotEmpty ? b.purpose : b.videoType;
     final value = request.status == RequestStatus.pending
         ? 0.0
         : progressValue(request.status);
     // 黒の透過率50%をかぶせるのは、そのユーザーが開けないカード（`locked`）だけ。
     // 担当した編集者の「編集中」のカードは暗転しない。バッジは右上のまま。
     final dim = locked;
+    // 情報の1行（ラベルなし）。内容は1行で、あふれたら省略する。
+    Widget info(String value) => Padding(
+          padding: EdgeInsets.only(top: r.x(2)),
+          child: Text(value.isEmpty ? '未設定' : value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  AppText.noto(r.x(12), weight: FontWeight.w400, height: 1.3)),
+        );
+    // 人の行（依頼者名・編集担当）。
+    Widget person(String label, String value) => Padding(
+          padding: EdgeInsets.only(top: r.x(3)),
+          child: Row(children: [
+            SizedBox(
+                width: r.x(62),
+                child: Text(label, style: AppText.noto(r.x(11), height: 1.3))),
+            Expanded(
+              child: Text(value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.noto(r.x(13), height: 1.3)),
+            ),
+          ]),
+        );
     Widget badge() => Container(
           width: r.x(70),
           height: r.x(30),
@@ -249,15 +272,10 @@ class ProgressCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.noto(r.x(12), height: 1.3)),
-                        SizedBox(height: r.x(4)),
-                        SizedBox(
-                          height: r.x(48),
-                          child: Text(summary,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.noto(r.x(12),
-                                  weight: FontWeight.w400, height: 1.3)),
-                        ),
+                        SizedBox(height: r.x(2)),
+                        info(b.videoType),
+                        info(b.platform),
+                        info(b.purpose),
                         const Spacer(),
                         Text('進捗状況', style: AppText.noto(r.x(12), height: 1.3)),
                         SizedBox(height: r.x(4)),
@@ -278,23 +296,12 @@ class ProgressCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        SizedBox(
-                          height: r.x(26),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Text('編集担当',
-                                  style: AppText.noto(r.x(12), height: 1.3)),
-                              SizedBox(width: r.x(20)),
-                              Text(
-                                  request.editorName ??
-                                      (request.editorId == null ? '未定' : '決定済'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppText.noto(r.x(14), height: 1.3)),
-                            ],
-                          ),
-                        ),
+                        SizedBox(height: r.x(2)),
+                        person('依頼者名', request.requesterName ?? '未設定'),
+                        person(
+                            '編集担当',
+                            request.editorName ??
+                                (request.editorId == null ? '未定' : '決定済')),
                       ],
                     ),
                   ),

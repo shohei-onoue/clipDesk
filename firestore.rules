@@ -96,7 +96,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
         && request.resource.data.keys().hasOnly([
-          'requesterId', 'editorId', 'status', 'title', 'brief', 'dueDate',
+          'requesterId', 'requesterName', 'editorId', 'status', 'title', 'brief', 'dueDate',
           'attachments', 'reviewReason', 'revisionNote', 'reviewRound',
           'submissionCount', 'approvedVersion', 'createdAt', 'updatedAt']);
 
@@ -108,13 +108,27 @@ service cloud.firestore {
           // 依頼者: 要確認 → 受付待ち（指示書を直して再送信）。受付待ちの間の内容編集も同じ項目だけ。
           (resource.data.requesterId == request.auth.uid && isRequester()
             && (resource.data.status == 'needsInfo' || resource.data.status == 'pending')
-            && request.resource.data.status == 'pending'
+            // 修正の依頼への問合せ（inquiryFrom == 'revision'）への回答は、修正に戻る。
+            && ((request.resource.data.status == 'pending'
+                  && !(resource.data.get('inquiryFrom', null) == 'revision'))
+              || (request.resource.data.status == 'revision'
+                  && resource.data.status == 'needsInfo'
+                  && resource.data.get('inquiryFrom', null) == 'revision'))
             && request.resource.data.brief.purpose.size() > 0
             && request.resource.data.brief.deliveryTerms.size() > 0
             && request.resource.data.attachments is list
             && request.resource.data.attachments.size() >= 1
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['title', 'brief', 'dueDate', 'attachments', 'reviewReason', 'status', 'updatedAt']))
+                .hasOnly(['title', 'brief', 'dueDate', 'attachments', 'reviewReason', 'inquiryFrom', 'status', 'updatedAt']))
+          // 依頼者: 動画の確認中（承認前）に、添付資料を追加する（これまでの添付は外せない）。
+          || (resource.data.requesterId == request.auth.uid && isRequester()
+            && resource.data.status == 'review'
+            && resource.data.approvedVersion == null
+            && request.resource.data.attachments is list
+            && request.resource.data.attachments.size() > resource.data.attachments.size()
+            && request.resource.data.attachments[0:resource.data.attachments.size()] == resource.data.attachments
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['attachments', 'updatedAt']))
           // 依頼者: 初稿確認 → 修正（承認前のみ）
           || (resource.data.requesterId == request.auth.uid && isRequester()
             && resource.data.status == 'review'
@@ -146,7 +160,7 @@ service cloud.firestore {
           // 担当（editorId）は変えない。担当がいない間は、複数の編集者が続けて問い合わせられる。
           || (isEditor()
             && (resource.data.editorId == null || resource.data.editorId == request.auth.uid)
-            && (resource.data.status == 'pending' || resource.data.status == 'needsInfo' || resource.data.status == 'editing')
+            && (resource.data.status == 'pending' || resource.data.status == 'needsInfo' || resource.data.status == 'editing' || resource.data.status == 'revision')
             && request.resource.data.status == 'needsInfo'
             && request.resource.data.editorId == resource.data.editorId
             && request.resource.data.reviewReason is string
@@ -154,7 +168,7 @@ service cloud.firestore {
             && request.resource.data.reviewRound == resource.data.reviewRound + 1
             && request.auth.uid in request.resource.data.inquirerIds
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['reviewReason', 'reviewRound', 'inquirerIds', 'status', 'updatedAt']))
+                .hasOnly(['reviewReason', 'reviewRound', 'inquirerIds', 'inquiryFrom', 'status', 'updatedAt']))
           // 編集者: 編集中／修正 → 初稿確認（動画の保存記録と同時のみ）
           || (isEditor() && resource.data.editorId == request.auth.uid
             && (resource.data.status == 'editing' || resource.data.status == 'revision')
@@ -189,10 +203,13 @@ service cloud.firestore {
           && request.resource.data.path.matches('videos/' + requestId + '/.*');
         allow update: if false;
         // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
+        // また、承認したあとは、依頼者が、承認されなかった版の記録を消せる。
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
-          && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null;
+          && ((get(/databases/$(database)/documents/requests/$(requestId)).data.status != 'posted'
+              && get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion == null)
+            || (get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion != null
+              && resource.data.version != get(/databases/$(database)/documents/requests/$(requestId)).data.approvedVersion));
       }
 
       // 修正指示の記録。依頼者が修正指示と同時にだけ追加できる。
@@ -263,7 +280,9 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'editing')
           || (request.resource.data.type == 'resubmitted'
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
-            && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending')
+            // 受付待ちへの再送信のほか、修正の依頼への問合せへの回答（修正に戻る）。
+            && (getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'pending'
+              || getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'revision'))
           || (request.resource.data.type == 'needsInfo'
             && request.resource.data.recipientId == getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.requesterId
             && getAfter(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data.status == 'needsInfo')

@@ -112,6 +112,11 @@ void main() {
     expect(locked(editing, 'x'), isTrue);
     expect(locked(editing, 'ed'), isFalse);
     expect(locked(editing, 'r'), isFalse);
+    // 修正依頼：依頼主と担当の編集者だけ。それ以外は不可。
+    final revising = req('a', RequestStatus.revision, editorId: 'ed');
+    expect(locked(revising, 'r'), isFalse);
+    expect(locked(revising, 'ed'), isFalse);
+    expect(locked(revising, 'x'), isTrue);
     // 承認待ち（提出後・承認前）：依頼主だけ。提出した編集者も不可。
     final waiting = req('a', RequestStatus.review, editorId: 'ed');
     expect(locked(waiting, 'r'), isFalse);

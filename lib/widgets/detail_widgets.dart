@@ -162,19 +162,23 @@ class NoticeBar extends StatelessWidget {
   const NoticeBar(this.text, {super.key});
   final String text;
 
-  /// 背景は白で、枠はつけない。文字は暗い色。
+  /// 画面上部のメッセージ。背景・枠などの図形はつけず、左に拡声器のアイコン、
+  /// 大文字1文字分（文字サイズ1つ分）あけて、メッセージを出す。
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(minHeight: r.x(49)),
-      padding: EdgeInsets.symmetric(horizontal: r.x(14), vertical: r.x(12)),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(r.x(15)),
+    final size = r.x(14);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: r.x(4), vertical: r.x(4)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.campaign_outlined, size: r.x(24), color: AppColors.white),
+          SizedBox(width: size),
+          Expanded(
+              child: Text(text, style: AppText.dark(size, height: 21 / 14))),
+        ],
       ),
-      child: Text(text, style: AppText.noto(r.x(14), height: 21 / 14)),
     );
   }
 }

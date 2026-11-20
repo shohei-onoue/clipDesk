@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
@@ -9,6 +8,7 @@ import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/confirm_logout.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/app_icon.dart';
@@ -44,13 +44,7 @@ class MenuScreen extends StatelessWidget {
               showSettings: true,
               leadingIcon: AppIcons.logout,
               leadingTooltip: 'ログアウト',
-              onLeading: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/', (_) => false);
-                }
-              },
+              onLeading: () => confirmAndLogout(context),
             ),
             // 未読の通知があるときだけ、アプリバーの下に通知アイコンを出す。
             const NotificationBell(),

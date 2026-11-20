@@ -140,13 +140,22 @@ class AppChip extends StatelessWidget {
           constraints: BoxConstraints(minHeight: r.x(36)),
           padding: EdgeInsets.symmetric(horizontal: r.x(14)),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.08),
-            border: Border.all(color: AppColors.white.withValues(alpha: 0.55)),
+            color:
+                AppColors.white.withValues(alpha: onTap == null ? 0.04 : 0.08),
+            border: Border.all(
+                color: AppColors.white
+                    .withValues(alpha: onTap == null ? 0.16 : 0.55)),
             borderRadius: BorderRadius.circular(r.x(12)),
           ),
           child: Center(
             widthFactor: 1,
-            child: Text(label, style: AppText.dark(r.x(14), height: 20 / 14)),
+            // onTap が null のときは選べない（グレーアウト）。
+            child: Text(label,
+                style: AppText.dark(r.x(14),
+                    height: 20 / 14,
+                    color: onTap == null
+                        ? AppColors.white.withValues(alpha: 0.3)
+                        : AppColors.white)),
           ),
         ),
       ),

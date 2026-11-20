@@ -71,6 +71,7 @@ RequestStatus? nextStatus({
   required RequestAction action,
   required UserRole role,
   bool approved = false,
+  bool inquiryFromRevision = false,
 }) {
   switch (action) {
     case RequestAction.askForInfo:
@@ -78,7 +79,9 @@ RequestStatus? nextStatus({
       if (role == UserRole.editor &&
           (current == RequestStatus.pending ||
               current == RequestStatus.needsInfo ||
-              current == RequestStatus.editing)) {
+              current == RequestStatus.editing ||
+              // 修正の依頼の内容を確認するための問合せ。
+              current == RequestStatus.revision)) {
         return RequestStatus.needsInfo;
       }
     case RequestAction.startEditing:
@@ -87,6 +90,12 @@ RequestStatus? nextStatus({
       }
     case RequestAction.resubmit:
       // 要確認の回答のほか、受付待ち（まだ受注されていない）の間の内容編集にも使う。
+      // 修正の依頼への問合せ（inquiryFromRevision）への回答は、修正に戻る。
+      if (role == UserRole.requester &&
+          current == RequestStatus.needsInfo &&
+          inquiryFromRevision) {
+        return RequestStatus.revision;
+      }
       if (role == UserRole.requester &&
           (current == RequestStatus.needsInfo ||
               current == RequestStatus.pending)) {

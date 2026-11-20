@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../data/storage_service.dart';
@@ -447,6 +448,19 @@ class _BodyState extends State<_Body> {
     await _commit(due: d);
   }
 
+  /// 編集者が依頼者へ問い合わせる。メッセージを入力して送ると、ダッシュボードへ戻る
+  /// （フロー図：音声入力 → ダッシュボード）。
+  Future<void> _askRequester() async {
+    final nav = Navigator.of(context);
+    final message = await _askText('依頼者へのメッセージ', '確認したい内容を入力（音声でも入力できます）');
+    if (message == null) return;
+    final sent = await _run(
+        () => Services.repo
+            .askForInfo(requestId: q.id, uid: widget.uid, reason: message),
+        done: '依頼者へ通知しました');
+    if (sent) nav.maybePop();
+  }
+
   /// 問合せ内容の確認と回答は、チャット画面で行う。回答はその他指示の末尾に追記する
   /// （「回答する」で再送信すると、編集者へ届く）。
   Future<void> _answerInquiry(VideoRequest q) async {
@@ -493,36 +507,60 @@ class _BodyState extends State<_Body> {
     );
   }
 
-  /// 画面上部のお知らせ。状態を語句で伝える。
-  String _notice() {
+  /// 画面上部のメッセージ。誰からのメッセージか分かるものは、文の中に名前（○○様）を入れる。
+  /// 不特定多数へのもの（「編集者の受注待ちです」など）は、名前を入れない。
+  /// 問合せ中の依頼者向けだけ、最新の問合せをした編集者の名前を、問合せの履歴から取る。
+  Widget _noticeBar() {
+    if (q.status == RequestStatus.needsInfo && !_isEditor) {
+      return StreamBuilder<List<Inquiry>>(
+        stream: Services.repo.watchInquiries(q.id),
+        builder: (context, snap) {
+          final list = snap.data ?? const <Inquiry>[];
+          return NoticeBar(
+              _notice(asker: list.isEmpty ? null : list.last.editorName));
+        },
+      );
+    }
+    return NoticeBar(_notice());
+  }
+
+  /// 名前があれば「○○様」、なければ [fallback]（「依頼者」「編集者」）。
+  static String _honorific(String? name, String fallback) =>
+      name == null || name.isEmpty ? fallback : '$name様';
+
+  /// 画面上部のお知らせ。状態を語句で伝える。[asker] は、問合せ中に表示する、問い合わせた編集者の名前。
+  String _notice({String? asker}) {
+    final editor = _honorific(q.editorName, '編集者');
+    final requester = _honorific(q.requesterName, '依頼者');
     switch (q.status) {
       case RequestStatus.pending:
         if (_isEditor && !_canTakeOrAsk) {
-          return '${q.editorName ?? '他の編集者'}が担当しています。';
+          return '$editorが担当しています。';
         }
-        // 依頼者本人と、それ以外で言い方を分ける。
+        // 不特定多数へのメッセージ。依頼者本人と、それ以外で言い方を分ける。
         return !_isEditor && q.requesterId == widget.uid
             ? '編集担当者の受注待ちです。'
             : '編集者の受注待ちです。';
       case RequestStatus.needsInfo:
         if (_isEditor) {
-          return '依頼者へ問合せ中です。回答をお待ちください。';
+          return '$requesterへ問合せ中です。回答をお待ちください。';
         }
-        return '編集者より依頼内容の問い合わせが届いています。';
+        return '${_honorific(asker, '編集者')}より依頼内容の問い合わせが届いています。';
       case RequestStatus.editing:
         // 受注した編集者本人と、依頼者で言い方を分ける。
         if (_isEditor && _isAssignee) return 'あなたが受注した案件です。';
         if (!_isEditor && q.requesterId == widget.uid) {
-          return '${q.editorName ?? '編集者'}様が編集を承諾しました。';
+          return '$editorが編集を承諾しました。';
         }
-        return '編集中です。';
+        return '$editorが編集中です。';
       case RequestStatus.review:
-        if (q.approved) return '承認済みです。編集者の投稿を待っています。';
-        return _isEditor ? '提出済みです。依頼者の確認を待っています。' : '編集者よりアップされた動画を確認してください。';
+        if (q.approved) return '$requesterが承認済みです。編集者の投稿を待っています。';
+        return _isEditor
+            ? '動画を提出しました。$requesterの確認を待っています。'
+            : '$editorよりアップされた動画を確認してください。';
       case RequestStatus.revision:
-        return q.revisionNote == null
-            ? '修正の依頼があります。'
-            : '修正の依頼：${q.revisionNote}';
+        // 修正の内容は、提出された動画の行の「！」アイコンから読む。
+        return '$requesterより修正依頼が届きました。';
       case RequestStatus.posted:
         return '投稿済みです。';
     }
@@ -608,13 +646,20 @@ class _BodyState extends State<_Body> {
                     style: AppText.dark(r.x(14), weight: FontWeight.w400))),
           ])
         : DetailCard(children: [
-            // タイトルと同じ行の右端に、資料の追加ボタン（受付待ちの自分の依頼だけ）。
+            // タイトルと同じ行の右端に、資料の追加ボタン（受付待ちの自分の依頼と、動画確認中の自分の依頼）。
             Row(children: [
               Expanded(child: Text('添付資料', style: AppText.dark(r.x(16)))),
-              if (ownerPending)
+              if (ownerPending || reviewing)
                 IconButton(
                   tooltip: '資料を追加',
-                  onPressed: _busy ? null : _addAttachments,
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          // 動画確認画面では、この欄は資料のダイアログの中にある。
+                          // 追加が済むと一覧が変わるので、ダイアログを閉じてから追加する。
+                          if (videoLayout) Navigator.of(context).pop();
+                          _addAttachments();
+                        },
                   // ダウンロードアイコン（Icons.download）と同じ24px。
                   icon: const AppIcon(AppIcons.addCircle,
                       size: 24, color: AppColors.white),
@@ -734,7 +779,7 @@ class _BodyState extends State<_Body> {
     final list = ListView(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
       children: [
-        NoticeBar(_notice()),
+        _noticeBar(),
         if (ownerInquiry)
           Align(
             alignment: Alignment.centerRight,
@@ -753,23 +798,6 @@ class _BodyState extends State<_Body> {
             ),
           ),
         SizedBox(height: r.x(16)),
-        // 依頼者の動画確認：動画を上部に置く（画面を開いたあとに再生）。基本情報・指示書・添付資料は、
-        // 右下の資料アイコンから開くダイアログにまとめる。
-        if (videoLayout) ...[
-          SubmissionPlayer(
-              request: q,
-              onDocs: () => showDialog<void>(
-                    context: context,
-                    builder: (ctx) => _DocsDialog(children: [
-                      infoCard,
-                      SizedBox(height: r.y(10)),
-                      briefCard,
-                      SizedBox(height: r.y(10)),
-                      attachCard,
-                    ]),
-                  )),
-          SizedBox(height: r.x(16)),
-        ],
         if (!videoLayout) ...[infoCard, SizedBox(height: r.y(10))],
         if (actions.isNotEmpty) ...[
           SizedBox(height: r.y(16)),
@@ -787,7 +815,9 @@ class _BodyState extends State<_Body> {
         if (!videoLayout &&
             (s == RequestStatus.review ||
                 s == RequestStatus.revision ||
-                s == RequestStatus.posted))
+                s == RequestStatus.posted ||
+                // 修正の依頼への問合せ中も、修正を依頼された動画と「！」を見られるようにする。
+                (s == RequestStatus.needsInfo && q.inquiryFromRevision)))
           _Submissions(request: q, uid: widget.uid),
         if (!videoLayout && canCancel && !ownerPending && !ownerInquiry) ...[
           SizedBox(height: r.x(16)),
@@ -796,8 +826,31 @@ class _BodyState extends State<_Body> {
       ],
     );
     if (videoLayout) {
+      // 依頼者の動画確認：動画の再生エリアを、メッセージとボタンの間いっぱいに広げる（画面を開いたあとに再生）。
+      // 基本情報・指示書・添付資料は、右下の資料アイコンから開くダイアログにまとめる。
       return Column(children: [
-        Expanded(child: list),
+        Padding(
+          padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), 0),
+          child: _noticeBar(),
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(8)),
+            child: SubmissionPlayer(
+                request: q,
+                expand: true,
+                onDocs: () => showDialog<void>(
+                      context: context,
+                      builder: (ctx) => _DocsDialog(children: [
+                        infoCard,
+                        SizedBox(height: r.y(10)),
+                        briefCard,
+                        SizedBox(height: r.y(10)),
+                        attachCard,
+                      ]),
+                    )),
+          ),
+        ),
         Padding(
           padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
           child: reviewing
@@ -841,7 +894,19 @@ class _BodyState extends State<_Body> {
         Expanded(child: list),
         Padding(
           padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
-          child: DetailButton('動画を提出', AppColors.blue, _busy, _pickAndSubmit),
+          child: Row(children: [
+            // 修正の依頼の内容は、問合せで確認できる（新規依頼の問合せと同じ流れ）。
+            if (s == RequestStatus.revision) ...[
+              Expanded(
+                  child: DetailButton(
+                      '問合せ', AppColors.white, _busy, _askRequester)),
+              SizedBox(width: r.x(10)),
+            ],
+            Expanded(
+              child:
+                  DetailButton('動画を提出', AppColors.blue, _busy, _pickAndSubmit),
+            ),
+          ]),
         ),
       ]);
     }
@@ -864,18 +929,7 @@ class _BodyState extends State<_Body> {
             SizedBox(width: r.x(10)),
           ],
           Expanded(
-            child: DetailButton('問合せ', AppColors.white, _busy, () async {
-              final nav = Navigator.of(context);
-              final message =
-                  await _askText('依頼者へのメッセージ', '確認したい内容を入力（音声でも入力できます）');
-              if (message == null) return;
-              final sent = await _run(
-                  () => repo.askForInfo(
-                      requestId: q.id, uid: widget.uid, reason: message),
-                  done: '依頼者へ通知しました');
-              // 送れたらダッシュボードへ戻る（フロー図：音声入力 → ダッシュボード）。
-              if (sent) nav.maybePop();
-            }),
+            child: DetailButton('問合せ', AppColors.white, _busy, _askRequester),
           ),
         ]),
       ),
@@ -925,6 +979,20 @@ class _Submissions extends StatelessWidget {
           for (final s in snap.data ?? const <Submission>[])
             if (!request.approved || s.version == request.approvedVersion) s
         ];
+        return StreamBuilder<Map<int, String>>(
+            stream: Services.repo.watchRevisions(request.id),
+            builder: (context, revSnap) {
+              final revisions = revSnap.data ?? const <int, String>{};
+              return _card(context, r, access, subs, revisions);
+            });
+      },
+    );
+  }
+
+  Widget _card(BuildContext context, Responsive r, StaffAccess? access,
+      List<Submission> subs, Map<int, String> revisions) {
+    {
+      {
         return DetailCard(children: [
           Text('提出された動画', style: AppText.dark(r.x(16))),
           if (subs.isEmpty)
@@ -946,27 +1014,72 @@ class _Submissions extends StatelessWidget {
                   style: AppText.dark(12,
                       weight: FontWeight.w400,
                       color: AppColors.white.withValues(alpha: 0.7))),
-              // 完成品のダウンロードは依頼者権限のスタッフだけ。
-              trailing: (access?.canRequest ?? false)
-                  ? Builder(
-                      builder: (bctx) => GestureDetector(
-                        onLongPress: () =>
-                            showSaveMenu(bctx, path: s.path, name: s.name),
-                        child: IconButton(
-                          tooltip: 'ダウンロード（長押しで保存先を選ぶ）',
-                          color: AppColors.white,
-                          icon: const Icon(Icons.download),
-                          onPressed: () =>
-                              saveToDevice(bctx, path: s.path, name: s.name),
-                        ),
+              // 修正の依頼があった動画には、ダウンロードの左に「！」。完成品のダウンロードは依頼者権限のスタッフだけ。
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if ((revisions[s.version] ?? '').isNotEmpty)
+                  IconButton(
+                    tooltip: '修正の依頼を読む',
+                    color: AppColors.amber,
+                    icon: const Icon(Icons.warning_amber_rounded),
+                    onPressed: () =>
+                        _showRevision(context, revisions[s.version]!),
+                  ),
+                if (access?.canRequest ?? false)
+                  Builder(
+                    builder: (bctx) => GestureDetector(
+                      onLongPress: () =>
+                          showSaveMenu(bctx, path: s.path, name: s.name),
+                      child: IconButton(
+                        tooltip: 'ダウンロード（長押しで保存先を選ぶ）',
+                        color: AppColors.white,
+                        icon: const Icon(Icons.download),
+                        onPressed: () =>
+                            saveToDevice(bctx, path: s.path, name: s.name),
                       ),
-                    )
-                  : null,
+                    ),
+                  ),
+              ]),
               onTap: () => showVideoDialog(context,
                   path: s.path, title: '${request.brief.title} v${s.version}'),
             ),
         ]);
-      },
+      }
+    }
+  }
+
+  /// 修正の依頼の内容を、ダイアログで読む。
+  void _showRevision(BuildContext context, String text) {
+    final who = request.requesterName;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.ink,
+        title: Text(who == null ? '修正の依頼' : '$who様からの修正の依頼',
+            style: AppText.dark(18)),
+        // メッセージの表示エリア：背景は白、文字は ink。
+        content: Container(
+          width: double.maxFinite,
+          constraints: const BoxConstraints(maxHeight: 280),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: SingleChildScrollView(
+            child: Text(text,
+                style: AppText.dark(15,
+                    weight: FontWeight.w400,
+                    height: 1.5,
+                    color: AppColors.ink)),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child:
+                  Text('閉じる', style: AppText.dark(14, color: AppColors.white))),
+        ],
+      ),
     );
   }
 }
