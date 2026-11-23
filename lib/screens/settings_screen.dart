@@ -108,10 +108,15 @@ class SettingsScreen extends StatelessWidget {
                                 divisions: ReadSpeed.divisions,
                                 activeColor: AppColors.blue,
                                 inactiveColor: AppColors.gray,
-                                onChanged: s.setReadSpeed,
-                                // 指を離したとき、その速さで試しに読み上げる。
+                                // 動かして止めた位置で、その速さで試しに読み上げる
+                                // （指を離す前でも、止めたら読む。離したときはすぐ読む）。
+                                onChanged: (v) {
+                                  s.setReadSpeed(v);
+                                  ReadAloud.instance
+                                      .speakAfterPause('この速さで読み上げます。');
+                                },
                                 onChangeEnd: (_) => ReadAloud.instance
-                                    .speak('この速さで読み上げます。'),
+                                    .speakNow('この速さで読み上げます。'),
                               ),
                             ),
                             Row(

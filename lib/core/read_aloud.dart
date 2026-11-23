@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_tts/flutter_tts.dart';
@@ -37,6 +39,32 @@ class ReadAloud {
     return _tts;
   }
 
+  Timer? _later;
+
+  /// スライダーなどで値を動かしている間に使う。最後に動かしてから [wait] 後に読み上げる
+  /// （動かしている途中は読まず、止めた位置で1回だけ読む）。
+  void speakAfterPause(String text,
+      {Duration wait = const Duration(milliseconds: 350)}) {
+    _later?.cancel();
+    _spokeSinceMove = false;
+    _later = Timer(wait, () {
+      _spokeSinceMove = true;
+      speak(text);
+    });
+  }
+
+  bool _spokeSinceMove = false;
+
+  /// 予約中の読み上げをやめて、すぐ読み上げる。
+  void speakNow(String text) {
+    _later?.cancel();
+    if (_spokeSinceMove) {
+      _spokeSinceMove = false; // 止めている間に読み上げ済み。二度読まない。
+      return;
+    }
+    speak(text);
+  }
+
   Future<void> speak(String text) async {
     final s = text.trim();
     if (s.isEmpty) return;
@@ -48,9 +76,8 @@ class ReadAloud {
       final sp = AppSettings.instance.readSpeed;
       await t.setSpeechRate(kIsWeb ? ReadSpeed.webRate(sp) : ReadSpeed.appRate(sp));
       // iPhone：stop 直後の speak が打ち消されることがあるため、少し待つ。
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        await Future.delayed(const Duration(milliseconds: 80));
-      }
+      // Web も、stop（cancel）の直後の speak が無音になることがあるため、少し待つ。
+      await Future.delayed(const Duration(milliseconds: 80));
       await t.speak(s);
     } catch (_) {}
   }
