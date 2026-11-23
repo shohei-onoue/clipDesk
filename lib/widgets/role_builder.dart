@@ -2,13 +2,14 @@ import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../data/request_repository.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
 import 'ruby_text.dart';
 
 /// ログイン中ユーザーの役割を購読して builder に渡す。
 /// 役割が未設定の場合は案内を表示する（自己申告で役割を選ばせない）。
-class RoleBuilder extends StatelessWidget {
+class RoleBuilder extends StatefulWidget {
   const RoleBuilder({super.key, required this.builder, this.dark = false});
 
   /// ダーク背景の画面では true（文字と読み込み表示を明るい色にする）。
@@ -17,15 +18,33 @@ class RoleBuilder extends StatelessWidget {
   final Widget Function(BuildContext, String uid, UserRole role) builder;
 
   @override
+  State<RoleBuilder> createState() => _RoleBuilderState();
+}
+
+class _RoleBuilderState extends State<RoleBuilder> {
+  RequestRepository? _repo;
+  String? _uid;
+  UserRole? _mode;
+  Stream<UserRole?>? _role;
+
+  @override
   Widget build(BuildContext context) {
-    final fg = dark ? AppColors.white : AppColors.ink;
+    final fg = widget.dark ? AppColors.white : AppColors.ink;
     final uid = Services.uid;
     if (uid == null) {
       return Center(
           child: Text('ログインしてください', style: AppText.noto(16, color: fg)));
     }
+    final repo = Services.repo;
+    if (_repo != repo || _uid != uid || _mode != repo.staffMode) {
+      _repo = repo;
+      _uid = uid;
+      _mode = repo.staffMode;
+      _role = repo.watchRole(uid);
+    }
     return StreamBuilder<UserRole?>(
-      stream: Services.repo.watchRole(uid),
+      key: ValueKey(uid),
+      stream: _role,
       builder: (context, snap) {
         if (snap.hasError) {
           return Center(
@@ -37,7 +56,7 @@ class RoleBuilder extends StatelessWidget {
         if (snap.connectionState == ConnectionState.waiting) {
           return Center(
               child: CircularProgressIndicator(
-                  color: dark ? AppColors.white : null));
+                  color: widget.dark ? AppColors.white : null));
         }
         final role = snap.data;
         if (role == null) {
@@ -52,7 +71,7 @@ class RoleBuilder extends StatelessWidget {
             ),
           );
         }
-        return builder(context, uid, role);
+        return widget.builder(context, uid, role);
       },
     );
   }

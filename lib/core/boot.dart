@@ -9,7 +9,7 @@ import 'debug_auto_login.dart';
 enum BootState { loading, ready, failed }
 
 /// アプリ起動時の読み込み。画面（オープニング動画）を先に出し、この間に Firebase などを準備する。
-/// 準備ができたら、動画の途中でもログインフォームを出す。失敗したらエラーと再試行を出す。
+/// 準備ができたらログインフォームを開ける。失敗したらエラーと再試行を出す。
 class Boot {
   Boot._();
 

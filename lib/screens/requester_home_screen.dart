@@ -40,17 +40,6 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
-    final uid = Services.uid;
-    return StreamBuilder<UserRole?>(
-      stream: uid == null ? null : Services.repo.watchRole(uid),
-      builder: (context, roleSnap) {
-        final editor = roleSnap.data == UserRole.editor;
-        return _scaffold(context, r, editor);
-      },
-    );
-  }
-
-  Widget _scaffold(BuildContext context, Responsive r, bool editor) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       drawer: const AppDrawer(),
@@ -93,8 +82,6 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                 child: CircularProgressIndicator(
                                     color: AppColors.white));
                           }
-                          final role =
-                              editor ? UserRole.editor : UserRole.requester;
                           final list = sortForHome(
                               applyDashboardTab(snap.data!, _tab), role);
                           // カードがないときは、メッセージを出さず空のまま。

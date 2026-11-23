@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:clipdesk/data/request_repository.dart';
@@ -95,6 +96,31 @@ void main() {
     // 依頼者には、担当が決まった通知が届く。
     final req = await repo.watchNotifications('req', UserRole.requester).first;
     expect(req.single.type.name, 'assigned');
+  });
+
+  test('通知の購読中に受注されると新規依頼が消え、案件のない取り消し通知は残る', () async {
+    await create();
+    await db.collection('notifications').doc('cancelled').set({
+      'requestId': 'deleted',
+      'recipientId': 'ed2',
+      'type': 'cancelled',
+      'message': '依頼を取り消しました',
+    });
+    final notifications =
+        StreamIterator(repo.watchNotifications('ed2', UserRole.editor));
+    addTearDown(notifications.cancel);
+    expect(await notifications.moveNext().timeout(const Duration(seconds: 3)),
+        isTrue);
+    expect(
+        notifications.current.map((n) => n.type),
+        unorderedEquals(
+            [NotificationType.newRequest, NotificationType.cancelled]));
+
+    await repo.startEditing(requestId: 'r1', uid: 'ed');
+    expect(await notifications.moveNext().timeout(const Duration(seconds: 3)),
+        isTrue);
+    expect(
+        notifications.current.map((n) => n.type), [NotificationType.cancelled]);
   });
 
   test('添付の変更：受付待ちの本人だけ。追加・差し替え・削除でき、0件にはできない', () async {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../domain/brief.dart';
 import '../domain/home_logic.dart';
@@ -231,13 +232,6 @@ class RequestRepository {
         .map((q) => _toRequests(q.docs));
   }
 
-  /// 自分が依頼した、進行中の案件（投稿済み以外）。
-  Stream<List<VideoRequest>> watchActiveRequester(String uid) => _requests
-      .where('requesterId', isEqualTo: uid)
-      .where('status', whereIn: _activeStatusNames)
-      .snapshots()
-      .map((q) => _toRequests(q.docs));
-
   /// ライブラリ：投稿済みの案件を、承認が新しい順に [limit] 件まで。
   /// 並べ替えには複合インデックス（status と approvedAt、`firestore.indexes.json`）が要る。
   /// まだ作られていない間は、絞り込みだけで全件取って並べ替える（動くが、件数が多いと遅い）。
@@ -378,17 +372,41 @@ class RequestRepository {
     final notes = merged.map((docs) => [
           for (final d in docs) AppNotification.fromDoc(d.id, d.data()),
         ]);
-    // 依頼の今の状態を見て、処理済みの通知は一覧から外す。投稿済みの依頼は、承認・取り消し以外の通知は
-    // すべて処理済みになるので、進行中の依頼だけを見れば結果は同じ（全案件を購読しない）。
-    final requests = role == UserRole.editor
-        ? watchActiveRequests()
-        : watchActiveRequester(uid);
-    return _combine(notes, requests, (list, requests) {
-      final byId = {for (final r in requests) r.id: r};
-      return _sorted([
-        for (final n in list)
-          if (!isNotificationProcessed(n, byId[n.requestId], uid)) n,
-      ]);
+    return notes.switchMap((list) {
+      // 承認・取り消し通知は案件がなくても表示できる。
+      final requestIds = {
+        for (final note in list)
+          if (note.type != NotificationType.approved &&
+              note.type != NotificationType.cancelled &&
+              note.requestId.isNotEmpty)
+            note.requestId,
+      }.toList();
+      if (requestIds.isEmpty) {
+        return Stream.value(_sorted([
+          for (final note in list)
+            if (!isNotificationProcessed(note, null, uid)) note,
+        ]));
+      }
+
+      // 履歴が多ければ、過去の案件を何回にも分けて読む代わりに進行中だけを購読する。
+      final query = requestIds.length <= 30
+          ? _requests.where(FieldPath.documentId, whereIn: requestIds)
+          : _requests.where('status', whereIn: _activeStatusNames);
+      final scoped = role == UserRole.requester && requestIds.length > 30
+          ? query.where('requesterId', isEqualTo: uid)
+          : query;
+      return scoped.snapshots().map((snapshot) {
+        final byId = {
+          for (final request in _toRequests(snapshot.docs))
+            if (request.status != RequestStatus.posted &&
+                (role == UserRole.editor || request.requesterId == uid))
+              request.id: request,
+        };
+        return _sorted([
+          for (final note in list)
+            if (!isNotificationProcessed(note, byId[note.requestId], uid)) note,
+        ]);
+      });
     });
   }
 
@@ -486,7 +504,11 @@ class RequestRepository {
           ? await _uploadThumbnail('uploads/$uid/$requestId/thumb_0.jpg', f)
           : null;
       out.add(Attachment(
-          name: f.name, path: path, size: f.size, kind: kind, thumbPath: thumb));
+          name: f.name,
+          path: path,
+          size: f.size,
+          kind: kind,
+          thumbPath: thumb));
       onProgress?.call(out.length, total);
     }
 
@@ -1092,39 +1114,6 @@ Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _merge(
       }, onError: c.addError));
       subs.add(b.listen((q) {
         lb = q.docs;
-        emit();
-      }, onError: c.addError));
-    },
-    onCancel: () async {
-      for (final s in subs) {
-        await s.cancel();
-      }
-    },
-  );
-  return c.stream;
-}
-
-/// 2つのストリームの最新値を組み合わせる。両方に値が来てから、どちらかが変わるたびに流す。
-Stream<R> _combine<A, B, R>(Stream<A> a, Stream<B> b, R Function(A, B) f) {
-  late StreamController<R> c;
-  final subs = <StreamSubscription<Object?>>[];
-  A? la;
-  B? lb;
-  var ha = false, hb = false;
-  void emit() {
-    if (ha && hb) c.add(f(la as A, lb as B));
-  }
-
-  c = StreamController(
-    onListen: () {
-      subs.add(a.listen((v) {
-        la = v;
-        ha = true;
-        emit();
-      }, onError: c.addError));
-      subs.add(b.listen((v) {
-        lb = v;
-        hb = true;
         emit();
       }, onError: c.addError));
     },

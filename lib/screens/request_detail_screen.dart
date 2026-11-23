@@ -31,72 +31,85 @@ import '../widgets/ruby_text.dart';
 
 /// 案件詳細。依頼者は「動画承認」、編集者は「依頼確認／動画アップロード」を
 /// この画面から行う（役割と状態で操作を出し分ける）。
-class RequestDetailScreen extends StatelessWidget {
+class RequestDetailScreen extends StatefulWidget {
   const RequestDetailScreen({super.key, required this.requestId});
   final String requestId;
 
   @override
+  State<RequestDetailScreen> createState() => _RequestDetailScreenState();
+}
+
+class _RequestDetailScreenState extends State<RequestDetailScreen> {
+  late var _request = Services.repo.watchRequest(widget.requestId);
+  String? _accessUid;
+  Stream<StaffAccess>? _access;
+
+  @override
+  void didUpdateWidget(covariant RequestDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.requestId != oldWidget.requestId) {
+      _request = Services.repo.watchRequest(widget.requestId);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      bottomNavigationBar: const AppBottomBar(),
-      drawer: const AppDrawer(),
-      body: SafeArea(
-        child: Column(children: [
-          // 問合せ中だけ「依頼内容」（依頼者が内容を直す画面）、それ以外は「依頼確認」。
-          StreamBuilder<VideoRequest?>(
-            stream: Services.repo.watchRequest(requestId),
-            builder: (context, snap) => AppHeader(
-                title: switch (snap.data?.status) {
-              RequestStatus.pending => '依頼確認',
-              RequestStatus.needsInfo => '依頼内容',
-              _ => '依頼確認',
-            }),
-          ),
-          Expanded(
-            child: RoleBuilder(
-              dark: true,
-              builder: (context, uid, role) => StreamBuilder<VideoRequest?>(
-                stream: Services.repo.watchRequest(requestId),
-                builder: (context, snap) {
-                  if (snap.hasError) {
-                    // 権限のない案件は読み取りが拒否される。
-                    return const _Notice('エラー：この案件を表示できません。権限を確認してください');
-                  }
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return Center(
-                        child:
-                            CircularProgressIndicator(color: AppColors.white));
-                  }
-                  final req = snap.data;
-                  if (req == null) {
-                    return const _Notice('この案件は見つかりません');
-                  }
-                  // 依頼主と編集担当が決まった依頼は、その二人だけが見られる。問合せ中は依頼主だけ。
-                  if (isRequestLockedFor(req, uid, DateTime.now())) {
-                    return _Notice(req.status == RequestStatus.needsInfo
-                        ? '問合せ中の依頼は、依頼者のみ閲覧できます'
-                        : 'この依頼は、依頼者と担当の編集者のみ閲覧できます');
-                  }
-                  // 立場は「メイン画面で選んだ立場」ではなく、権限と依頼の関係で決める。
-                  // 編集者の権限があり、自分が出した依頼でなければ編集者として見る
-                  // （両方の権限をもつスタッフが依頼者の立場のままでも、「受注」「問合せ」が出る）。
-                  return StreamBuilder<StaffAccess>(
-                    stream: Services.repo.watchAccess(uid),
-                    builder: (context, access) {
-                      final canEdit = access.data?.canEdit ?? false;
-                      final effective = canEdit && req.requesterId != uid
-                          ? UserRole.editor
-                          : role;
-                      return _Body(request: req, uid: uid, role: effective);
-                    },
-                  );
-                },
+    return StreamBuilder<VideoRequest?>(
+      key: ValueKey(widget.requestId),
+      stream: _request,
+      builder: (context, snap) => Scaffold(
+        backgroundColor: AppColors.bg,
+        bottomNavigationBar: const AppBottomBar(),
+        drawer: const AppDrawer(),
+        body: SafeArea(
+          child: Column(children: [
+            AppHeader(
+              title: snap.data?.status == RequestStatus.needsInfo
+                  ? '依頼内容'
+                  : '依頼確認',
+            ),
+            Expanded(
+              child: RoleBuilder(
+                dark: true,
+                builder: (context, uid, role) =>
+                    _buildRequest(context, snap, uid, role),
               ),
             ),
-          ),
-        ]),
+          ]),
+        ),
       ),
+    );
+  }
+
+  Widget _buildRequest(BuildContext context, AsyncSnapshot<VideoRequest?> snap,
+      String uid, UserRole role) {
+    if (snap.hasError) {
+      return const _Notice('エラー：この案件を表示できません。権限を確認してください');
+    }
+    if (snap.connectionState == ConnectionState.waiting) {
+      return Center(child: CircularProgressIndicator(color: AppColors.white));
+    }
+    final request = snap.data;
+    if (request == null) return const _Notice('この案件は見つかりません');
+    if (isRequestLockedFor(request, uid, DateTime.now())) {
+      return _Notice(request.status == RequestStatus.needsInfo
+          ? '問合せ中の依頼は、依頼者のみ閲覧できます'
+          : 'この依頼は、依頼者と担当の編集者のみ閲覧できます');
+    }
+
+    if (_accessUid != uid) {
+      _accessUid = uid;
+      _access = Services.repo.watchAccess(uid);
+    }
+    return StreamBuilder<StaffAccess>(
+      key: ValueKey(uid),
+      stream: _access,
+      builder: (context, snap) {
+        final canEdit = snap.data?.canEdit ?? false;
+        final effective =
+            canEdit && request.requesterId != uid ? UserRole.editor : role;
+        return _Body(request: request, uid: uid, role: effective);
+      },
     );
   }
 }

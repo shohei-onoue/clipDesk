@@ -18,6 +18,13 @@ void main() {
     await tester.pumpWidget(const ClipDeskApp());
     await tester.pump();
 
+    final skip = find.text('SKIP');
+    expect(skip, findsOneWidget);
+    expect(find.text('REPLAY'), findsOneWidget);
+    expect(MediaQuery.textScalerOf(tester.element(skip)).scale(16), 16);
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+
     final fields = find.byType(EditableText);
     expect(fields, findsNWidgets(2));
     for (final field in tester.elementList(fields)) {

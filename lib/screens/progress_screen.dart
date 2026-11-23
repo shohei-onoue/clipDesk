@@ -79,9 +79,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           .where((q) =>
                               _tabs[_tab] == null || q.status == _tabs[_tab])
                           .toList();
-                      return ListView(
-                        padding: EdgeInsets.fromLTRB(
-                            r.x(10), r.y(8), r.x(10), r.y(12)),
+                      final summary = Column(
                         children: [
                           FilterChipsRow(
                             selected: _tab,
@@ -100,28 +98,36 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     color: AppColors.white))
                           else if (shown.isEmpty)
                             emptyTextDark(context, '該当する案件はありません'),
-                          for (final q in shown)
-                            Padding(
-                              padding: EdgeInsets.only(bottom: r.y(10)),
-                              child: StepProgressCard(
-                                request: q,
-                                // 自分の案件だけ「あなたの対応待ち」を出す（他人の案件は進行状況のみ）。
-                                role: q.requesterId == uid
-                                    ? UserRole.requester
-                                    : q.editorId == uid
-                                        ? UserRole.editor
-                                        : null,
-                                uid: uid,
-                                onTap: () {
-                                  // 詳細は、その案件で自分が担う立場で開く。
-                                  Services.repo.staffMode = q.requesterId == uid
-                                      ? UserRole.requester
-                                      : UserRole.editor;
-                                  openRequest(context, q.id);
-                                },
-                              ),
-                            ),
                         ],
+                      );
+                      return ListView.builder(
+                        padding: EdgeInsets.fromLTRB(
+                            r.x(10), r.y(8), r.x(10), r.y(12)),
+                        itemCount: shown.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == 0) return summary;
+                          final q = shown[index - 1];
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: r.y(10)),
+                            child: StepProgressCard(
+                              request: q,
+                              // 自分の案件だけ「あなたの対応待ち」を出す（他人の案件は進行状況のみ）。
+                              role: q.requesterId == uid
+                                  ? UserRole.requester
+                                  : q.editorId == uid
+                                      ? UserRole.editor
+                                      : null,
+                              uid: uid,
+                              onTap: () {
+                                // 詳細は、その案件で自分が担う立場で開く。
+                                Services.repo.staffMode = q.requesterId == uid
+                                    ? UserRole.requester
+                                    : UserRole.editor;
+                                openRequest(context, q.id);
+                              },
+                            ),
+                          );
+                        },
                       );
                     }
                   },

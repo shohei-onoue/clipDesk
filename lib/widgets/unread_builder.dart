@@ -7,7 +7,7 @@ import '../domain/video_request.dart';
 
 /// 通知の一覧（削除していないもの）と、そのうちの未読を渡す。
 /// 既読・削除は通知ごとの状態（[NotificationState]）で決める。
-class UnreadBuilder extends StatelessWidget {
+class UnreadBuilder extends StatefulWidget {
   const UnreadBuilder({
     super.key,
     required this.uid,
@@ -21,15 +21,39 @@ class UnreadBuilder extends StatelessWidget {
       List<AppNotification> unread) builder;
 
   @override
+  State<UnreadBuilder> createState() => _UnreadBuilderState();
+}
+
+class _UnreadBuilderState extends State<UnreadBuilder> {
+  late var _notificationState =
+      Services.repo.watchNotificationState(widget.uid);
+  late var _notifications =
+      Services.repo.watchNotifications(widget.uid, widget.role);
+
+  @override
+  void didUpdateWidget(covariant UnreadBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.uid != oldWidget.uid) {
+      _notificationState = Services.repo.watchNotificationState(widget.uid);
+    }
+    if (widget.uid != oldWidget.uid || widget.role != oldWidget.role) {
+      _notifications =
+          Services.repo.watchNotifications(widget.uid, widget.role);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<NotificationState>(
-      stream: Services.repo.watchNotificationState(uid),
+      key: ValueKey(widget.uid),
+      stream: _notificationState,
       builder: (context, state) => StreamBuilder<List<AppNotification>>(
-        stream: Services.repo.watchNotifications(uid, role),
+        key: ValueKey(widget.role),
+        stream: _notifications,
         builder: (context, snap) {
           final st = state.data ?? const NotificationState();
           final all = st.visible(snap.data ?? const <AppNotification>[]);
-          return builder(context, all, st.unread(all));
+          return widget.builder(context, all, st.unread(all));
         },
       ),
     );

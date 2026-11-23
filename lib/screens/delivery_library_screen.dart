@@ -37,6 +37,19 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
   final _scroll = ScrollController();
   int _lastCount = 0;
 
+  final _submissions = <(String, int), Future<Submission?>>{};
+
+  Future<Submission?> _approvedSubmission(VideoRequest request) {
+    final version = request.approvedVersion;
+    if (version == null) return Future.value(null);
+    final key = (request.id, version);
+    return _submissions.putIfAbsent(key, () async {
+      final submission = await Services.repo.getSubmission(request.id, version);
+      if (submission == null) _submissions.remove(key);
+      return submission;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,10 +114,11 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
                       }
                       final q = approved[i - 1];
                       return Padding(
+                        key: ValueKey((q.id, q.approvedVersion)),
                         padding: EdgeInsets.only(bottom: r.x(12)),
                         child: _LibraryCard(
-                            key: ValueKey(q.id),
                             request: q,
+                            loadVideo: _approvedSubmission,
                             uid: uid,
                             role: role),
                       );
@@ -129,11 +143,12 @@ String _dateTime(DateTime? t) {
 /// 動画1本分のカード：左に再生サムネイル、右に題名・承認日時・編集者名。
 class _LibraryCard extends StatefulWidget {
   const _LibraryCard(
-      {super.key,
-      required this.request,
+      {required this.request,
+      required this.loadVideo,
       required this.uid,
       required this.role});
   final VideoRequest request;
+  final Future<Submission?> Function(VideoRequest) loadVideo;
   final String uid;
   final UserRole role;
 
@@ -143,10 +158,7 @@ class _LibraryCard extends StatefulWidget {
 
 class _LibraryCardState extends State<_LibraryCard> {
   /// 承認された版の提出動画。カードごとに購読せず、1回だけ読む（一覧に必要なのはこの1件だけ）。
-  late final Future<Submission?> _video = widget.request.approvedVersion == null
-      ? Future.value(null)
-      : Services.repo
-          .getSubmission(widget.request.id, widget.request.approvedVersion!);
+  late final Future<Submission?> _video = widget.loadVideo(widget.request);
 
   VideoRequest get request => widget.request;
   String get uid => widget.uid;

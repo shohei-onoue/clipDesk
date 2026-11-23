@@ -1,6 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart' show SemanticsBinding;
+import 'package:flutter/semantics.dart' show SemanticsBinding, SemanticsHandle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_settings.dart';
@@ -19,19 +18,50 @@ import 'screens/staff_admin_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 
+/// Web でも、VoiceOver・TalkBack・ブラウザの読み上げ機能が画面の文字を読めるよう、
+/// アクセシビリティ情報（セマンティクス）をオンにする。
+/// ただし、メール・パスワードの入力欄があるログイン・登録画面ではオフにする。
+/// オンのままだと、iPhone Safari で1文字入力するたびに入力欄が作り直され、
+/// キーボードが英字からかなへ戻ってしまう。
+class _SemanticsSwitch extends NavigatorObserver {
+  SemanticsHandle? _handle;
+
+  void _sync(Route<dynamic>? route) {
+    final name = route?.settings.name;
+    if (name == null) return; // ダイアログなどは、直前の状態のまま。
+    final off = name == '/' || name == '/register';
+    if (off) {
+      _handle?.dispose();
+      _handle = null;
+    } else {
+      _handle ??= SemanticsBinding.instance.ensureSemantics();
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _sync(route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _sync(previousRoute);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _sync(newRoute);
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 設定は端末から一瞬で読める。最初の画面から配色・文字の大きさを合わせるため、先に読む。
   await AppSettings.instance.load();
-  // Web でも、VoiceOver・TalkBack・ブラウザの読み上げ機能が画面の文字を読めるよう、
-  // アクセシビリティ情報（セマンティクス）を最初からオンにする。
-  SemanticsBinding.instance.ensureSemantics();
-  runApp(const ClipDeskApp());
-  // Firebase などの読み込みは、画面（オープニング動画）を出したあとで進める。
   // 保存済みの認証情報ではホームへ進まず、毎回ボタン操作で認証する。
   // ただしデバッグ実行（ポート 5001／5002）だけは、テスト用アカウントで自動ログインする。
-  unawaited(Boot.run());
+  await Boot.run();
+  runApp(const ClipDeskApp());
 }
+
+final _semanticsSwitch = _SemanticsSwitch();
 
 class ClipDeskApp extends StatefulWidget {
   const ClipDeskApp({super.key});
@@ -41,6 +71,9 @@ class ClipDeskApp extends StatefulWidget {
 }
 
 class _ClipDeskAppState extends State<ClipDeskApp> {
+  /// 招待リンクなら登録、デバッグの自動ログイン済みならメイン、それ以外はログイン画面から始める。
+  final String _initialRoute = Boot.takeInitialRoute() ?? '/';
+
   @override
   void initState() {
     super.initState();
@@ -105,7 +138,8 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
       // 招待メールのリンクから開いたときは、登録フォームから始める。
       // 最初はいつもログイン画面（オープニング動画）。読み込みが終わったら、
       // 招待リンクなら登録フォームへ、デバッグの自動ログイン済みならメイン画面へ進む。
-      initialRoute: '/',
+      initialRoute: _initialRoute,
+      navigatorObservers: [_semanticsSwitch],
       routes: routes,
       // 最初の画面は1枚だけにする。標準では「/menu」から始めると、下にログイン画面（/）が
       // 積まれ、戻る操作が重なるとログイン画面（＝ログアウトしたように見える）へ戻ってしまう。
