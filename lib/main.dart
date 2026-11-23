@@ -12,7 +12,6 @@ import 'screens/request_detail_screen.dart';
 import 'screens/staff_invite_screen.dart';
 import 'screens/requester_home_screen.dart';
 import 'screens/menu_screen.dart';
-import 'screens/progress_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/staff_admin_screen.dart';
 import 'screens/login_screen.dart';
@@ -109,7 +108,6 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
       '/staff': (_) => const StaffAdminScreen(),
       '/staff/invite': (_) => const StaffInviteScreen(),
       '/menu': (_) => const MenuScreen(),
-      '/progress': (_) => const ProgressScreen(),
       '/home': (_) => const RequesterHomeScreen(),
       '/chat': (_) => const ChatScreen(),
       '/brief': (_) => const BriefConfirmScreen(),

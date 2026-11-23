@@ -11,7 +11,6 @@ import 'package:clipdesk/widgets/app_drawer.dart';
 import 'package:clipdesk/screens/delivery_library_screen.dart';
 import 'package:clipdesk/screens/menu_screen.dart';
 import 'package:clipdesk/screens/notifications_screen.dart';
-import 'package:clipdesk/screens/progress_screen.dart';
 import 'package:clipdesk/screens/request_detail_screen.dart';
 import 'package:clipdesk/screens/requester_home_screen.dart';
 import 'package:clipdesk/screens/settings_screen.dart';
@@ -105,7 +104,6 @@ void main() {
     'メイン': () => const MenuScreen(),
     'ダッシュボード': () => const RequesterHomeScreen(),
     'ライブラリ': () => const DeliveryLibraryScreen(),
-    '進捗': () => const ProgressScreen(),
     '通知': () => const NotificationsScreen(),
     '依頼詳細（受付待ち）': () => const RequestDetailScreen(requestId: 'r1'),
     '依頼詳細（編集中）': () => const RequestDetailScreen(requestId: 'r2'),

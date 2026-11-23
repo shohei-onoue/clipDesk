@@ -8,7 +8,6 @@
 | --- | --- | --- |
 | メイン / menu_screen.dart | AppHeader「ホーム」→権限別のイラスト付きグラデーションカード。依頼者ページ／編集者ページ／依頼一覧／スタッフ管理（ルビは「管理」の上） | なし |
 | ダッシュボード / requester_home_screen.dart | AppHeader「ダッシュボード」→TopTabs（すべて・依頼・編集・確認）→2列の進捗カード。全スタッフが全案件を見られる | あり |
-| 進捗状況 / progress_screen.dart | AppHeader→件数付きの進捗フィルター→StepProgressCard。投稿済を除く全員分の案件 | あり |
 | 通知 / notifications_screen.dart | AppHeader→通知カード。新着はAmberの枠・ベルと「新着」の語句。タップで案件詳細 | あり |
 | 納品ライブラリ / delivery_library_screen.dart | AppHeader→投稿済の行カード。最終動画を再生 | あり |
 | 依頼チャット・指示書の修正 / chat_screen.dart | AppHeader→上詰めの会話・添付一覧・回答選択肢→入力バー。完了時は確認CTA | なし |
