@@ -164,20 +164,45 @@ enum AppPalette {
   bool get isLight => bg.computeLuminance() > 0.5;
 }
 
-/// 読み上げの速さ。「ふつう」が従来の速さ。
-enum ReadSpeed {
-  slow('ゆっくり', 0.9, 0.4),
-  normal('ふつう', 1.25, 0.55),
-  fast('はやい', 1.6, 0.7);
+/// 読み上げの速さ（倍率）。1.0 が「ふつう」（従来の速さ）。スライダーで 0.5〜1.5 倍まで変えられる。
+class ReadSpeed {
+  ReadSpeed._();
 
-  const ReadSpeed(this.label, this.webRate, this.appRate);
-  final String label;
+  static const double min = 0.5;
+  static const double max = 1.5;
+  static const double normal = 1.0;
 
-  /// Web（1.0 が普通の速さ）用。
-  final double webRate;
+  /// スライダーの刻み（0.1 刻み）。
+  static const int divisions = 10;
 
-  /// Android・iOS（0.5 が普通の速さ）用。
-  final double appRate;
+  /// Web（ブラウザ標準は 1.0 が普通の速さ）用。「ふつう」は 1.25。
+  static double webRate(double v) => 1.25 * v;
+
+  /// Android・iOS（0.5 が普通の速さ）用。「ふつう」は 0.55。
+  static double appRate(double v) => 0.55 * v;
+
+  /// 画面に出す言葉（例：「ふつう（1.0倍）」）。
+  static String label(double v) {
+    final x = v.toStringAsFixed(1);
+    if ((v - normal).abs() < 0.05) return 'ふつう（$x倍）';
+    return v < normal ? 'ゆっくり（$x倍）' : 'はやい（$x倍）';
+  }
+
+  static double _clamp(double v) =>
+      (v.clamp(min, max) * 10).roundToDouble() / 10;
+
+  /// 保存された値（数、または以前の「slow／normal／fast」）を倍率にする。
+  static double parse(Object? v) {
+    if (v is num) return _clamp(v.toDouble());
+    switch (v) {
+      case 'slow':
+        return 0.7;
+      case 'fast':
+        return 1.3;
+      default:
+        return normal;
+    }
+  }
 }
 
 /// 表示の設定（文字の大きさ・色の組み合わせ・ふりがな）。端末に保存する。
@@ -197,7 +222,7 @@ class AppSettings extends ChangeNotifier {
   AppPalette _palette = AppPalette.standard;
   bool _ruby = false;
   bool _readAloud = false;
-  ReadSpeed _readSpeed = ReadSpeed.normal;
+  double _readSpeed = ReadSpeed.normal;
 
   /// ログイン中のユーザーの ID。設定はこのユーザーの `users/{uid}.settings` に保存する。
   String? _uid;
@@ -216,7 +241,7 @@ class AppSettings extends ChangeNotifier {
   bool get readAloud => _readAloud;
 
   /// 読み上げの速さ。
-  ReadSpeed get readSpeed => _readSpeed;
+  double get readSpeed => _readSpeed;
 
   /// 保存済みの設定を読む。読めなければ（初回・失敗）従来の表示のまま。
   Future<void> load() async {
@@ -230,9 +255,7 @@ class AppSettings extends ChangeNotifier {
           orElse: () => AppPalette.standard);
       _ruby = p.getBool(_kRuby) ?? false;
       _readAloud = p.getBool(_kRead) ?? false;
-      _readSpeed = ReadSpeed.values.firstWhere(
-          (e) => e.name == p.getString(_kReadSpeed),
-          orElse: () => ReadSpeed.normal);
+      _readSpeed = ReadSpeed.parse(p.get(_kReadSpeed));
     } catch (_) {}
   }
 
@@ -268,12 +291,13 @@ class AppSettings extends ChangeNotifier {
     await _save((p) => p.setBool(_kRead, v));
   }
 
-  Future<void> setReadSpeed(ReadSpeed v) async {
+  Future<void> setReadSpeed(double v) async {
+    v = ReadSpeed.parse(v);
     if (v == _readSpeed) return;
     _readSpeed = v;
     _unsaved = true;
     notifyListeners();
-    await _save((p) => p.setString(_kReadSpeed, v.name));
+    await _save((p) => p.setDouble(_kReadSpeed, v));
   }
 
   Map<String, Object> toMap() => {
@@ -281,7 +305,7 @@ class AppSettings extends ChangeNotifier {
         'palette': _palette.name,
         'ruby': _ruby,
         'readAloud': _readAloud,
-        'readSpeed': _readSpeed.name,
+        'readSpeed': _readSpeed,
       };
 
   void _apply(Map<String, dynamic> m) {
@@ -291,8 +315,7 @@ class AppSettings extends ChangeNotifier {
         orElse: () => AppPalette.standard);
     _ruby = m['ruby'] == true;
     _readAloud = m['readAloud'] == true;
-    _readSpeed = ReadSpeed.values.firstWhere((e) => e.name == m['readSpeed'],
-        orElse: () => ReadSpeed.normal);
+    _readSpeed = ReadSpeed.parse(m['readSpeed']);
   }
 
   /// ログインしたとき：そのユーザーが保存した設定を読んで反映する。
@@ -322,7 +345,7 @@ class AppSettings extends ChangeNotifier {
       await p.setString(_kPalette, _palette.name);
       await p.setBool(_kRuby, _ruby);
       await p.setBool(_kRead, _readAloud);
-      return p.setString(_kReadSpeed, _readSpeed.name);
+      return p.setDouble(_kReadSpeed, _readSpeed);
     });
   }
 

@@ -46,7 +46,7 @@ class ReadAloud {
       await t.stop();
       // 速さの基準が違う：Web（ブラウザ標準）は 1.0 が普通の速さ、Android・iOS は 0.5 が普通。
       final sp = AppSettings.instance.readSpeed;
-      await t.setSpeechRate(kIsWeb ? sp.webRate : sp.appRate);
+      await t.setSpeechRate(kIsWeb ? ReadSpeed.webRate(sp) : ReadSpeed.appRate(sp));
       // iPhone：stop 直後の speak が打ち消されることがあるため、少し待つ。
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
         await Future.delayed(const Duration(milliseconds: 80));

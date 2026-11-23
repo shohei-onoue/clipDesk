@@ -96,23 +96,31 @@ class SettingsScreen extends StatelessWidget {
                             SizedBox(height: r.x(14)),
                             Text('読み上げの速さ', style: AppText.dark(r.x(16))),
                             SizedBox(height: r.x(8)),
-                            Row(children: [
-                              for (final sp in ReadSpeed.values) ...[
-                                if (sp != ReadSpeed.slow)
-                                  SizedBox(width: r.x(8)),
-                                Expanded(
-                                  child: _Choice(
-                                    label: sp.label,
-                                    what: '読み上げの速さ',
-                                    selected: s.readSpeed == sp,
-                                    onTap: () async {
-                                      await s.setReadSpeed(sp);
-                                      ReadAloud.instance.speak('この速さで読み上げます。');
-                                    },
-                                  ),
-                                ),
+                            Text(ReadSpeed.label(s.readSpeed),
+                                style: AppText.dark(r.x(14))),
+                            Semantics(
+                              label: '読み上げの速さ',
+                              value: ReadSpeed.label(s.readSpeed),
+                              child: Slider(
+                                value: s.readSpeed,
+                                min: ReadSpeed.min,
+                                max: ReadSpeed.max,
+                                divisions: ReadSpeed.divisions,
+                                activeColor: AppColors.blue,
+                                inactiveColor: AppColors.gray,
+                                onChanged: s.setReadSpeed,
+                                // 指を離したとき、その速さで試しに読み上げる。
+                                onChangeEnd: (_) => ReadAloud.instance
+                                    .speak('この速さで読み上げます。'),
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('ゆっくり', style: AppText.dark(r.x(12))),
+                                Text('はやい', style: AppText.dark(r.x(12))),
                               ],
-                            ]),
+                            ),
                           ]),
                     ),
                   ],
@@ -236,12 +244,10 @@ class _Choice extends StatelessWidget {
   const _Choice(
       {required this.label,
       required this.selected,
-      required this.onTap,
-      this.what = '文字の大きさ'});
+      required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final String what;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +255,7 @@ class _Choice extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '$what$label',
+      label: '文字の大きさ$label',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
