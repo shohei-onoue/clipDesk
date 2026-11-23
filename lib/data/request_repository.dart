@@ -10,6 +10,7 @@ import '../domain/request_status.dart';
 import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import 'storage_service.dart';
+import 'video_thumb.dart';
 
 /// 状態が既に変わっていた等、操作を受け付けられない場合。
 class RequestStateException implements Exception {
@@ -202,9 +203,79 @@ class RequestRepository {
     return true;
   }
 
-  /// 全案件（スタッフは全員が閲覧できる）。
+  /// 全案件（スタッフは全員が閲覧できる）。投稿済みも含むので、一覧には使わない
+  /// （ダッシュボード・進捗・通知は [watchActiveRequests]、ライブラリは [watchPostedRequests]）。
   Stream<List<VideoRequest>> watchAllRequests() =>
       _requests.snapshots().map((q) => _toRequests(q.docs));
+
+  /// 投稿済み以外の案件の状態名（`status` の値）。
+  static final List<String> _activeStatusNames = [
+    for (final s in RequestStatus.values)
+      if (s != RequestStatus.posted) s.name
+  ];
+
+  /// 進行中の案件（投稿済み以外）。[statuses] を渡すと、その状態だけをサーバー側で絞る
+  /// （単一項目の絞り込みなので、Firestoreのインデックスの追加は要らない）。
+  Stream<List<VideoRequest>> watchActiveRequests(
+      {Set<RequestStatus>? statuses}) {
+    final names = statuses == null
+        ? _activeStatusNames
+        : [
+            for (final s in statuses)
+              if (s != RequestStatus.posted) s.name
+          ];
+    if (names.isEmpty) return Stream.value(const <VideoRequest>[]);
+    return _requests
+        .where('status', whereIn: names)
+        .snapshots()
+        .map((q) => _toRequests(q.docs));
+  }
+
+  /// 自分が依頼した、進行中の案件（投稿済み以外）。
+  Stream<List<VideoRequest>> watchActiveRequester(String uid) => _requests
+      .where('requesterId', isEqualTo: uid)
+      .where('status', whereIn: _activeStatusNames)
+      .snapshots()
+      .map((q) => _toRequests(q.docs));
+
+  /// ライブラリ：投稿済みの案件を、承認が新しい順に [limit] 件まで。
+  /// 並べ替えには複合インデックス（status と approvedAt、`firestore.indexes.json`）が要る。
+  /// まだ作られていない間は、絞り込みだけで全件取って並べ替える（動くが、件数が多いと遅い）。
+  Stream<List<VideoRequest>> watchPostedRequests({required int limit}) async* {
+    final posted =
+        _requests.where('status', isEqualTo: RequestStatus.posted.name);
+    try {
+      await for (final q in posted
+          .orderBy('approvedAt', descending: true)
+          .limit(limit)
+          .snapshots()) {
+        yield _toRequests(q.docs);
+      }
+    } on FirebaseException catch (e) {
+      if (e.code != 'failed-precondition') rethrow;
+      await for (final q in posted.snapshots()) {
+        yield (_toRequests(q.docs)
+              ..sort((a, b) => (b.approvedAt ?? DateTime(0))
+                  .compareTo(a.approvedAt ?? DateTime(0))))
+            .take(limit)
+            .toList();
+      }
+    }
+  }
+
+  /// 承認された版の提出動画1件（ライブラリの一覧用）。購読せず、1回だけ読む。
+  Future<Submission?> getSubmission(String requestId, int version) async {
+    try {
+      final d = await _requests
+          .doc(requestId)
+          .collection('submissions')
+          .doc('v$version')
+          .get();
+      return d.exists ? Submission.fromMap(d.data()!) : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // ---- 通知の既読 ----
   // 通知は全員向けのものを共有しているので、既読・削除（非表示）は通知ごとに、
@@ -307,9 +378,11 @@ class RequestRepository {
     final notes = merged.map((docs) => [
           for (final d in docs) AppNotification.fromDoc(d.id, d.data()),
         ]);
-    // 依頼の今の状態を見て、処理済みの通知は一覧から外す。
-    final requests =
-        role == UserRole.editor ? watchAllRequests() : watchRequester(uid);
+    // 依頼の今の状態を見て、処理済みの通知は一覧から外す。投稿済みの依頼は、承認・取り消し以外の通知は
+    // すべて処理済みになるので、進行中の依頼だけを見れば結果は同じ（全案件を購読しない）。
+    final requests = role == UserRole.editor
+        ? watchActiveRequests()
+        : watchActiveRequester(uid);
     return _combine(notes, requests, (list, requests) {
       final byId = {for (final r in requests) r.id: r};
       return _sorted([
@@ -376,6 +449,23 @@ class RequestRepository {
     await batch.commit();
   }
 
+  /// 動画の最初の1コマをJPEGにして [path] に保存する。保存したパスを返す。
+  /// 作れない・保存できないときは null（動画そのものの保存は止めない。一覧は代替表示になる）。
+  Future<String?> _uploadThumbnail(String path, UploadFile video) async {
+    try {
+      final jpeg = await makeVideoThumbnail(video);
+      if (jpeg == null) return null;
+      await _storage.upload(
+          path,
+          UploadFile(
+              name: 'thumb.jpg', size: jpeg.length, read: () async => jpeg),
+          contentType: 'image/jpeg');
+      return path;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Attachment>> _uploadAttachments(String uid, String requestId,
       List<UploadFile> videos, List<UploadFile> refs,
       [void Function(int done, int total)? onProgress]) async {
@@ -391,7 +481,12 @@ class RequestRepository {
         // どのファイルで止まったかが分かるように、名前と種類を添える。
         throw StateError('${f.name}（$type）を保存できませんでした：$e');
       }
-      out.add(Attachment(name: f.name, path: path, size: f.size, kind: kind));
+      // 最初の動画だけ、一覧用の静止画サムネイルも保存する。
+      final thumb = kind == 'video' && i == 0
+          ? await _uploadThumbnail('uploads/$uid/$requestId/thumb_0.jpg', f)
+          : null;
+      out.add(Attachment(
+          name: f.name, path: path, size: f.size, kind: kind, thumbPath: thumb));
       onProgress?.call(out.length, total);
     }
 
@@ -753,6 +848,9 @@ class RequestRepository {
     final path = 'videos/$requestId/v$version/${_safe(file.name)}';
     await _storage.upload(path, file,
         contentType: StorageService.contentTypeFor(file.name, video: true));
+    // 一覧用の静止画サムネイル（承認後のライブラリで使う）。
+    final thumbPath =
+        await _uploadThumbnail('videos/$requestId/v$version/thumb.jpg', file);
     await _transition(
       requestId: requestId,
       uid: uid,
@@ -768,6 +866,7 @@ class RequestRepository {
           'name': file.name,
           'path': path,
           'size': file.size,
+          if (thumbPath != null) 'thumbPath': thumbPath,
           'uploadedBy': uid,
           'createdAt': FieldValue.serverTimestamp(),
         },

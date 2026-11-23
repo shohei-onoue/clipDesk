@@ -31,6 +31,17 @@ VideoRequest req(
     );
 
 void main() {
+  test('ダッシュボードのタブの statuses は matches と同じ内容（サーバー側の絞り込みと表示が食い違わない）', () {
+    for (final t in DashboardTab.values) {
+      for (final st in RequestStatus.values) {
+        expect(t.statuses.contains(st), t.matches(req('x', st)),
+            reason: '${t.name} / ${st.name}');
+      }
+    }
+    // 投稿済みは、どのタブにも出さない（ライブラリで見る）。
+    expect(DashboardTab.all.statuses.contains(RequestStatus.posted), isFalse);
+  });
+
   group('needsMyAction', () {
     test('依頼者：要確認と未承認の初稿だけ', () {
       const role = UserRole.requester;

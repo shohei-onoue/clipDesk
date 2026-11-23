@@ -45,7 +45,9 @@ service firebase.storage {
       allow create, update: if hasRole('editor') && reqExists(requestId) && sizeOk()
         && req(requestId).editorId == request.auth.uid
         && (req(requestId).status == 'editing' || req(requestId).status == 'revision')
-        && request.resource.contentType.matches('video/.*');
+        && (request.resource.contentType.matches('video/.*')
+          // 一覧に出す静止画サムネイル（動画の最初の1コマ）。
+          || (file == 'thumb.jpg' && request.resource.contentType == 'image/jpeg'));
       // 承認後、依頼者が、承認されなかった提出動画を削除する。承認された版は消せない。
       allow delete: if hasRole('requester') && reqExists(requestId)
         && req(requestId).requesterId == request.auth.uid

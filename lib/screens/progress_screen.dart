@@ -40,7 +40,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   void _init(String uid) {
     if (_uid == uid) return;
     _uid = uid;
-    _all = Services.repo.watchAllRequests();
+    _all = Services.repo.watchActiveRequests();
   }
 
   @override

@@ -9,6 +9,7 @@ class Attachment {
     required this.path,
     required this.size,
     required this.kind,
+    this.thumbPath,
   });
 
   final String name;
@@ -20,14 +21,23 @@ class Attachment {
   /// 'video' または 'reference'。
   final String kind;
 
-  Map<String, Object?> toMap() =>
-      {'name': name, 'path': path, 'size': size, 'kind': kind};
+  /// 一覧に出す静止画サムネイル（JPEG）のStorage上のパス。動画の添付だけ。無ければ代替表示。
+  final String? thumbPath;
+
+  Map<String, Object?> toMap() => {
+        'name': name,
+        'path': path,
+        'size': size,
+        'kind': kind,
+        if (thumbPath != null) 'thumbPath': thumbPath,
+      };
 
   factory Attachment.fromMap(Map<String, Object?> m) => Attachment(
         name: (m['name'] as String?) ?? '',
         path: (m['path'] as String?) ?? '',
         size: (m['size'] as num?)?.toInt() ?? 0,
         kind: (m['kind'] as String?) ?? 'reference',
+        thumbPath: m['thumbPath'] as String?,
       );
 }
 
@@ -38,6 +48,7 @@ class Submission {
     required this.path,
     required this.size,
     required this.createdAt,
+    this.thumbPath,
   });
 
   final int version;
@@ -46,12 +57,16 @@ class Submission {
   final int size;
   final DateTime? createdAt;
 
+  /// 一覧に出す静止画サムネイル（JPEG）のStorage上のパス。無ければ代替表示。
+  final String? thumbPath;
+
   factory Submission.fromMap(Map<String, Object?> m) => Submission(
         version: (m['version'] as num?)?.toInt() ?? 0,
         name: (m['name'] as String?) ?? '',
         path: (m['path'] as String?) ?? '',
         size: (m['size'] as num?)?.toInt() ?? 0,
         createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
+        thumbPath: m['thumbPath'] as String?,
       );
 }
 

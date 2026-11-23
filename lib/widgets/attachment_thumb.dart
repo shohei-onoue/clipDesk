@@ -36,12 +36,17 @@ Attachment? thumbnailAttachment(VideoRequest r) {
   return null;
 }
 
-/// 添付のサムネイル。画像はそのまま、動画は最初の1コマ（再生はしない）を表示する。
-/// 読み込めない間・失敗したときは、薄い枠にカメラのアイコンを出す。
+/// 添付のサムネイル。画像はそのまま、動画は静止画サムネイル（[Attachment.thumbPath]）を表示する。
+/// 一覧では動画プレーヤーを起動しない（通信・描画が重いため）。静止画がない動画は、薄い枠に
+/// 再生アイコンを出す（動画は、タップして開けば従来どおり再生できる）。
+/// [allowVideoPreview] が true のときだけ、静止画がない動画を、動画の最初の1コマで出す
+/// （1件ずつ開く詳細の画面用）。
 class AttachmentThumb extends StatefulWidget {
-  const AttachmentThumb({super.key, required this.attachment});
+  const AttachmentThumb(
+      {super.key, required this.attachment, this.allowVideoPreview = false});
 
   final Attachment? attachment;
+  final bool allowVideoPreview;
 
   @override
   State<AttachmentThumb> createState() => _AttachmentThumbState();
@@ -65,9 +70,14 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
     final a = widget.attachment;
     if (a == null) return;
     try {
-      final url = await (_urls[a.path] ??= Services.repo.downloadUrl(a.path));
+      final isVideo = a.kind == 'video';
+      if (isVideo && a.thumbPath == null && !widget.allowVideoPreview) {
+        return; // 静止画がない動画は、代替表示のまま（動画を読み込まない）。
+      }
+      final src = isVideo && a.thumbPath != null ? a.thumbPath! : a.path;
+      final url = await (_urls[src] ??= Services.repo.downloadUrl(src));
       if (!mounted) return;
-      if (a.kind == 'video') {
+      if (isVideo && a.thumbPath == null) {
         final c = VideoPlayerController.networkUrl(Uri.parse(url));
         await c.initialize();
         await c.setVolume(0);
@@ -80,7 +90,7 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
         setState(() => _url = url);
       }
     } catch (_) {
-      _urls.remove(a.path);
+      _urls.remove(a.thumbPath ?? a.path);
       if (mounted) setState(() => _failed = true);
     }
   }
@@ -115,12 +125,23 @@ class _AttachmentThumbState extends State<AttachmentThumb> {
                 size: 40, color: AppColors.white)),
       ]);
     } else if (_url != null) {
-      content = Image.network(_url!,
-          fit: BoxFit.cover,
-          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-          errorBuilder: (_, __, ___) => _placeholder);
+      content = Stack(fit: StackFit.expand, children: [
+        Image.network(_url!,
+            fit: BoxFit.cover,
+            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+            errorBuilder: (_, __, ___) => _placeholder),
+        if (widget.attachment?.kind == 'video')
+          Center(
+              child: Icon(Icons.play_circle_outline,
+                  size: 40, color: AppColors.white)),
+      ]);
     } else {
-      content = _failed || widget.attachment == null
+      final a = widget.attachment;
+      final noPreview = a != null &&
+          a.kind == 'video' &&
+          a.thumbPath == null &&
+          !widget.allowVideoPreview;
+      content = _failed || a == null || noPreview
           ? _placeholder
           : Center(
               child: SizedBox(

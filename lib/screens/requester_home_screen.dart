@@ -30,6 +30,13 @@ class RequesterHomeScreen extends StatefulWidget {
 class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
   DashboardTab _tab = DashboardTab.all;
 
+  /// タブごとの問い合わせ。表示中のタブの案件だけをサーバーから取る（投稿済みは取らない）。
+  /// 同じタブに戻ったとき、作り直さない。
+  final _streams = <DashboardTab, Stream<List<VideoRequest>>>{};
+
+  Stream<List<VideoRequest>> _streamFor(DashboardTab t) => _streams.putIfAbsent(
+      t, () => Services.repo.watchActiveRequests(statuses: t.statuses));
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -57,40 +64,41 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
             Expanded(
               child: RoleBuilder(
                 dark: true,
-                builder: (context, uid, role) =>
-                    StreamBuilder<List<VideoRequest>>(
-                  // 登録スタッフは、権限に関わらず全案件のカードを見られる。
-                  stream: Services.repo.watchAllRequests(),
-                  builder: (context, snap) {
-                    if (snap.hasError) {
-                      return Center(
-                          child: Text('エラー：読み込みに失敗しました。通信を確認して、もう一度開いてください',
-                              textAlign: TextAlign.center,
-                              style:
-                                  AppText.dark(14, weight: FontWeight.w400)));
-                    }
-                    if (!snap.hasData) {
-                      return Center(
-                          child: CircularProgressIndicator(
-                              color: AppColors.white));
-                    }
-                    final role = editor ? UserRole.editor : UserRole.requester;
-                    final all = snap.data!;
-                    final list =
-                        sortForHome(applyDashboardTab(all, _tab), role);
-                    return Column(
-                      children: [
-                        TopTabs(
-                          items: [
-                            for (final t in DashboardTab.values) t.label,
-                          ],
-                          active: _tab.index,
-                          onSelect: (i) =>
-                              setState(() => _tab = DashboardTab.values[i]),
-                        ),
-                        Expanded(
+                builder: (context, uid, role) => Column(
+                  children: [
+                    // タブは、データを取っている間も消さない。
+                    TopTabs(
+                      items: [
+                        for (final t in DashboardTab.values) t.label,
+                      ],
+                      active: _tab.index,
+                      onSelect: (i) =>
+                          setState(() => _tab = DashboardTab.values[i]),
+                    ),
+                    Expanded(
+                      child: StreamBuilder<List<VideoRequest>>(
+                        // 登録スタッフは、権限に関わらず全案件のカードを見られる（投稿済みはライブラリ）。
+                        stream: _streamFor(_tab),
+                        builder: (context, snap) {
+                          if (snap.hasError) {
+                            return Center(
+                                child: Text(
+                                    'エラー：読み込みに失敗しました。通信を確認して、もう一度開いてください',
+                                    textAlign: TextAlign.center,
+                                    style: AppText.dark(14,
+                                        weight: FontWeight.w400)));
+                          }
+                          if (!snap.hasData) {
+                            return Center(
+                                child: CircularProgressIndicator(
+                                    color: AppColors.white));
+                          }
+                          final role =
+                              editor ? UserRole.editor : UserRole.requester;
+                          final list = sortForHome(
+                              applyDashboardTab(snap.data!, _tab), role);
                           // カードがないときは、メッセージを出さず空のまま。
-                          child: list.isEmpty
+                          return list.isEmpty
                               ? const SizedBox.shrink()
                               : Align(
                                   alignment: Alignment.topCenter,
@@ -134,11 +142,11 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                       },
                                     ),
                                   ),
-                                ),
-                        ),
-                      ],
-                    );
-                  },
+                                );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

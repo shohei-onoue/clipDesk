@@ -21,8 +21,46 @@ import 'request_detail_screen.dart';
 
 /// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
-class DeliveryLibraryScreen extends StatelessWidget {
+class DeliveryLibraryScreen extends StatefulWidget {
   const DeliveryLibraryScreen({super.key});
+
+  @override
+  State<DeliveryLibraryScreen> createState() => _DeliveryLibraryScreenState();
+}
+
+/// 最初に読む件数と、スクロールで足す件数。
+const _pageSize = 12;
+
+class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
+  int _limit = _pageSize;
+  Stream<List<VideoRequest>>? _stream;
+  final _scroll = ScrollController();
+  int _lastCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _stream = Services.repo.watchPostedRequests(limit: _limit);
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// 終わり近くまでスクロールして、まだ続きがありそうなら、読む件数を増やす。
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final nearEnd = _scroll.position.extentAfter < 600;
+    if (nearEnd && _lastCount >= _limit) {
+      setState(() {
+        _limit += _pageSize;
+        _stream = Services.repo.watchPostedRequests(limit: _limit);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,30 +77,38 @@ class DeliveryLibraryScreen extends StatelessWidget {
               dark: true,
               builder: (context, uid, role) =>
                   StreamBuilder<List<VideoRequest>>(
-                stream: Services.repo.watchAllRequests(),
+                stream: _stream,
                 builder: (context, snap) {
-                  // 投稿済みの動画を、承認が新しい順に。
-                  final approved = [
-                    for (final q in snap.data ?? const <VideoRequest>[])
-                      if (q.status == RequestStatus.posted) q
-                  ]..sort((a, b) => (b.approvedAt ?? DateTime(0))
-                      .compareTo(a.approvedAt ?? DateTime(0)));
-                  return ListView(
+                  // 投稿済みの動画だけをサーバーから取る（承認が新しい順）。
+                  final approved = snap.data ?? const <VideoRequest>[];
+                  _lastCount = approved.length;
+                  return ListView.builder(
+                    controller: _scroll,
                     padding:
                         EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
-                    children: [
-                      if (snap.hasError)
-                        emptyTextDark(context,
-                            'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください')
-                      else if (approved.isEmpty &&
-                          snap.connectionState != ConnectionState.waiting)
-                        emptyTextDark(context, '投稿済みの動画はまだありません'),
-                      for (final q in approved)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: r.x(12)),
-                          child: _LibraryCard(request: q, uid: uid, role: role),
-                        ),
-                    ],
+                    itemCount: approved.length + 1,
+                    itemBuilder: (context, i) {
+                      if (i == 0) {
+                        if (snap.hasError) {
+                          return emptyTextDark(context,
+                              'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください');
+                        }
+                        if (approved.isEmpty &&
+                            snap.connectionState != ConnectionState.waiting) {
+                          return emptyTextDark(context, '投稿済みの動画はまだありません');
+                        }
+                        return const SizedBox.shrink();
+                      }
+                      final q = approved[i - 1];
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: r.x(12)),
+                        child: _LibraryCard(
+                            key: ValueKey(q.id),
+                            request: q,
+                            uid: uid,
+                            role: role),
+                      );
+                    },
                   );
                 },
               ),
@@ -81,22 +127,38 @@ String _dateTime(DateTime? t) {
 }
 
 /// 動画1本分のカード：左に再生サムネイル、右に題名・承認日時・編集者名。
-class _LibraryCard extends StatelessWidget {
+class _LibraryCard extends StatefulWidget {
   const _LibraryCard(
-      {required this.request, required this.uid, required this.role});
+      {super.key,
+      required this.request,
+      required this.uid,
+      required this.role});
   final VideoRequest request;
   final String uid;
   final UserRole role;
 
   @override
+  State<_LibraryCard> createState() => _LibraryCardState();
+}
+
+class _LibraryCardState extends State<_LibraryCard> {
+  /// 承認された版の提出動画。カードごとに購読せず、1回だけ読む（一覧に必要なのはこの1件だけ）。
+  late final Future<Submission?> _video = widget.request.approvedVersion == null
+      ? Future.value(null)
+      : Services.repo
+          .getSubmission(widget.request.id, widget.request.approvedVersion!);
+
+  VideoRequest get request => widget.request;
+  String get uid => widget.uid;
+  UserRole get role => widget.role;
+
+  @override
   Widget build(BuildContext context) {
     final r = context.r;
-    return StreamBuilder<List<Submission>>(
-      stream: Services.repo.watchSubmissions(request.id),
+    return FutureBuilder<Submission?>(
+      future: _video,
       builder: (context, snap) {
-        final subs = snap.data ?? const <Submission>[];
-        final video =
-            subs.where((s) => s.version == request.approvedVersion).firstOrNull;
+        final video = snap.data;
         final card = Semantics(
           button: true,
           label: '${request.brief.title}を再生する',
@@ -136,7 +198,8 @@ class _LibraryCard extends StatelessWidget {
                               name: video.name,
                               path: video.path,
                               size: video.size,
-                              kind: 'video')),
+                              kind: 'video',
+                              thumbPath: video.thumbPath)),
                 ),
                 SizedBox(width: r.x(16)),
                 Expanded(

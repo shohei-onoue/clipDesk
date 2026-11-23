@@ -34,14 +34,15 @@ class _LoginScreenState extends State<LoginScreen>
   /// 入力中に見えたキーボードの高さの最大値。メール欄とパスワード欄で
   /// キーボードの高さが違っても、フォームの位置が変わらないようにそろえる。
   double _keyboardMax = 0;
-  bool _wantForm = false;
 
   /// ログインフォームは、読み込み（Firebase など）が終わるまで表示しない。
-  bool get _showForm => _wantForm && Boot.ready.value;
+  /// 終わったら、動画の途中でも、タップなしで表示する。
+  bool get _showForm => Boot.isReady;
   late final AnimationController _intro;
   final _time = ValueNotifier<double>(0);
   final _hide = ValueNotifier<double>(0);
-  late final VideoPlayerController _video;
+  VideoPlayerController? _video;
+  bool _disposed = false;
 
   /// ログイン認証エラーのときに鳴らす音声（assets/voice.mp3）。
   late final VideoPlayerController _voice;
@@ -53,13 +54,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    Boot.ready.addListener(_onBootReady);
-    // 最初の画面を出す前に読み込みが終わっていた場合も、同じ動きにする。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Boot.ready.value && (Boot.openedByInviteLink || Boot.autoLoggedIn)) {
-        _onBootReady();
-      }
-    });
+    Boot.state.addListener(_onBootChanged);
     _emailFocus.addListener(_onFocusChange);
     _passwordFocus.addListener(_onFocusChange);
     _intro = AnimationController(
@@ -68,42 +63,65 @@ class _LoginScreenState extends State<LoginScreen>
       // 「動きを減らす」ONの端末では、標準だとアニメが約20倍速で終わってしまうため、そのままの速さで流す。
       animationBehavior: AnimationBehavior.preserve,
     )..addListener(() => _time.value = _intro.value * 18.7);
-    _video = VideoPlayerController.asset('assets/video_web.mp4');
-    _initializeVideo();
+    if (Boot.isReady) {
+      // ログアウトして戻ったときなど、読み込み済みなら、すぐフォームを出す（動画は流さない）。
+      _intro.value = 1;
+      _hide.value = 1;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onBootChanged());
+    } else {
+      _intro.forward();
+      // 動画は最初の画面を出したあとに用意する。静止画を先に出し、動画の準備でログインを待たせない。
+      WidgetsBinding.instance.addPostFrameCallback((_) => _initializeVideo());
+    }
     _initializeVoice();
-    _intro.forward();
   }
 
   Future<void> _initializeVideo() async {
+    if (_disposed || Boot.isReady) return;
+    final video = VideoPlayerController.asset('assets/video_web.mp4');
+    _video = video;
     try {
-      await _video.initialize();
-      await _video.setLooping(true);
-      await _video.setVolume(0);
-      if (!mounted) return;
+      await video.initialize();
+      await video.setLooping(true);
+      await video.setVolume(0);
+      if (_disposed || Boot.isReady) return _releaseVideo();
       try {
-        await _video.play();
+        await video.play();
       } catch (error) {
         debugPrint('Opening video autoplay blocked: $error');
         _needsGesture = true;
       }
       if (mounted) setState(() {});
     } catch (error) {
-      // ローカル動画が読めない場合もログインへ進める。
+      // 動画が読めなくても静止画のまま進める（ログインは待たせない）。
       debugPrint('Opening video: $error');
-      if (mounted) _openForm();
+      _releaseVideo();
     }
   }
 
-  /// 読み込みが終わったとき。招待リンクなら登録フォームへ、自動ログイン済みならメイン画面へ進む。
-  void _onBootReady() {
-    if (!mounted || !Boot.ready.value) return;
-    if (Boot.openedByInviteLink) {
-      Navigator.of(context).pushReplacementNamed('/register');
-    } else if (Boot.autoLoggedIn) {
-      Navigator.of(context).pushReplacementNamed('/menu');
-    } else {
-      setState(() {});
+  /// 背景動画を止めて、再生のためのリソースを解放する。
+  void _releaseVideo() {
+    final v = _video;
+    _video = null;
+    v?.pause();
+    v?.dispose();
+  }
+
+  /// 読み込みの状態が変わったとき。終わったら、動画を止めてフォームを出す。
+  /// 招待リンクなら登録フォームへ、自動ログイン済み（デバッグ）ならメイン画面へ、起動後の1回だけ進む。
+  void _onBootChanged() {
+    if (!mounted) return;
+    if (Boot.isReady) {
+      final route = Boot.takeInitialRoute();
+      if (route != null) {
+        Navigator.of(context).pushReplacementNamed(route);
+        return;
+      }
+      _intro.value = 1;
+      _hide.value = 1;
+      _releaseVideo();
     }
+    setState(() {});
   }
 
   void _onFocusChange() {
@@ -145,21 +163,6 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       debugPrint('Error voice play: $e');
     }
-  }
-
-  void _openForm() {
-    if (!Boot.ready.value) return; // 読み込み中は開かない。
-    _intro.value = 1;
-    _hide.value = 1;
-    setState(() => _wantForm = true);
-  }
-
-  void _replay() {
-    FocusScope.of(context).unfocus();
-    _hide.value = 0;
-    setState(() => _wantForm = false);
-    _intro.value = 0;
-    _intro.forward();
   }
 
   /// メールアドレスとパスワードで Firebase Authentication にログインする。
@@ -259,11 +262,12 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    Boot.ready.removeListener(_onBootReady);
+    Boot.state.removeListener(_onBootChanged);
+    _disposed = true;
     _intro.dispose();
     _time.dispose();
     _hide.dispose();
-    _video.dispose();
+    _releaseVideo();
     _voice.dispose();
     _email.dispose();
     _password.dispose();
@@ -280,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen>
     // 入力欄とログインボタンの高さ（共通）。
     final fieldHeight = r.y(46);
     // キーボードが出ているとき、入力欄とログインボタンがキーボードに隠れないよう、
-    // フォームをキーボードの上へ持ち上げる（上のREPLAY/SKIPには重ねない）。
+    // フォームをキーボードの上へ持ち上げる。
     final inputting = _emailFocus.hasFocus || _passwordFocus.hasFocus;
     final inset = MediaQuery.viewInsetsOf(context).bottom;
     if (!inputting && inset == 0) _keyboardMax = 0;
@@ -304,98 +308,95 @@ class _LoginScreenState extends State<LoginScreen>
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) {
+          // iPhone Safari などが自動再生を止めたとき、最初のタップで動画を始める。
           if (_needsGesture) {
             _needsGesture = false;
-            _video.play();
+            _video?.play().then((_) {
+              if (mounted) setState(() {});
+            });
           }
         },
         child: Stack(
           children: [
-            if (_video.value.isInitialized)
+            // 軽い静止画を先に出す。動画の準備ができて再生が始まったら、その上に重ねる。
+            Positioned.fill(
+              child: Image.asset(
+                'assets/intro_poster.jpg',
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+            if (_video != null &&
+                _video!.value.isInitialized &&
+                _video!.value.isPlaying)
               Positioned.fill(
                 child: FittedBox(
                   fit: BoxFit.cover,
                   clipBehavior: Clip.hardEdge,
                   child: SizedBox(
-                    width: _video.value.size.width,
-                    height: _video.value.size.height,
-                    child: IgnorePointer(child: VideoPlayer(_video)),
+                    width: _video!.value.size.width,
+                    height: _video!.value.size.height,
+                    child: IgnorePointer(child: VideoPlayer(_video!)),
                   ),
                 ),
               ),
             Positioned.fill(
-              // オープニング中に画面をタップすると、ログインフォームを表示する（SKIPボタンと同じ）。
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (!_showForm) _openForm();
-                },
-                child: CustomPaint(painter: IntroPainter(_time, _hide)),
-              ),
+              child: IgnorePointer(
+                  child: CustomPaint(painter: IntroPainter(_time, _hide))),
             ),
-            if (!_showForm)
+            if (Boot.state.value == BootState.loading)
               Positioned(
-                // 下線の下に、文字の大きさに合わせた距離で置く（横長でも行間が変わらない）。
-                top: introTitleCenterY(size.height) +
-                    introLineGap(size.width) +
-                    r.x(77),
-                // 画面の左右中央に置く。
                 left: 0,
                 right: 0,
-                height: r.y(50),
+                bottom: r.y(40),
+                child: ExcludeSemantics(
+                  child: Center(
+                    child: Text('読み込み中…',
+                        style: AppText.noto(r.x(13),
+                            color: AppColors.white.withValues(alpha: 0.7),
+                            height: 1.3)),
+                  ),
+                ),
+              ),
+            if (Boot.state.value == BootState.failed)
+              Positioned(
+                left: r.x(24),
+                right: r.x(24),
+                bottom: r.y(60),
                 child: Center(
-                    child: SizedBox(
-                  width: r.x(160),
-                  height: r.y(50),
-                  child: AnimatedBuilder(
-                    animation: _intro,
-                    builder: (context, child) {
-                      final alpha = ((_time.value - IntroPainter.fadeStart) /
-                              IntroPainter.fadeLen)
-                          .clamp(0.0, 1.0);
-                      return ExcludeSemantics(
-                        excluding: alpha == 0,
-                        child: ExcludeFocus(
-                          excluding: alpha == 0,
-                          child: IgnorePointer(
-                            ignoring: alpha == 0,
-                            child: Opacity(opacity: alpha, child: child),
-                          ),
-                        ),
-                      );
-                    },
-                    child: !Boot.ready.value
-                        ? Center(
-                            child: Text('読み込み中…',
-                                style: AppText.noto(r.x(13),
-                                    color: AppColors.white, height: 1.3)))
-                        : ElevatedButton(
-                            onPressed: _openForm,
+                  child: SizedBox(
+                    width: r.x(342),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('エラー：アプリを起動できませんでした。通信を確認して、もう一度お試しください。',
+                            textAlign: TextAlign.center,
+                            style: AppText.noto(r.x(14),
+                                color: AppColors.white, height: 1.5)),
+                        SizedBox(height: r.y(12)),
+                        SizedBox(
+                          height: fieldHeight,
+                          child: ElevatedButton(
+                            onPressed: Boot.retry,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.blue,
                               foregroundColor: AppColors.onBlue,
-                              padding: EdgeInsets.zero,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(r.x(6))),
                             ),
-                            child: Text('ログインする',
-                                maxLines: 1,
-                                softWrap: false,
+                            child: Text('再試行',
                                 style: AppText.noto(r.x(13),
                                     color: AppColors.onBlue, height: 1.3)),
                           ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
               ),
-            Positioned(
-              top: r.y(14),
-              right: r.x(20),
-              child: Row(
-                children: [
-                  _Pill(label: 'REPLAY', onTap: _replay),
-                  SizedBox(width: r.x(8)),
-                  _Pill(label: 'SKIP', onTap: _openForm),
-                ],
-              ),
-            ),
             if (_showForm)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 200),
@@ -518,32 +519,6 @@ class _LoginScreenState extends State<LoginScreen>
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, this.onTap});
-
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.r;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: r.x(18), vertical: r.y(8)),
-        decoration: BoxDecoration(
-          color: const Color(0xD1111111),
-          border: Border.all(color: const Color(0xE6111111)),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(label,
-            style:
-                AppText.oswald(r.x(13), height: 16.9 / 13, letterSpacing: 1.5)),
       ),
     );
   }

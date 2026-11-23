@@ -117,6 +117,21 @@ enum DashboardTab {
   const DashboardTab(this.label);
   final String label;
 
+  /// このタブに出す進捗。Firestore の問い合わせ（サーバー側の絞り込み）に使う。
+  /// [matches] と同じ内容にしておく（`all` は投稿済み以外のすべて）。
+  Set<RequestStatus> get statuses => switch (this) {
+        DashboardTab.all => {
+            for (final s in RequestStatus.values)
+              if (s != RequestStatus.posted) s
+          },
+        DashboardTab.request => {
+            RequestStatus.pending,
+            RequestStatus.needsInfo,
+          },
+        DashboardTab.edit => {RequestStatus.editing, RequestStatus.revision},
+        DashboardTab.confirm => {RequestStatus.review},
+      };
+
   bool matches(VideoRequest r) => switch (this) {
         DashboardTab.all => r.status != RequestStatus.posted,
         DashboardTab.request => r.status == RequestStatus.pending ||

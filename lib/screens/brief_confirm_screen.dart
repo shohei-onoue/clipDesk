@@ -355,6 +355,7 @@ class _AttachmentTile extends StatelessWidget {
       child: f != null
           ? LocalVideoThumb(file: f)
           : AttachmentThumb(
+              allowVideoPreview: true,
               attachment:
                   Attachment(name: name, path: p!, size: size, kind: 'video')),
     );
