@@ -70,7 +70,8 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
   @override
   Widget build(BuildContext context) {
     final routes = <String, WidgetBuilder>{
-      '/': (_) => const LoginScreen(),
+      // ログイン画面の入力欄は、アプリの文字サイズ設定にかかわらず標準で表示する。
+      '/': (_) => MediaQuery.withNoTextScaling(child: const LoginScreen()),
       '/register': (_) => const RegisterScreen(),
       '/staff': (_) => const StaffAdminScreen(),
       '/staff/invite': (_) => const StaffInviteScreen(),
@@ -86,7 +87,7 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
     return MaterialApp(
       title: 'Clip Desk',
       debugShowCheckedModeBanner: false,
-      // 文字の大きさ（設定）。「小」は従来のまま（1倍）、「中」は1.5倍、「大」は2倍。
+      // ログイン以外の文字の大きさ。「小」は1倍、「中」は1.5倍、「大」は2倍。
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(AppSettings.instance.textSize.scale)),
