@@ -13,7 +13,7 @@ Future<void> confirmAndLogout(BuildContext context) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -36,7 +36,7 @@ Future<void> confirmAndLogout(BuildContext context) async {
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.blue,
-            foregroundColor: AppColors.onBlue,
+            foregroundColor: AppColors.on(AppColors.blue),
             minimumSize: const Size(96, 44),
             shape: RoundedRectangleBorder(borderRadius: radius),
           ),

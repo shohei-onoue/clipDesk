@@ -100,7 +100,8 @@ class _Bell extends StatelessWidget {
                           ),
                           child: Text(count > 99 ? '99+' : '$count',
                               style: AppText.noto(r.x(12),
-                                  color: AppColors.onDark, height: 16 / 12)),
+                                  color: AppColors.on(Colors.black),
+                                  height: 16 / 12)),
                         ),
                       ),
                   ],
@@ -144,7 +145,7 @@ class _NotificationDialog extends StatelessWidget {
               child: Text(label, style: const TextStyle(fontSize: 12)),
             );
         return AlertDialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: AppColors.ink,
           shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(AppRadius.lg),

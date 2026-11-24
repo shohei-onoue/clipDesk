@@ -79,7 +79,7 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       bottomNavigationBar: const AppBottomBar(),
       drawer: const AppDrawer(),
       body: SafeArea(
@@ -273,7 +273,7 @@ Future<void> _confirmDelete(
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),

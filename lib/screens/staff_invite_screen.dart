@@ -59,7 +59,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [
@@ -91,7 +91,7 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
                         minimumSize: const Size(0, 56),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.onBlue,
+                        foregroundColor: AppColors.on(AppColors.blue),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),

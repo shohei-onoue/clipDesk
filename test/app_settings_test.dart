@@ -35,7 +35,7 @@ void main() {
   test('色の組み合わせは5つで、選ぶと AppColors が変わる', () async {
     expect(AppPalette.values.length, 5);
     await settings.setPalette(AppPalette.ocean);
-    expect(AppColors.bg, AppPalette.ocean.bg);
+    expect(AppColors.ink, AppPalette.ocean.ink);
     expect(AppColors.blue, AppPalette.ocean.blue);
     expect(AppColors.badgeRed, const Color(0xFFD32F2F)); // 固定
   });
@@ -69,10 +69,10 @@ void main() {
     }
 
     for (final p in AppPalette.values) {
-      expect(ratio(p.white, p.bg), greaterThanOrEqualTo(4.5), reason: p.label);
-      expect(ratio(p.onBlue, p.blue), greaterThanOrEqualTo(4.0),
+      expect(ratio(p.white, p.ink), greaterThanOrEqualTo(4.5), reason: p.label);
+      expect(ratio(p.on(p.blue), p.blue), greaterThanOrEqualTo(4.0),
           reason: p.label);
-      expect(ratio(p.onAmber, p.amber), greaterThanOrEqualTo(4.5),
+      expect(ratio(p.on(p.amber), p.amber), greaterThanOrEqualTo(4.5),
           reason: p.label);
     }
   });

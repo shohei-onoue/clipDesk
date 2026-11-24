@@ -22,7 +22,7 @@ class SettingsScreen extends StatelessWidget {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         drawer: const AppDrawer(),
         drawerScrimColor: const Color(0x8A000000),
         body: SafeArea(
@@ -115,8 +115,8 @@ class SettingsScreen extends StatelessWidget {
                                   ReadAloud.instance
                                       .speakAfterPause('この速さで読み上げます。');
                                 },
-                                onChangeEnd: (_) => ReadAloud.instance
-                                    .speakNow('この速さで読み上げます。'),
+                                onChangeEnd: (_) =>
+                                    ReadAloud.instance.speakNow('この速さで読み上げます。'),
                               ),
                             ),
                             Row(
@@ -174,7 +174,7 @@ class _SaveBarState extends State<_SaveBar> {
     return Container(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(10), r.x(14), r.x(12)),
       decoration: BoxDecoration(
-        color: AppColors.bg,
+        color: AppColors.ink,
         border: Border(
             top: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
       ),
@@ -247,9 +247,7 @@ class _Section extends StatelessWidget {
 /// 選択ボタン（小・中・大）。選択中は blue 塗り＋「選択中」の語句＋チェック。
 class _Choice extends StatelessWidget {
   const _Choice(
-      {required this.label,
-      required this.selected,
-      required this.onTap});
+      {required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -278,7 +276,7 @@ class _Choice extends StatelessWidget {
             child: Text(label,
                 style: AppText.dark(r.x(18),
                     color: selected
-                        ? AppColors.onBlue
+                        ? AppColors.on(AppColors.blue)
                         : AppColors.white.withValues(alpha: 0.7))),
           ),
         ),
@@ -296,7 +294,7 @@ class _Preview extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(r.x(12)),
       decoration: BoxDecoration(
-        color: AppColors.bg,
+        color: AppColors.ink,
         border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(r.x(10)),
       ),
@@ -335,7 +333,7 @@ class _PaletteTile extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.all(r.x(12)),
           decoration: BoxDecoration(
-            color: palette.bg,
+            color: palette.ink,
             border: Border.all(
               color: selected
                   ? AppColors.blue
@@ -361,10 +359,10 @@ class _PaletteTile extends StatelessWidget {
                     // 5色の見本：白・黒（背景）・琥珀・青・グレー。
                     Row(children: [
                       _Swatch(palette.white, ring: palette.white),
-                      _Swatch(palette.bg, ring: palette.white),
+                      _Swatch(palette.ink, ring: palette.white),
                       _Swatch(palette.amber, ring: palette.white),
                       _Swatch(palette.blue, ring: palette.white),
-                      _Swatch(Color.alphaBlend(palette.gray, palette.bg),
+                      _Swatch(Color.alphaBlend(palette.gray, palette.ink),
                           ring: palette.white),
                     ]),
                   ],
@@ -380,10 +378,10 @@ class _PaletteTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(r.x(8)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.check, size: r.x(16), color: palette.onBlue),
+                    Icon(Icons.check, size: r.x(16), color: palette.on(palette.blue)),
                     SizedBox(width: r.x(4)),
                     Text('選択中',
-                        style: AppText.dark(r.x(12), color: palette.onBlue)),
+                        style: AppText.dark(r.x(12), color: palette.on(palette.blue))),
                   ]),
                 ),
             ]),
@@ -439,7 +437,7 @@ class _RubySwitch extends StatelessWidget {
         child: Switch(
           value: value,
           onChanged: onChanged,
-          activeThumbColor: AppColors.onBlue,
+          activeThumbColor: AppColors.on(AppColors.blue),
           activeTrackColor: AppColors.blue,
           inactiveThumbColor: AppColors.white.withValues(alpha: 0.7),
           inactiveTrackColor: AppColors.gray,

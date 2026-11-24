@@ -41,7 +41,7 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
   Widget build(BuildContext context) {
     final r = context.r;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       drawerScrimColor: const Color(0x8A000000),
       bottomNavigationBar: const AppBottomBar(),
@@ -242,8 +242,8 @@ class ProgressCard extends StatelessWidget {
                 style: AppText.noto(r.x(14),
                     color: badgeFilled
                         ? (badgeColor == AppColors.amber
-                            ? AppColors.onAmber
-                            : AppColors.onBlue)
+                            ? AppColors.on(AppColors.amber)
+                            : AppColors.on(AppColors.blue))
                         : badgeColor)),
           ),
         );
@@ -255,7 +255,7 @@ class ProgressCard extends StatelessWidget {
           Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppColors.bg,
+              color: AppColors.ink,
               borderRadius: BorderRadius.circular(r.x(10)),
             ),
             child: Column(

@@ -41,7 +41,7 @@ Future<void> showSaveMenu(BuildContext context,
   final dest = await showMenu<_Dest>(
     context: context,
     position: position,
-    color: AppColors.bg,
+    color: AppColors.ink,
     shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(10)),

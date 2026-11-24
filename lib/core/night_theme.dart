@@ -16,10 +16,10 @@ ThemeData _build() {
     borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.55)),
   );
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.bg,
+    scaffoldBackgroundColor: AppColors.ink,
     colorScheme: base.colorScheme.copyWith(
       primary: AppColors.blue,
-      onPrimary: AppColors.onBlue,
+      onPrimary: AppColors.on(AppColors.blue),
       surface: AppColors.gray,
       onSurface: AppColors.white,
       onSurfaceVariant: AppColors.white.withValues(alpha: 0.7),

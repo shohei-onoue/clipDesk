@@ -109,10 +109,11 @@ class _SwipeActionsState extends State<SwipeActions>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(a.icon,
-                                      color: AppColors.onDark, size: r.x(26)),
+                                      color: AppColors.on(Colors.black),
+                                      size: r.x(26)),
                                   Text(a.label,
                                       style: AppText.dark(r.x(12),
-                                          color: AppColors.onDark)),
+                                          color: AppColors.on(Colors.black))),
                                 ]),
                           ),
                         ),

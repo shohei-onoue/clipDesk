@@ -123,7 +123,8 @@ class _HoldToCancelButtonState extends State<HoldToCancelButton>
               child: Center(
                 child: Text('依頼取消',
                     maxLines: 1,
-                    style: AppText.noto(r.x(14), color: AppColors.onAmber)),
+                    style: AppText.noto(r.x(14),
+                        color: AppColors.on(AppColors.amber))),
               ),
             ),
           ),
@@ -176,7 +177,7 @@ class _HoldPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.bg,
+      color: AppColors.ink,
       elevation: 12,
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Container(

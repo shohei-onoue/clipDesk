@@ -221,7 +221,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
   Widget build(BuildContext context) {
     final answered = _reply != null;
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Stack(children: [
@@ -257,7 +257,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                               context, InquiryResult(_reply!, submit: false)),
                       style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
-                          backgroundColor: AppColors.bg,
+                          backgroundColor: AppColors.ink,
                           foregroundColor: AppColors.blue,
                           side: BorderSide(color: AppColors.blue),
                           shape: RoundedRectangleBorder(
@@ -273,7 +273,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                       style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(48),
                           backgroundColor: AppColors.blue,
-                          foregroundColor: AppColors.onBlue,
+                          foregroundColor: AppColors.on(AppColors.blue),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24))),
                       child: _sending
@@ -281,9 +281,11 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.onBlue))
+                                  strokeWidth: 2,
+                                  color: AppColors.on(AppColors.blue)))
                           : Text('回答する',
-                              style: AppText.dark(15, color: AppColors.onBlue)),
+                              style: AppText.dark(15,
+                                  color: AppColors.on(AppColors.blue))),
                     ),
                   ),
                 ]),
@@ -324,7 +326,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                 cursorColor: AppColors.white,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppColors.bg,
+                  fillColor: AppColors.ink,
                   isDense: true,
                   hintText: _voice.listening ? '聞き取り中です…' : '回答を入力',
                   hintStyle: AppText.dark(15,
@@ -423,7 +425,7 @@ class _Bubble extends StatelessWidget {
                         style: mine
                             ? AppText.noto(15,
                                 weight: FontWeight.w400,
-                                color: AppColors.onBlue,
+                                color: AppColors.on(AppColors.blue),
                                 height: 1.5)
                             : light
                                 ? AppText.noto(15,
@@ -452,7 +454,7 @@ class InquiryHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         drawer: const AppDrawer(),
         body: SafeArea(
           child: Column(children: [

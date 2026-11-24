@@ -58,7 +58,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       key: ValueKey(widget.requestId),
       stream: _request,
       builder: (context, snap) => Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         bottomNavigationBar: const AppBottomBar(),
         drawer: const AppDrawer(),
         body: SafeArea(
@@ -415,7 +415,7 @@ class _BodyState extends State<_Body> {
       context: context,
       position: RelativeRect.fromLTRB(
           at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-      color: AppColors.bg,
+      color: AppColors.ink,
       shape: RoundedRectangleBorder(
           side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
           borderRadius: BorderRadius.circular(10)),
@@ -1114,7 +1114,7 @@ class _Submissions extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         title: Text(who == null ? '修正の依頼' : '$who様からの修正の依頼',
             style: AppText.dark(18)),
         // メッセージの表示エリア：背景は白、文字は ink。
@@ -1184,7 +1184,7 @@ class _DocsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
     return Dialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(

@@ -30,15 +30,16 @@ class StaffAdminScreen extends StatelessWidget {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         drawer: const AppDrawer(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: FloatingActionButton(
           tooltip: 'スタッフを招待',
           backgroundColor: AppColors.blue,
-          foregroundColor: AppColors.onBlue,
+          foregroundColor: AppColors.on(AppColors.blue),
           onPressed: () => Navigator.of(context).pushNamed('/staff/invite'),
-          child: AppIcon(AppIcons.addCircle, size: 32, color: AppColors.onBlue),
+          child: AppIcon(AppIcons.addCircle,
+              size: 32, color: AppColors.on(AppColors.blue)),
         ),
         body: SafeArea(
           child: Column(children: [
@@ -125,7 +126,7 @@ class _UserTileState extends State<_UserTile> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(15)),
@@ -143,7 +144,7 @@ class _UserTileState extends State<_UserTile> {
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.amber,
-                  foregroundColor: AppColors.onAmber),
+                  foregroundColor: AppColors.on(AppColors.amber)),
               child: const Text('削除する')),
         ],
       ),
@@ -213,7 +214,7 @@ class _UserTileState extends State<_UserTile> {
                               ),
                               child: Text('ログイン',
                                   style: AppText.dark(r.x(12),
-                                      color: AppColors.onAmber)),
+                                      color: AppColors.on(AppColors.amber))),
                             );
                             if (r.large) {
                               return Wrap(
@@ -490,7 +491,7 @@ class _EditDialogState extends State<_EditDialog> {
     return Theme(
       data: nightTheme,
       child: AlertDialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(r.x(15))),
@@ -578,7 +579,7 @@ class _EditDialogState extends State<_EditDialog> {
               onPressed: _busy ? null : _submit,
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.blue,
-                  foregroundColor: AppColors.onBlue),
+                  foregroundColor: AppColors.on(AppColors.blue)),
               child: Text(_busy ? '保存中…' : '保存する')),
         ],
       ),

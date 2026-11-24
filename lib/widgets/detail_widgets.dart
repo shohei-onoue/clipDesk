@@ -145,10 +145,10 @@ class DetailButton extends StatelessWidget {
     final radius = BorderRadius.circular(AppRadius.md);
     // 塗りの上の文字：blue の上は white、white の上は amber、amber の上は ink。
     final fg = color == AppColors.blue
-        ? AppColors.onBlue
+        ? AppColors.on(AppColors.blue)
         : color == AppColors.white
             ? AppColors.amber
-            : AppColors.onAmber;
+            : AppColors.on(AppColors.amber);
     return Material(
       color: busy || disabled ? AppColors.white.withValues(alpha: 0.16) : color,
       borderRadius: radius,

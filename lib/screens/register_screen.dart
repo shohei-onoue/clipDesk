@@ -105,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Theme(
       data: nightTheme,
       child: Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         body: SafeArea(
           child: Column(children: [
             const AppHeader(title: 'スタッフ登録', alwaysBack: false),
@@ -154,16 +154,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: _busy ? null : _submit,
                           style: FilledButton.styleFrom(
                               backgroundColor: AppColors.blue,
-                              foregroundColor: AppColors.onBlue),
+                              foregroundColor: AppColors.on(AppColors.blue)),
                           child: _busy
                               ? SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: AppColors.onBlue))
+                                      strokeWidth: 2,
+                                      color: AppColors.on(AppColors.blue)))
                               : Text('登録する',
                                   style: AppText.noto(16,
-                                      color: AppColors.onBlue)),
+                                      color: AppColors.on(AppColors.blue))),
                         ),
                       ),
                     ],

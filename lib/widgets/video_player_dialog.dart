@@ -45,7 +45,7 @@ Future<void> showVideoDialog(BuildContext context,
                 onPressed: () => Navigator.of(ctx).pop(),
                 style: IconButton.styleFrom(
                     backgroundColor: Colors.black.withValues(alpha: 0.55)),
-                icon: Icon(Icons.close, color: AppColors.onDark),
+                icon: Icon(Icons.close, color: AppColors.on(Colors.black)),
               ),
             ),
           ]),
@@ -75,7 +75,7 @@ Future<void> showAttachmentDialog(BuildContext context,
       return showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.bg,
+          backgroundColor: AppColors.ink,
           title: Text(name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -93,11 +93,13 @@ Future<void> showAttachmentDialog(BuildContext context,
                     onDownload();
                   },
                   child: Text('ダウンロード',
-                      style: AppText.dark(14, color: AppColors.onDark))),
+                      style:
+                          AppText.dark(14, color: AppColors.on(Colors.black)))),
             TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: Text('閉じる',
-                    style: AppText.dark(14, color: AppColors.onDark))),
+                    style:
+                        AppText.dark(14, color: AppColors.on(Colors.black)))),
           ],
         ),
       );
@@ -113,7 +115,7 @@ class _ImageDialog extends StatelessWidget {
     final screen = MediaQuery.sizeOf(context);
     // AlertDialog は中身の幅を測るため、画像の読み込み中にレイアウトが壊れる。Dialog で組む。
     return Dialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -143,7 +145,7 @@ class _ImageDialog extends StatelessWidget {
                           height: 120,
                           child: Center(
                               child: CircularProgressIndicator(
-                                  color: AppColors.onDark)));
+                                  color: AppColors.on(Colors.black))));
                     }
                     return Image.network(
                       snap.data!,
@@ -156,7 +158,7 @@ class _ImageDialog extends StatelessWidget {
                               height: 120,
                               child: Center(
                                   child: CircularProgressIndicator(
-                                      color: AppColors.onDark))),
+                                      color: AppColors.on(Colors.black)))),
                       errorBuilder: (_, __, ___) => Text(
                           'エラー：画像を表示できません。通信を確認して、もう一度開いてください',
                           style: AppText.dark(14, weight: FontWeight.w400)),
@@ -169,7 +171,8 @@ class _ImageDialog extends StatelessWidget {
                 child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text('閉じる',
-                        style: AppText.dark(14, color: AppColors.onDark))),
+                        style: AppText.dark(14,
+                            color: AppColors.on(Colors.black)))),
               ),
             ],
           ),
@@ -236,7 +239,7 @@ class _VideoDialogState extends State<_VideoDialog> {
     // 画面からはみ出さないよう、幅は画面内、動画の高さは画面の半分までに収める。
     final screen = MediaQuery.sizeOf(context);
     return AlertDialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       title: Text(widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -250,8 +253,8 @@ class _VideoDialogState extends State<_VideoDialog> {
                 ? SizedBox(
                     height: 120,
                     child: Center(
-                        child:
-                            CircularProgressIndicator(color: AppColors.onDark)))
+                        child: CircularProgressIndicator(
+                            color: AppColors.on(Colors.black))))
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -267,7 +270,7 @@ class _VideoDialogState extends State<_VideoDialog> {
                         valueListenable: c,
                         builder: (_, v, __) => IconButton(
                           tooltip: v.isPlaying ? '一時停止' : '再生',
-                          color: AppColors.onDark,
+                          color: AppColors.on(Colors.black),
                           icon: Icon(
                               v.isPlaying ? Icons.pause : Icons.play_arrow),
                           onPressed: () => v.isPlaying ? c.pause() : c.play(),
@@ -279,8 +282,8 @@ class _VideoDialogState extends State<_VideoDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child:
-                Text('閉じる', style: AppText.dark(14, color: AppColors.onDark))),
+            child: Text('閉じる',
+                style: AppText.dark(14, color: AppColors.on(Colors.black)))),
       ],
     );
   }

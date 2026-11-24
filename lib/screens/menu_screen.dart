@@ -35,7 +35,7 @@ class MenuScreen extends StatelessWidget {
     final r = context.r;
     return Scaffold(
       // Figma：背景・アプリバーとも #1A1D20（AppColors.ink）。
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
@@ -175,8 +175,8 @@ class _MenuCard extends StatelessWidget {
         begin: Alignment(-0.189, -1.838),
         end: Alignment(0.189, 1.838),
         colors: [
-          AppColors.deep,
-          AppColors.deep,
+          AppColors.on(Colors.white),
+          AppColors.on(Colors.white),
           AppColors.blue,
           AppColors.blue
         ],
@@ -229,7 +229,7 @@ class _MenuCard extends StatelessWidget {
                           Text(ruby,
                               style: AppText.noto(r.x(14),
                                   weight: FontWeight.w400,
-                                  color: AppColors.onBlue)),
+                                  color: AppColors.on(AppColors.blue))),
                         // 長い題名（編集者ダッシュボード）は、枠に収まるよう縮める。
                         FittedBox(
                           fit: BoxFit.scaleDown,
@@ -237,7 +237,7 @@ class _MenuCard extends StatelessWidget {
                           child: Text(title,
                               style: AppText.noto(r.x(24),
                                   weight: FontWeight.w400,
-                                  color: AppColors.onBlue)),
+                                  color: AppColors.on(AppColors.blue))),
                         ),
                       ] else
                         FittedBox(
@@ -253,13 +253,15 @@ class _MenuCard extends StatelessWidget {
                                     Text(rb ?? ' ',
                                         style: AppText.noto(r.x(14),
                                             weight: FontWeight.w400,
-                                            color: AppColors.onBlue)),
+                                            color:
+                                                AppColors.on(AppColors.blue))),
                                     // 手で付けたふりがながあるので、自動のふりがなは付けない。
                                     Text(text,
                                         ruby: false,
                                         style: AppText.noto(r.x(24),
                                             weight: FontWeight.w400,
-                                            color: AppColors.onBlue)),
+                                            color:
+                                                AppColors.on(AppColors.blue))),
                                   ],
                                 ),
                             ],

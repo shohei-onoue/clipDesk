@@ -39,9 +39,15 @@ class AppDrawer extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.deep, AppColors.drawerEnd],
+            colors: [
+              AppColors.on(Colors.white),
+              (AppColors.isLight || AppColors.gray.a < 1
+                  ? AppColors.blue
+                  : AppColors.gray)
+            ],
           ),
-          border: Border.all(color: AppColors.onDark.withValues(alpha: 0.16)),
+          border: Border.all(
+              color: AppColors.on(Colors.black).withValues(alpha: 0.16)),
         ),
         // 画面が低い・文字が大きいときは、中身がスクロールし、ログアウトまで操作できる。
         child: LayoutBuilder(
@@ -54,7 +60,8 @@ class AppDrawer extends StatelessWidget {
                   children: [
                     Text('Clip Desk',
                         style: AppText.noto(r.x(24),
-                            color: AppColors.onDark, height: 32 / 24)),
+                            color: AppColors.on(Colors.black),
+                            height: 32 / 24)),
                     SizedBox(height: r.y(20)),
                     // メイン画面のメニューと同じ項目・同じ出し分け（権限）・同じ遷移先。
                     StreamBuilder<StaffAccess>(
@@ -66,14 +73,16 @@ class AppDrawer extends StatelessWidget {
                           if (a.canRequest)
                             _Tile(
                                 AppIcon(AppIcons.addCircle,
-                                    size: r.x(24), color: AppColors.onDark),
+                                    size: r.x(24),
+                                    color: AppColors.on(Colors.black)),
                                 '依頼する',
                                 () => _open(
                                     context, UserRole.requester, '/chat')),
                           if (a.canRequest || a.canEdit)
                             _Tile(
                                 AppIcon(AppIcons.viewCozy,
-                                    size: r.x(24), color: AppColors.onDark),
+                                    size: r.x(24),
+                                    color: AppColors.on(Colors.black)),
                                 'ダッシュボード',
                                 () => _open(
                                     context,
@@ -84,23 +93,27 @@ class AppDrawer extends StatelessWidget {
                           if (a.canRequest || a.canEdit)
                             _Tile(
                                 AppIcon(AppIcons.notificationsFill,
-                                    size: r.x(24), color: AppColors.onDark),
+                                    size: r.x(24),
+                                    color: AppColors.on(Colors.black)),
                                 '通知',
                                 () => _open(context, null, '/notifications')),
                           _Tile(
                               AppIcon(AppIcons.bookshelf,
-                                  size: r.x(24), color: AppColors.onDark),
+                                  size: r.x(24),
+                                  color: AppColors.on(Colors.black)),
                               'ライブラリ',
                               () => _open(context, null, '/library')),
                           if (a.manager)
                             _Tile(
                                 Icon(Icons.group_outlined,
-                                    size: r.x(24), color: AppColors.onDark),
+                                    size: r.x(24),
+                                    color: AppColors.on(Colors.black)),
                                 '登録スタッフ',
                                 () => _open(context, null, '/staff')),
                           _Tile(
                               AppIcon(AppIcons.settings,
-                                  size: r.x(24), color: AppColors.onDark),
+                                  size: r.x(24),
+                                  color: AppColors.on(Colors.black)),
                               '設定',
                               () => _open(context, null, '/settings')),
                         ]);
@@ -110,19 +123,21 @@ class AppDrawer extends StatelessWidget {
                     // ログインしているユーザーの名前（users の name。なければ表示名、メールの順）。
                     _UserName(uid: uid),
                     Divider(
-                        color: AppColors.onDark.withValues(alpha: 0.16),
+                        color:
+                            AppColors.on(Colors.black).withValues(alpha: 0.16),
                         height: 1,
                         thickness: 1),
                     _Tile(
                         AppIcon(AppIcons.logout,
-                            size: r.x(24), color: AppColors.onDark),
+                            size: r.x(24), color: AppColors.on(Colors.black)),
                         'ログアウト',
                         () => confirmAndLogout(context)),
                     SizedBox(height: r.y(4)),
                     Text('Version 1.0.0',
                         style: AppText.noto(r.x(12),
                             weight: FontWeight.w400,
-                            color: AppColors.onDark.withValues(alpha: 0.7),
+                            color: AppColors.on(Colors.black)
+                                .withValues(alpha: 0.7),
                             height: 16 / 12)),
                   ],
                 ),
@@ -162,13 +177,13 @@ class _UserName extends StatelessWidget {
               Text('ログイン中',
                   style: AppText.noto(r.x(12),
                       weight: FontWeight.w400,
-                      color: AppColors.onDark.withValues(alpha: 0.7),
+                      color: AppColors.on(Colors.black).withValues(alpha: 0.7),
                       height: 16 / 12)),
               Text(name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.noto(r.x(16),
-                      color: AppColors.onDark, height: 24 / 16)),
+                      color: AppColors.on(Colors.black), height: 24 / 16)),
             ],
           ),
         );
@@ -198,7 +213,7 @@ class _Tile extends StatelessWidget {
             Expanded(
               child: Text(label,
                   style: AppText.noto(r.x(16),
-                      color: AppColors.onDark, height: 24 / 16)),
+                      color: AppColors.on(Colors.black), height: 24 / 16)),
             ),
           ],
         ),

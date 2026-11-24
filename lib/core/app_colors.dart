@@ -2,9 +2,9 @@ import 'app_settings.dart';
 import 'package:flutter/material.dart';
 
 /// アプリで使う色は、Figma（ColorsList 273:1217）の4色（ink・white・amber・blue）と、
-/// 面に使うグレー（gray）の5色だけ。bg・deep・onBlue などは、この5色から決めた値。設定画面で選んだ「色の組み合わせ」（[AppPalette]）に合わせて変わる。
-/// 既定（デフォルト）は従来の配色。薄い線・補足文などは、これらに透明度をかけて作る
-/// （例：white.withValues(alpha: 0.7)）。
+/// 面に使うグレー（gray）の5色だけ。設定画面で選んだ「色の組み合わせ」（[AppPalette]）に
+/// 合わせて変わる。背景は ink、青・琥珀の面の上の文字は [on] で決める。
+/// 薄い線・補足文などは、これらに透明度をかけて作る（例：white.withValues(alpha: 0.7)）。
 ///
 /// 色は設定で変わるため const ではない（`const` の中では使えない）。
 class AppColors {
@@ -12,7 +12,7 @@ class AppColors {
 
   static AppPalette get _p => AppSettings.instance.palette;
 
-  /// 黒（背景・文字）。
+  /// 黒（画面・ダイアログの背景）。white の反対色。
   static Color get ink => _p.ink;
 
   /// オレンジ（強調・注意・進捗）。
@@ -27,25 +27,12 @@ class AppColors {
   /// 面（カード・入力欄・情報面の背景）のグレー。従来は白 8%（半透明）。
   static Color get gray => _p.gray;
 
-  /// 画面・ダイアログの背景。デフォルトでは ink と同じ。
-  static Color get bg => _p.bg;
+  /// 面の上で読みやすい文字色（white か ink）。
+  /// 青の面は `on(blue)`、琥珀の面は `on(amber)`、いつも暗い面（動画など）は `on(Colors.black)`、
+  /// 濃い側の色（ドロワーなど）は `on(Colors.white)`。
+  static Color on(Color surface) => _p.on(surface);
 
-  /// グラデーション（メインカード・ドロワー）の濃い側。
-  static Color get deep => _p.deep;
-
-  /// ドロワーのグラデーションの終わり側。
-  static Color get drawerEnd => _p.drawerEnd;
-
-  /// 青で塗った面（ボタン・バッジ・自分の吹き出し）の上の文字。デフォルトでは white と同じ。
-  static Color get onBlue => _p.onBlue;
-
-  /// 琥珀で塗った面の上の文字。デフォルトでは ink と同じ。
-  static Color get onAmber => _p.onAmber;
-
-  /// いつも暗い面（動画・黒い背景・赤いバッジ）の上の明るい文字・アイコン。
-  static Color get onDark => _p.onDark;
-
-  /// 明るい背景の配色か（標準の部品の明暗を切り替える）。
+  /// 明るい背景の配色か。
   static bool get isLight => _p.isLight;
 
   /// 通知の件数バッジ専用の赤（利用者の指示。ほかの色の例外で、組み合わせを変えても変わらない）。

@@ -27,7 +27,7 @@ class TopTabs extends StatelessWidget {
     final r = context.r;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.bg,
+        color: AppColors.ink,
         border: Border(
             bottom: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
       ),

@@ -97,7 +97,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
     if (args is! RequestDraft) {
       // ブラウザの再読み込みなどで、入力中の内容が失われたとき。
       return Scaffold(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         body: SafeArea(
           child: Column(children: [
             const AppHeader(title: '依頼内容'),
@@ -118,7 +118,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
                             .pushNamedAndRemoveUntil('/menu', (_) => false),
                         style: FilledButton.styleFrom(
                             backgroundColor: AppColors.blue,
-                            foregroundColor: AppColors.onBlue),
+                            foregroundColor: AppColors.on(AppColors.blue)),
                         child: const Text('メインに戻る'),
                       ),
                     ],
@@ -167,7 +167,7 @@ class _BriefConfirmScreenState extends State<BriefConfirmScreen> {
               ),
           ];
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(

@@ -93,42 +93,19 @@ enum AppPalette {
   /// 明るい背景の配色か。
   bool get isLight => ink.computeLuminance() > 0.5;
 
-  /// 画面・ダイアログの背景（ink と同じ）。
-  Color get bg => ink;
-
-  /// 暗いほうの色（white と ink のうち輝度が低いほう）。
-  Color get _darker =>
-      white.computeLuminance() < ink.computeLuminance() ? white : ink;
-
-  /// 明るいほうの色。
-  Color get _lighter =>
-      white.computeLuminance() < ink.computeLuminance() ? ink : white;
-
-  /// グラデーション（メインカード・ドロワー）の濃い側。
-  Color get deep => _darker;
-
-  /// ドロワーのグラデーションの終わり側。暗い背景で面が不透明なら gray、それ以外は blue。
-  Color get drawerEnd => (!isLight && gray.a >= 1) ? gray : blue;
-
   /// 面の上で読みやすい文字色（white か ink のうち、コントラストが高いほう）。
   Color on(Color surface) {
     final l = surface.computeLuminance();
+    final lighter =
+        white.computeLuminance() < ink.computeLuminance() ? ink : white;
+    final darker = identical(lighter, white) ? ink : white;
     double ratio(Color c) {
       final a = c.computeLuminance();
       return (a > l ? a + 0.05 : l + 0.05) / (a > l ? l + 0.05 : a + 0.05);
     }
 
-    return ratio(_lighter) >= ratio(_darker) ? _lighter : _darker;
+    return ratio(lighter) >= ratio(darker) ? lighter : darker;
   }
-
-  /// 青で塗った面の上の文字。
-  Color get onBlue => on(blue);
-
-  /// 琥珀で塗った面の上の文字。
-  Color get onAmber => on(amber);
-
-  /// いつも暗い面（動画・黒い背景・赤いバッジ）の上の明るい文字。
-  Color get onDark => _lighter;
 }
 
 /// 読み上げの速さ（倍率）。1.0 が「ふつう」（従来の速さ）。スライダーで 0.5〜1.5 倍まで変えられる。

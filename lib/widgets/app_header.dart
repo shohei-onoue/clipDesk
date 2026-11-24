@@ -74,7 +74,7 @@ class AppHeader extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.bg, AppColors.bg, AppColors.amber],
+          colors: [AppColors.ink, AppColors.ink, AppColors.amber],
           stops: [0, 0.92308, 1],
         ),
       ),

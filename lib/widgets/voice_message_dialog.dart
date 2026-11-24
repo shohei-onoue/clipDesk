@@ -130,7 +130,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppRadius.md);
     return AlertDialog(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -175,7 +175,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
                   label: const Text('やり直し'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.white,
-                    backgroundColor: AppColors.bg.withValues(alpha: 0.85),
+                    backgroundColor: AppColors.ink.withValues(alpha: 0.85),
                     minimumSize: const Size(0, 32),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
@@ -199,7 +199,9 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
           style: IconButton.styleFrom(
             backgroundColor: _listening ? AppColors.amber : AppColors.blue,
-            foregroundColor: _listening ? AppColors.onAmber : AppColors.onBlue,
+            foregroundColor: _listening
+                ? AppColors.on(AppColors.amber)
+                : AppColors.on(AppColors.blue),
             minimumSize: const Size(44, 44),
           ),
           onPressed: _toggle,
@@ -220,7 +222,7 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           onPressed: () => Navigator.pop(context, _text.text.trim()),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.blue,
-            foregroundColor: AppColors.onBlue,
+            foregroundColor: AppColors.on(AppColors.blue),
             minimumSize: const Size(96, 44),
             shape: RoundedRectangleBorder(borderRadius: radius),
           ),

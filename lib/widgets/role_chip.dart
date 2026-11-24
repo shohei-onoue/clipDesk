@@ -36,7 +36,7 @@ class RoleChip extends StatelessWidget {
         child: Text(label,
             style: AppText.dark(r.x(14),
                 color: selected
-                    ? AppColors.onBlue
+                    ? AppColors.on(AppColors.blue)
                     : AppColors.white.withValues(alpha: 0.7))),
       ),
     );

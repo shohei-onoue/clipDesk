@@ -114,7 +114,7 @@ class MyMessage extends StatelessWidget {
           child: Text(text,
               style: AppText.noto(r.x(18),
                   weight: FontWeight.w400,
-                  color: AppColors.onBlue,
+                  color: AppColors.on(AppColors.blue),
                   height: 27 / 18)),
         ),
       ),

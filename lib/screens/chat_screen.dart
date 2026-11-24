@@ -316,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
         context: context,
         position: RelativeRect.fromLTRB(
             at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-        color: AppColors.bg,
+        color: AppColors.ink,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(10)),
@@ -391,7 +391,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       position: RelativeRect.fromLTRB(
           at.dx, at.dy, screen.width - at.dx, screen.height - at.dy),
-      color: AppColors.bg,
+      color: AppColors.ink,
       shape: RoundedRectangleBorder(
           side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
           borderRadius: BorderRadius.circular(10)),
@@ -425,7 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final controller = FixedExtentScrollController(initialItem: selected - 1);
     return showModalBottomSheet<int>(
       context: context,
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       builder: (context) => SafeArea(
         child: SizedBox(
           height: 300,
@@ -448,7 +448,7 @@ class _ChatScreenState extends State<ChatScreen> {
               child: CupertinoPicker(
                 scrollController: controller,
                 itemExtent: 40,
-                backgroundColor: AppColors.bg,
+                backgroundColor: AppColors.ink,
                 onSelectedItemChanged: (i) => selected = i + 1,
                 children: [
                   for (var n = 1; n <= 600; n++)
@@ -519,7 +519,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final kind = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -573,10 +573,10 @@ class _ChatScreenState extends State<ChatScreen> {
             primary: AppColors.blue,
             onPrimary: AppColors.white,
             // 背景は透けない単色（ink）。
-            surface: AppColors.bg,
+            surface: AppColors.ink,
             onSurface: AppColors.white,
           ),
-          dialogTheme: DialogThemeData(backgroundColor: AppColors.bg),
+          dialogTheme: DialogThemeData(backgroundColor: AppColors.ink),
           // 「キャンセル」「OK」はテキストボタンではなく、枠付き／塗りのボタンにする。
           datePickerTheme: DatePickerThemeData(
             cancelButtonStyle: OutlinedButton.styleFrom(
@@ -587,7 +587,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             confirmButtonStyle: FilledButton.styleFrom(
               backgroundColor: AppColors.blue,
-              foregroundColor: AppColors.onBlue,
+              foregroundColor: AppColors.on(AppColors.blue),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg)),
             ),
@@ -619,7 +619,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.bg,
+        backgroundColor: AppColors.ink,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(15)),
@@ -632,7 +632,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.blue,
-                  foregroundColor: AppColors.onBlue),
+                  foregroundColor: AppColors.on(AppColors.blue)),
               child: const Text('はい')),
         ],
       ),
@@ -745,7 +745,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     _scrollToLatestQuestion();
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.ink,
       drawer: const AppDrawer(),
       body: SafeArea(
         child: Stack(children: [
@@ -910,7 +910,7 @@ class _ChatBubble extends StatelessWidget {
                         style: message.mine
                             ? AppText.noto(15,
                                 weight: FontWeight.w400,
-                                color: AppColors.onBlue,
+                                color: AppColors.on(AppColors.blue),
                                 height: 1.5)
                             : AppText.dark(15,
                                 weight: FontWeight.w400, height: 1.5)),
@@ -987,7 +987,7 @@ class _InputBar extends StatelessWidget {
                     style: FilledButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         backgroundColor: AppColors.blue,
-                        foregroundColor: AppColors.onBlue,
+                        foregroundColor: AppColors.on(AppColors.blue),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24))),
                     child: Text('完了', style: AppText.dark(16)),
@@ -1006,7 +1006,7 @@ class _InputBar extends StatelessWidget {
                   cursorColor: AppColors.white,
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: AppColors.bg,
+                    fillColor: AppColors.ink,
                     hintStyle: AppText.dark(15,
                         weight: FontWeight.w400,
                         color: AppColors.white.withValues(alpha: 0.7)),

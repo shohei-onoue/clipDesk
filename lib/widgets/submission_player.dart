@@ -88,8 +88,8 @@ class _Frame extends StatelessWidget {
                 child: IconButton(
                   tooltip: '依頼の資料を開く',
                   onPressed: onDocs,
-                  icon:
-                      Icon(Icons.description_outlined, color: AppColors.onDark),
+                  icon: Icon(Icons.description_outlined,
+                      color: AppColors.on(Colors.black)),
                 ),
               ),
             ),
@@ -243,17 +243,19 @@ class _VideoPanelState extends State<VideoPanel> {
         child: Text('エラー：動画を再生できません。通信を確認して、もう一度開いてください',
             textAlign: TextAlign.center,
             style: AppText.dark(14,
-                weight: FontWeight.w400, color: AppColors.onDark)),
+                weight: FontWeight.w400, color: AppColors.on(Colors.black))),
       ));
     }
     if (c == null) {
-      return Center(child: CircularProgressIndicator(color: AppColors.onDark));
+      return Center(
+          child: CircularProgressIndicator(color: AppColors.on(Colors.black)));
     }
     return Column(children: [
       Expanded(
         child: Center(
             child: widget.audio
-                ? Icon(Icons.music_note, size: 96, color: AppColors.onDark)
+                ? Icon(Icons.music_note,
+                    size: 96, color: AppColors.on(Colors.black))
                 : AspectRatio(
                     aspectRatio: c.value.aspectRatio, child: VideoPlayer(c))),
       ),
@@ -269,9 +271,11 @@ class _VideoPanelState extends State<VideoPanel> {
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 3,
                 activeTrackColor: const Color(0xFFFF0000),
-                inactiveTrackColor: AppColors.onDark.withValues(alpha: 0.3),
-                thumbColor: AppColors.onDark,
-                overlayColor: AppColors.onDark.withValues(alpha: 0.16),
+                inactiveTrackColor:
+                    AppColors.on(Colors.black).withValues(alpha: 0.3),
+                thumbColor: AppColors.on(Colors.black),
+                overlayColor:
+                    AppColors.on(Colors.black).withValues(alpha: 0.16),
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
                 trackShape: const RectangularSliderTrackShape(),
               ),
@@ -303,30 +307,31 @@ class _VideoPanelState extends State<VideoPanel> {
                 tooltip: '再生',
                 // 押せる状態は常に保ち、今の状態のほうを濃く見せる。
                 color: _playing
-                    ? AppColors.onDark.withValues(alpha: 0.4)
-                    : AppColors.onDark,
+                    ? AppColors.on(Colors.black).withValues(alpha: 0.4)
+                    : AppColors.on(Colors.black),
                 icon: const Icon(Icons.play_arrow),
                 onPressed: _play,
               ),
               IconButton(
                 tooltip: '一時停止',
                 color: _playing
-                    ? AppColors.onDark
-                    : AppColors.onDark.withValues(alpha: 0.4),
+                    ? AppColors.on(Colors.black)
+                    : AppColors.on(Colors.black).withValues(alpha: 0.4),
                 icon: const Icon(Icons.pause),
                 onPressed: _pause,
               ),
               Text(
                   '${_fmt(Duration(milliseconds: pos.round()))} / ${_fmt(v.duration)}',
                   style: AppText.dark(13,
-                      weight: FontWeight.w400, color: AppColors.onDark)),
+                      weight: FontWeight.w400,
+                      color: AppColors.on(Colors.black))),
               const Spacer(),
               if (widget.onDocs != null)
                 IconButton(
                   tooltip: '依頼の詳細を開く',
                   onPressed: widget.onDocs,
-                  icon:
-                      Icon(Icons.description_outlined, color: AppColors.onDark),
+                  icon: Icon(Icons.description_outlined,
+                      color: AppColors.on(Colors.black)),
                 ),
             ]),
             // 動画の題名：操作列の下に1行（依頼時のタイトル）。
@@ -337,7 +342,8 @@ class _VideoPanelState extends State<VideoPanel> {
                   child: Text(widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.dark(14, color: AppColors.onDark)),
+                      style:
+                          AppText.dark(14, color: AppColors.on(Colors.black))),
                 ),
               ]),
             ),
