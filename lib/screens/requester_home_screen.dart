@@ -242,7 +242,7 @@ class ProgressCard extends StatelessWidget {
                 style: AppText.noto(r.x(14),
                     color: badgeFilled
                         ? (badgeColor == AppColors.amber
-                            ? AppColors.badgeOnAmber
+                            ? AppColors.onAmber
                             : AppColors.onBlue)
                         : badgeColor)),
           ),

@@ -13,15 +13,13 @@ enum TextSizeLevel {
   final double scale;
 }
 
-/// 色の組み合わせ（パターン）。対象は white・ink・amber・blue と、面に使うグレー（gray）、
-/// 背景（bg）。[standard] が従来の配色で、このとき bg は ink と同じ。
+/// 色の組み合わせ（パターン）。1つの組み合わせが持つ色は5色だけ：white・ink・amber・blue・gray。
+/// [standard] が従来の配色。背景・文字色・グラデーションなどは、この5色から決める（下の getter）。
 ///
 /// 役割：
 /// - white：画面の文字・線（暗い背景では明るい色、明るい背景では黒）。ink は、その反対の色
-///   （白い面・琥珀の面に載せる文字、ドロワーなどの濃い面）。
-/// - bg：画面・ダイアログの背景。gray：カード・入力欄などの面。
-/// - onBlue／onAmber：青・琥珀で塗った面（ボタン・バッジ）の上の文字。
-/// - deep：メインカード・ドロワーのグラデーションの濃い側。
+///   （画面の背景、白い面・琥珀の面に載せる文字、ドロワーなどの濃い面）。
+/// - gray：カード・入力欄などの面。
 /// 値は docs/design-system/tokens.json の palettes と同じ。
 enum AppPalette {
   standard(
@@ -31,16 +29,9 @@ enum AppPalette {
     ink: Color(0xFF1A1D20),
     amber: Color(0xFFD97706),
     blue: Color(0xFF0052CC),
-    bg: Color(0xFF1A1D20),
     // 白 8%（半透明）。従来の `white.withValues(alpha: 0.08)` と同じ値。
     gray: Color.from(
         alpha: 0.08, red: 245 / 255, green: 245 / 255, blue: 245 / 255),
-    deep: Color(0xFF1A1D20),
-    onBlue: Color(0xFFF5F5F5),
-    onAmber: Color(0xFF1A1D20),
-    badgeOnAmber: Color(0xFFF5F5F5),
-    onDark: Color(0xFFF5F5F5),
-    onLight: Color(0xFF1A1D20),
   ),
   contrast(
     label: 'ハイコントラスト',
@@ -49,15 +40,7 @@ enum AppPalette {
     ink: Color(0xFF121212),
     amber: Color(0xFF40C4FF),
     blue: Color(0xFFFFD600),
-    bg: Color(0xFF121212),
     gray: Color(0xFF242424),
-    deep: Color(0xFF121212),
-    drawerEnd: Color(0xFF242424),
-    onBlue: Color(0xFF121212),
-    onAmber: Color(0xFF121212),
-    badgeOnAmber: Color(0xFF121212),
-    onDark: Color(0xFFF5F5F5),
-    onLight: Color(0xFF121212),
   ),
   ocean(
     label: 'クリア・オーシャン',
@@ -66,15 +49,7 @@ enum AppPalette {
     ink: Color(0xFF0A192F),
     amber: Color(0xFF64FFDA),
     blue: Color(0xFFFF9100),
-    bg: Color(0xFF0A192F),
     gray: Color(0xFF172A45),
-    deep: Color(0xFF0A192F),
-    drawerEnd: Color(0xFF172A45),
-    onBlue: Color(0xFF0A192F),
-    onAmber: Color(0xFF0A192F),
-    badgeOnAmber: Color(0xFF0A192F),
-    onDark: Color(0xFFF0F4F8),
-    onLight: Color(0xFF0A192F),
   ),
   forest(
     label: 'フォレスト',
@@ -83,31 +58,16 @@ enum AppPalette {
     ink: Color(0xFF0D1F17),
     amber: Color(0xFF69F0AE),
     blue: Color(0xFFFFEA00),
-    bg: Color(0xFF0D1F17),
     gray: Color(0xFF1B362A),
-    deep: Color(0xFF0D1F17),
-    drawerEnd: Color(0xFF1B362A),
-    onBlue: Color(0xFF0D1F17),
-    onAmber: Color(0xFF0D1F17),
-    badgeOnAmber: Color(0xFF0D1F17),
-    onDark: Color(0xFFF4F7F5),
-    onLight: Color(0xFF0D1F17),
   ),
   light(
     label: 'クリーン・ライト',
     note: '象牙 × 青 × 赤（眩しさを抑えた明るい背景）',
     white: Color(0xFF111111),
-    ink: Color(0xFFFFFFFF),
+    ink: Color(0xFFF7F5F0),
     amber: Color(0xFFC62828),
     blue: Color(0xFF0052CC),
-    bg: Color(0xFFF7F5F0),
     gray: Color(0xFFFFFFFF),
-    deep: Color(0xFF0A1633),
-    onBlue: Color(0xFFFFFFFF),
-    onAmber: Color(0xFFFFFFFF),
-    badgeOnAmber: Color(0xFFFFFFFF),
-    onDark: Color(0xFFFFFFFF),
-    onLight: Color(0xFF111111),
   );
 
   const AppPalette({
@@ -117,15 +77,7 @@ enum AppPalette {
     required this.ink,
     required this.amber,
     required this.blue,
-    required this.bg,
     required this.gray,
-    required this.deep,
-    this.drawerEnd,
-    required this.onBlue,
-    required this.onAmber,
-    required this.badgeOnAmber,
-    required this.onDark,
-    required this.onLight,
   });
 
   final String label;
@@ -135,33 +87,48 @@ enum AppPalette {
   final Color amber;
   final Color blue;
 
-  /// 画面・ダイアログの背景。
-  final Color bg;
-
   /// 面（カード・入力欄の背景など）に使うグレー。
   final Color gray;
 
-  /// グラデーションの濃い側（メインカード・ドロワー）。
-  final Color deep;
+  /// 明るい背景の配色か。
+  bool get isLight => ink.computeLuminance() > 0.5;
 
-  /// ドロワーのグラデーションの終わり側。省略すると blue。
-  final Color? drawerEnd;
+  /// 画面・ダイアログの背景（ink と同じ）。
+  Color get bg => ink;
 
-  /// 青・琥珀の面の上の文字。
-  final Color onBlue;
-  final Color onAmber;
+  /// 暗いほうの色（white と ink のうち輝度が低いほう）。
+  Color get _darker =>
+      white.computeLuminance() < ink.computeLuminance() ? white : ink;
 
-  /// 琥珀で塗った小さなバッジ（ダッシュボードのカード）の文字。デフォルトは従来どおり白。
-  final Color badgeOnAmber;
+  /// 明るいほうの色。
+  Color get _lighter =>
+      white.computeLuminance() < ink.computeLuminance() ? ink : white;
+
+  /// グラデーション（メインカード・ドロワー）の濃い側。
+  Color get deep => _darker;
+
+  /// ドロワーのグラデーションの終わり側。暗い背景で面が不透明なら gray、それ以外は blue。
+  Color get drawerEnd => (!isLight && gray.a >= 1) ? gray : blue;
+
+  /// 面の上で読みやすい文字色（white か ink のうち、コントラストが高いほう）。
+  Color on(Color surface) {
+    final l = surface.computeLuminance();
+    double ratio(Color c) {
+      final a = c.computeLuminance();
+      return (a > l ? a + 0.05 : l + 0.05) / (a > l ? l + 0.05 : a + 0.05);
+    }
+
+    return ratio(_lighter) >= ratio(_darker) ? _lighter : _darker;
+  }
+
+  /// 青で塗った面の上の文字。
+  Color get onBlue => on(blue);
+
+  /// 琥珀で塗った面の上の文字。
+  Color get onAmber => on(amber);
 
   /// いつも暗い面（動画・黒い背景・赤いバッジ）の上の明るい文字。
-  final Color onDark;
-
-  /// いつも白い面（ログインの入力欄）の上の暗い文字。
-  final Color onLight;
-
-  /// 明るい背景の配色か。
-  bool get isLight => bg.computeLuminance() > 0.5;
+  Color get onDark => _lighter;
 }
 
 /// 読み上げの速さ（倍率）。1.0 が「ふつう」（従来の速さ）。スライダーで 0.5〜1.5 倍まで変えられる。

@@ -2,7 +2,7 @@ import 'app_settings.dart';
 import 'package:flutter/material.dart';
 
 /// アプリで使う色は、Figma（ColorsList 273:1217）の4色（ink・white・amber・blue）と、
-/// 面に使うグレー（gray）。設定画面で選んだ「色の組み合わせ」（[AppPalette]）に合わせて変わる。
+/// 面に使うグレー（gray）の5色だけ。bg・deep・onBlue などは、この5色から決めた値。設定画面で選んだ「色の組み合わせ」（[AppPalette]）に合わせて変わる。
 /// 既定（デフォルト）は従来の配色。薄い線・補足文などは、これらに透明度をかけて作る
 /// （例：white.withValues(alpha: 0.7)）。
 ///
@@ -34,7 +34,7 @@ class AppColors {
   static Color get deep => _p.deep;
 
   /// ドロワーのグラデーションの終わり側。
-  static Color get drawerEnd => _p.drawerEnd ?? _p.blue;
+  static Color get drawerEnd => _p.drawerEnd;
 
   /// 青で塗った面（ボタン・バッジ・自分の吹き出し）の上の文字。デフォルトでは white と同じ。
   static Color get onBlue => _p.onBlue;
@@ -42,14 +42,8 @@ class AppColors {
   /// 琥珀で塗った面の上の文字。デフォルトでは ink と同じ。
   static Color get onAmber => _p.onAmber;
 
-  /// 琥珀の小さなバッジの文字（デフォルトは white）。
-  static Color get badgeOnAmber => _p.badgeOnAmber;
-
   /// いつも暗い面（動画・黒い背景・赤いバッジ）の上の明るい文字・アイコン。
   static Color get onDark => _p.onDark;
-
-  /// いつも白い面（ログインの入力欄）の上の暗い文字。
-  static Color get onLight => _p.onLight;
 
   /// 明るい背景の配色か（標準の部品の明暗を切り替える）。
   static bool get isLight => _p.isLight;
