@@ -771,44 +771,36 @@ class _BodyState extends State<_Body> {
             ),
           ]);
     // 依頼者の動画確認の、画面下のボタン：「修正依頼」「承認する」、その下に「依頼を取り消す」。
-    final reviewButtons = Row(children: [
-      Expanded(
-        flex: 2,
-        child: DetailButton('修正依頼', AppColors.white, _busy, () async {
-          // 修正の内容は、ダイアログで入力する（問合せと同じ入力ダイアログ。音声入力もできる）。
-          final t = await _askText('修正の依頼', '修正してほしい内容を入力（音声でも入力できます）',
-              sendLabel: '送信');
-          if (t == null) return;
-          await _run(
-              () => repo.requestRevision(
-                  requestId: q.id, uid: widget.uid, instruction: t),
-              done: '修正指示を送りました');
-        }),
-      ),
-      SizedBox(width: r.x(10)),
-      Expanded(
-        flex: 2,
-        child: DetailButton('承認する', AppColors.blue, _busy, () async {
-          var cleaned = true;
-          final ok = await _run(
-              () async => cleaned =
-                  await repo.approve(requestId: q.id, uid: widget.uid),
-              done: '承認しました。編集者へ通知しました');
-          if (ok && !cleaned && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content:
-                    Text('エラー：添付素材の一部を削除できませんでした。通信を確認して、しばらくしてからお問い合わせください')));
-          }
-        }),
-      ),
-      // 幅は 修正依頼：承認する：依頼取消 ＝ 2：2：1。
-      if (canCancel) ...[
-        SizedBox(width: r.x(10)),
-        Expanded(
-          flex: 1,
-          child: HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
-        ),
-      ],
+    final reviewButtons = ActionRow(flexes: [
+      2,
+      2,
+      if (canCancel) 1
+    ], children: [
+      DetailButton('修正依頼', AppColors.white, _busy, () async {
+        // 修正の内容は、ダイアログで入力する（問合せと同じ入力ダイアログ。音声入力もできる）。
+        final t = await _askText('修正の依頼', '修正してほしい内容を入力（音声でも入力できます）',
+            sendLabel: '送信');
+        if (t == null) return;
+        await _run(
+            () => repo.requestRevision(
+                requestId: q.id, uid: widget.uid, instruction: t),
+            done: '修正指示を送りました');
+      }),
+      DetailButton('承認する', AppColors.blue, _busy, () async {
+        var cleaned = true;
+        final ok = await _run(
+            () async =>
+                cleaned = await repo.approve(requestId: q.id, uid: widget.uid),
+            done: '承認しました。編集者へ通知しました');
+        if (ok && !cleaned && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content:
+                  Text('エラー：添付素材の一部を削除できませんでした。通信を確認して、しばらくしてからお問い合わせください')));
+        }
+      }),
+      // 幅は 修正依頼：承認する：依頼取消 ＝ 2：2：1（中・大は縦に積む）。
+      if (canCancel)
+        HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
     ]);
 
     final list = ListView(
@@ -906,11 +898,8 @@ class _BodyState extends State<_Body> {
         Expanded(child: list),
         Padding(
           padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
-          child: Row(children: [
-            Expanded(
-              child:
-                  HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
-            ),
+          child: ActionRow(children: [
+            HoldToCancelButton(busy: _busy, onConfirmed: _cancelRequest),
           ]),
         ),
       ]);
@@ -942,18 +931,11 @@ class _BodyState extends State<_Body> {
         Expanded(child: list),
         Padding(
           padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
-          child: Row(children: [
+          child: ActionRow(children: [
             // 修正の依頼の内容は、問合せで確認できる（新規依頼の問合せと同じ流れ）。
-            if (s == RequestStatus.revision) ...[
-              Expanded(
-                  child: DetailButton(
-                      '問合せ', AppColors.white, _busy, _askRequester)),
-              SizedBox(width: r.x(10)),
-            ],
-            Expanded(
-              child:
-                  DetailButton('動画を提出', AppColors.blue, _busy, _pickAndSubmit),
-            ),
+            if (s == RequestStatus.revision)
+              DetailButton('問合せ', AppColors.white, _busy, _askRequester),
+            DetailButton('動画を提出', AppColors.blue, _busy, _pickAndSubmit),
           ]),
         ),
       ]);
@@ -963,22 +945,16 @@ class _BodyState extends State<_Body> {
       Expanded(child: list),
       Padding(
         padding: EdgeInsets.fromLTRB(r.x(14), r.x(8), r.x(14), r.x(12)),
-        child: Row(children: [
-          if (intake) ...[
-            Expanded(
-              child: DetailButton(
-                  '受注',
-                  AppColors.blue,
-                  _busy,
-                  () => _run(
-                      () => repo.startEditing(requestId: q.id, uid: widget.uid),
-                      done: '受注しました。編集を担当します')),
-            ),
-            SizedBox(width: r.x(10)),
-          ],
-          Expanded(
-            child: DetailButton('問合せ', AppColors.white, _busy, _askRequester),
-          ),
+        child: ActionRow(children: [
+          if (intake)
+            DetailButton(
+                '受注',
+                AppColors.blue,
+                _busy,
+                () => _run(
+                    () => repo.startEditing(requestId: q.id, uid: widget.uid),
+                    done: '受注しました。編集を担当します')),
+          DetailButton('問合せ', AppColors.white, _busy, _askRequester),
         ]),
       ),
     ]);

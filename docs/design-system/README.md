@@ -82,5 +82,6 @@ AppRadius（4/8/12/20/999）は維持します。現行UI固有のカード15、
 ユーザー指示（2026-11-20）。ホームのアップバーの歯車から開く設定画面で、文字の大きさ・色の組み合わせ・ふりがなを切り替えます。標準の設定（小・デフォルト・ふりがなオフ）の見た目は、これまでの基準UIと同じです。
 
 - 文字の大きさ：小＝標準、中＝1.5倍、大＝2倍（`textScaler`）。文字が大きいときは、固定の高さに文字を入れず、`Responsive.tx`・`r.large`・最小の高さで枠を広げます。高さを固定した枠に文字を入れる場合は、中・大で `test/layout_scale_test.dart`（はみ出しの確認）を通します。
+- 文字が「中」「大」のときの部品（A案）：ダッシュボードのカードは1列の全幅、TopTabsは2×2の大きなボタン、下部バーはアイコンの下に語句（`BarItem.shortLabel`）、案件詳細・指示書の項目は「見出し→値」の縦並び、画面下のボタンは `ActionRow` で縦に積み全幅。分岐は `Responsive.large`（中・大）。
 - 色の組み合わせ：`AppPalette`（デフォルト・ハイコントラスト・クリア・オーシャン・フォレスト・クリーン・ライト）。1組み合わせの色は ink／white／amber／blue／gray の5色だけで、`AppColors` もこの5色（と固定の `badgeRed`）だけを持ちます。設定で変わるため `const` では使えません。背景は `AppColors.ink`、青・琥珀の面の上の文字は `AppColors.on(AppColors.blue)`／`on(AppColors.amber)`、いつも暗い面（動画など）の上の文字は `on(Colors.black)` を使います（クリーン・ライトは明るい背景）。面は `AppColors.gray`（白8%を直書きしない）。`badgeRed` は固定です。
 - ふりがな：文字は `widgets/ruby_text.dart` の `Text`（標準の `Text` を隠して読み込む）を使います。辞書は `core/ruby_dictionary.dart`。

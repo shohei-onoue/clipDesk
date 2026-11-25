@@ -96,11 +96,10 @@ class _RequesterHomeScreenState extends State<RequesterHomeScreen> {
                                       padding: EdgeInsets.fromLTRB(
                                           r.x(14), r.x(16), r.x(14), r.x(16)),
                                       // 文字が大きいときは、カードの文字が入るよう高さを広げる。
-                                      // 「大」は幅が足りないので、1列にする。
+                                      // 「中」「大」は幅が足りないので、1列の全幅にする（A案）。
                                       gridDelegate:
                                           SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount:
-                                            r.textScale >= 2 ? 1 : 2,
+                                        crossAxisCount: r.large ? 1 : 2,
                                         crossAxisSpacing: r.x(17),
                                         mainAxisSpacing: r.x(29),
                                         // ふりがなのときは、行が高くなる分も広げる。

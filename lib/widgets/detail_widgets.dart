@@ -97,6 +97,29 @@ class DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    if (r.large) {
+      // 文字が大きいとき（中・大）：「見出し→値」を縦に並べて、値の幅を広く使う。
+      return Padding(
+        padding: EdgeInsets.only(top: r.y(6)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: AppText.dark(r.x(14),
+                    weight: FontWeight.w400,
+                    color: AppColors.white.withValues(alpha: 0.7))),
+            child ??
+                (onEdit == null
+                    ? Text(value,
+                        style: AppText.dark(r.x(14), weight: FontWeight.w400))
+                    : TapEditText(value,
+                        label: label,
+                        onTap: onEdit!,
+                        style: AppText.dark(r.x(14), weight: FontWeight.w400))),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(top: r.y(6)),
       child: Row(
@@ -155,9 +178,11 @@ class DetailButton extends StatelessWidget {
       child: InkWell(
         borderRadius: radius,
         onTap: busy || disabled ? null : onTap,
-        child: SizedBox(
-          height: r.x(48),
-          width: double.infinity,
+        child: ConstrainedBox(
+          // 標準は高さ48。文字が大きいとき（中・大）は、押しやすいよう文字に合わせて高くする。
+          constraints: BoxConstraints(
+              minHeight: r.large ? r.x(38) * r.textScale : r.x(48),
+              minWidth: double.infinity),
           child: Center(
             child: busy
                 ? SizedBox(
@@ -215,6 +240,31 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    if (r.large) {
+      // 文字が大きいとき（中・大）：「見出し→値」を縦に並べる。
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: r.x(4)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: AppText.dark(r.x(12),
+                    weight: FontWeight.w400,
+                    color: AppColors.white.withValues(alpha: 0.7),
+                    height: 20 / 12)),
+            onEdit == null
+                ? Text(value,
+                    style: AppText.dark(r.x(14),
+                        weight: FontWeight.w400, height: 20 / 14))
+                : TapEditText(value,
+                    label: label,
+                    onTap: onEdit!,
+                    style: AppText.dark(r.x(14),
+                        weight: FontWeight.w400, height: 20 / 14)),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.symmetric(vertical: r.x(4)),
       child: Row(
@@ -243,5 +293,35 @@ class InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 画面下などのボタンの並び。標準は横に並べる（[flexes] は幅の比）。
+/// 文字が大きいとき（中・大）は、横に並べず、縦に積んで全幅にする（A案）。
+class ActionRow extends StatelessWidget {
+  const ActionRow({super.key, required this.children, this.flexes});
+  final List<Widget> children;
+  final List<int>? flexes;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    if (r.large) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(height: r.x(12)),
+            children[i],
+          ],
+        ],
+      );
+    }
+    return Row(children: [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i > 0) SizedBox(width: r.x(10)),
+        Expanded(flex: flexes?[i] ?? 1, child: children[i]),
+      ],
+    ]);
   }
 }

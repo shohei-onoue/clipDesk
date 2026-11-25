@@ -25,6 +25,7 @@ class TopTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    if (r.large) return _grid(context, r);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.ink,
@@ -70,6 +71,64 @@ class TopTabs extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  /// 文字が大きいとき（中・大）：4つの項目を2×2の大きなボタンにする（A案）。
+  /// 選択中は青の塗り、他は枠だけ。語句も残す。
+  Widget _grid(BuildContext context, Responsive r) {
+    final radius = BorderRadius.circular(r.x(12));
+    Widget cell(int i) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: i == active,
+            label: items[i],
+            child: Material(
+              color: i == active ? AppColors.blue : Colors.transparent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: radius,
+                  side: i == active
+                      ? BorderSide.none
+                      : BorderSide(
+                          color: AppColors.white.withValues(alpha: 0.55))),
+              child: InkWell(
+                borderRadius: radius,
+                onTap: () => onSelect(i),
+                child: ExcludeSemantics(
+                  child: Container(
+                    constraints:
+                        BoxConstraints(minHeight: r.x(36) * r.textScale),
+                    padding: EdgeInsets.symmetric(vertical: r.x(6)),
+                    alignment: Alignment.center,
+                    child: Text(items[i],
+                        textAlign: TextAlign.center,
+                        style: AppText.body(r,
+                            color: i == active
+                                ? AppColors.on(AppColors.blue)
+                                : AppColors.white,
+                            weight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+    return Container(
+      color: AppColors.ink,
+      padding: EdgeInsets.all(r.x(10)),
+      child: Column(children: [
+        for (var i = 0; i < items.length; i += 2) ...[
+          if (i > 0) SizedBox(height: r.x(10)),
+          Row(children: [
+            cell(i),
+            SizedBox(width: r.x(10)),
+            if (i + 1 < items.length)
+              cell(i + 1)
+            else
+              const Expanded(child: SizedBox()),
+          ]),
+        ],
+      ]),
     );
   }
 }
