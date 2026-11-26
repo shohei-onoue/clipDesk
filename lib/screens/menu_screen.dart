@@ -141,7 +141,7 @@ class MenuScreen extends StatelessWidget {
   }
 }
 
-/// メニューのカード（330×104、角丸15）。ink から brand へ流れるグラデーションの上に、
+/// メニューのカード（330×104、角丸15）。画面の背景色から amber へ流れるグラデーションの上に、
 /// キャラクターの画像（左）とふりがな付きの項目名（右）を置く。
 class _MenuCard extends StatelessWidget {
   const _MenuCard({
@@ -170,21 +170,18 @@ class _MenuCard extends StatelessWidget {
   final double textLeft;
   final VoidCallback onTap;
 
-  // 161.887°のグラデーション（ink 60.6% → brand 90.1%）を、330×104 の箱の対角に換算した向き。
+  // 始まりの色は、ホーム画面の背景と同じ ink。文字は、その上で読める white（明るい配色では黒）。
+  static Color get _base => AppColors.ink;
+  static Color get _text => AppColors.white;
+
+  // 161.9°のグラデーション（背景色 60.6% → amber 90.1%）を、330×104 の箱の対角に換算した向き。
+  // 文字はカードの中ほど（背景色の側）に載る。
+  // 終わりの色は、アップバー下端の線の色（amber）。
   static LinearGradient get _gradient => LinearGradient(
-        begin: Alignment(-0.189, -1.838),
-        end: Alignment(0.189, 1.838),
-        colors: [
-          AppColors.on(Colors.white),
-          AppColors.on(Colors.white),
-          AppColors.blue,
-          AppColors.blue
-        ],
-        // 青が明るい配色（onBlue が暗い色）では、文字が濃い側にかかると見えなくなる。
-        // 文字の位置（カードの中ほど）より手前で明るい色に変え、文字全体を明るい面に載せる。
-        stops: AppColors.blue.computeLuminance() > 0.4
-            ? [0, 0.05, 0.25, 1]
-            : [0, 0.60629, 0.90123, 1],
+        begin: const Alignment(-0.189, -1.838),
+        end: const Alignment(0.189, 1.838),
+        colors: [_base, _base, AppColors.amber, AppColors.amber],
+        stops: const [0, 0.60622, 0.90098, 1],
       );
 
   @override
@@ -228,16 +225,14 @@ class _MenuCard extends StatelessWidget {
                         if (ruby.isNotEmpty)
                           Text(ruby,
                               style: AppText.noto(r.x(14),
-                                  weight: FontWeight.w400,
-                                  color: AppColors.on(AppColors.blue))),
+                                  weight: FontWeight.w400, color: _text)),
                         // 長い題名（編集者ダッシュボード）は、枠に収まるよう縮める。
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: Text(title,
                               style: AppText.noto(r.x(24),
-                                  weight: FontWeight.w400,
-                                  color: AppColors.on(AppColors.blue))),
+                                  weight: FontWeight.w400, color: _text)),
                         ),
                       ] else
                         FittedBox(
@@ -253,15 +248,13 @@ class _MenuCard extends StatelessWidget {
                                     Text(rb ?? ' ',
                                         style: AppText.noto(r.x(14),
                                             weight: FontWeight.w400,
-                                            color:
-                                                AppColors.on(AppColors.blue))),
+                                            color: _text)),
                                     // 手で付けたふりがながあるので、自動のふりがなは付けない。
                                     Text(text,
                                         ruby: false,
                                         style: AppText.noto(r.x(24),
                                             weight: FontWeight.w400,
-                                            color:
-                                                AppColors.on(AppColors.blue))),
+                                            color: _text)),
                                   ],
                                 ),
                             ],

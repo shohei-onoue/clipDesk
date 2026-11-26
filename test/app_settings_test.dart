@@ -1,8 +1,11 @@
 import 'package:clipdesk/core/app_colors.dart';
 import 'package:clipdesk/core/app_settings.dart';
 import 'package:clipdesk/core/ruby_dictionary.dart';
+import 'package:clipdesk/widgets/detail_widgets.dart';
 import 'package:clipdesk/widgets/ruby_text.dart';
 import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -114,4 +117,71 @@ void main() {
       expect(find.bySemanticsLabel('依頼を確認します'), findsOneWidget);
     });
   });
+
+  testWidgets('ふりがな付きの漢字は、まわりの文字と下の端がそろう', (tester) async {
+    await AppSettings.instance.setRuby(true);
+    addTearDown(() => AppSettings.instance.setRuby(false));
+    await tester.pumpWidget(const Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+            child: Text('デモ編集者', style: TextStyle(fontSize: 24, height: 1)))));
+    final outer = find.byType(RichText).first;
+    final paragraph = tester.renderObject<RenderParagraph>(outer);
+    final plain = paragraph
+        .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 2))
+        .last;
+    final plainBottom = tester.getTopLeft(outer).dy + plain.bottom;
+    expect(tester.getBottomLeft(find.text('編集者')).dy,
+        moreOrLessEquals(plainBottom, epsilon: 0.5));
+  });
+
+  for (final (name, level, ruby) in [
+    ('小・ふりがななし', TextSizeLevel.small, false),
+    ('大・ふりがなあり', TextSizeLevel.large, true),
+  ]) {
+    testWidgets('お知らせの拡声器は、1行目の本文の字と下の端がそろう（$name）', (tester) async {
+      // 字の位置を測るので、実際のフォントを読み込む。
+      await tester.runAsync(() async {
+        for (final (family, asset) in [
+          ('NotoSansJP', 'assets/fonts/NotoSansJP-Variable.ttf'),
+          ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
+        ]) {
+          await (FontLoader(family)..addFont(rootBundle.load(asset))).load();
+        }
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await settings.setTextSize(level);
+      await settings.setRuby(ruby);
+      await tester.pumpWidget(MaterialApp(
+          builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(level.scale)),
+              child: child!),
+          home: const Scaffold(
+              body: Align(
+                  alignment: Alignment.topLeft,
+                  child: NoticeBar('編集者の受注待ちです。')))));
+      // いちばん外側の文字の段落（ふりがなは、この中に埋め込まれる）。
+      final outer = find
+          .descendant(
+              of: find.byType(NoticeBar),
+              matching: find.byWidgetPredicate((w) =>
+                  w is RichText && w.text.style?.fontFamily != 'MaterialIcons'))
+          .first;
+      final paragraph = tester.renderObject<RenderParagraph>(outer);
+      final baseline = tester.getTopLeft(outer).dy +
+          paragraph.getDryBaseline(
+              paragraph.constraints, TextBaseline.alphabetic)!;
+      final icon = find.byIcon(Icons.campaign_outlined);
+      // アイコンの字の下端（絵の下の余白を除く）は、本文の字の下端（基準線より少し下）。
+      final iconInk = tester.getBottomLeft(icon).dy - 24 * 0.166;
+      expect(iconInk,
+          moreOrLessEquals(baseline + 14 * level.scale * 0.07, epsilon: 0.5));
+      // 本文の位置は、アイコンに押し下げられない。
+      expect(tester.getTopLeft(outer).dy, moreOrLessEquals(4, epsilon: 0.5));
+    });
+  }
 }

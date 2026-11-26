@@ -29,7 +29,7 @@ class AppColors {
 
   /// 面の上で読みやすい文字色（white か ink）。
   /// 青の面は `on(blue)`、琥珀の面は `on(amber)`、いつも暗い面（動画など）は `on(Colors.black)`、
-  /// 濃い側の色（ドロワーなど）は `on(Colors.white)`。
+  /// 濃い側の色は `on(Colors.white)`。
   static Color on(Color surface) => _p.on(surface);
 
   /// 明るい背景の配色か。

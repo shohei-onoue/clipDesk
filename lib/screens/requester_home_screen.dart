@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
@@ -241,9 +242,9 @@ class ProgressCard extends StatelessWidget {
                 style: AppText.noto(r.x(14),
                     color: badgeFilled
                         ? (badgeColor == AppColors.amber
-                            ? AppColors.on(AppColors.amber)
+                            ? PartColors.onAmber
                             : AppColors.on(AppColors.blue))
-                        : badgeColor)),
+                        : PartColors.outlinedBadgeText(badgeColor))),
           ),
         );
     return Semantics(

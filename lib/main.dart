@@ -141,12 +141,17 @@ class _ClipDeskAppState extends State<ClipDeskApp> {
       routes: routes,
       // 最初の画面は1枚だけにする。標準では「/menu」から始めると、下にログイン画面（/）が
       // 積まれ、戻る操作が重なるとログイン画面（＝ログアウトしたように見える）へ戻ってしまう。
-      onGenerateInitialRoutes: (name) => [
-        MaterialPageRoute<void>(
-          settings: RouteSettings(name: name),
-          builder: routes[name] ?? routes['/']!,
-        ),
-      ],
+      onGenerateInitialRoutes: (name) {
+        // 依頼詳細（/request）は引数がないと開けないので、再読み込みしたときは起動先へ進む。
+        // デバッグの自動ログイン済みならメイン画面、それ以外はログイン画面になる。
+        final target = routes.containsKey(name) ? name : _initialRoute;
+        return [
+          MaterialPageRoute<void>(
+            settings: RouteSettings(name: target),
+            builder: routes[target]!,
+          ),
+        ];
+      },
       onGenerateRoute: (settings) {
         if (settings.name == '/request' && settings.arguments is String) {
           return MaterialPageRoute<void>(

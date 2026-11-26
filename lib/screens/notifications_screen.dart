@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../domain/video_request.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
@@ -57,7 +58,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ? AppColors.amber
                                 : AppColors.white.withValues(alpha: 0.16),
                             bellColor: unreadIds.contains(n.id)
-                                ? AppColors.amber
+                                ? PartColors.unreadBell
                                 : AppColors.white.withValues(alpha: 0.7),
                             onTap: () {
                               // 通知の内容の画面へ移ると、既読にする。

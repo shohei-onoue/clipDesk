@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/swipe_actions.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
@@ -295,7 +296,7 @@ Future<void> _confirmDelete(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.badgeRed,
-            foregroundColor: AppColors.white,
+            foregroundColor: PartColors.onRed,
             minimumSize: const Size(96, 44),
           ),
           child: const Text('削除'),

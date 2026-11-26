@@ -4,6 +4,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../core/japanese_speech.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import 'ruby_text.dart';
@@ -199,9 +200,8 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
           tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
           style: IconButton.styleFrom(
             backgroundColor: _listening ? AppColors.amber : AppColors.blue,
-            foregroundColor: _listening
-                ? AppColors.on(AppColors.amber)
-                : AppColors.on(AppColors.blue),
+            foregroundColor:
+                _listening ? PartColors.onAmber : AppColors.on(AppColors.blue),
             minimumSize: const Size(44, 44),
           ),
           onPressed: _toggle,

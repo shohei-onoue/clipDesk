@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
@@ -123,8 +124,7 @@ class _HoldToCancelButtonState extends State<HoldToCancelButton>
               child: Center(
                 child: Text('依頼取消',
                     maxLines: 1,
-                    style: AppText.noto(r.x(14),
-                        color: AppColors.on(AppColors.amber))),
+                    style: AppText.noto(r.x(14), color: PartColors.onAmber)),
               ),
             ),
           ),

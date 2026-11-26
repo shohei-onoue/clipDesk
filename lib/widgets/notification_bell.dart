@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
 import '../core/responsive.dart';
@@ -80,7 +81,7 @@ class _Bell extends StatelessWidget {
                       child: AppIcon(AppIcons.notificationsFill,
                           size: r.x(32),
                           color: count > 0
-                              ? AppColors.amber
+                              ? PartColors.unreadBell
                               : AppColors.white.withValues(alpha: 0.7)),
                     ),
                     // 右上の数字は、未読の数。
@@ -185,7 +186,7 @@ class _NotificationDialog extends StatelessWidget {
                             ? AppColors.amber
                             : AppColors.white.withValues(alpha: 0.16),
                         bellColor: fresh
-                            ? AppColors.amber
+                            ? PartColors.unreadBell
                             : AppColors.white.withValues(alpha: 0.7),
                         onTap: () {
                           // 通知の内容の画面へ移ると、既読にする。

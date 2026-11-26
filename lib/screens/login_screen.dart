@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import '../widgets/intro_painter.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 
@@ -437,7 +438,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     )
                                   : Text('ログイン',
                                       style: AppText.noto(r.x(13),
-                                          color: Colors.white, height: 1.3)),
+                                          color: PartColors.loginButtonText,
+                                          height: 1.3)),
                             ),
                           ),
                           SizedBox(height: r.y(14)),

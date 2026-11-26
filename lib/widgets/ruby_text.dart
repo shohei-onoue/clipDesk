@@ -98,18 +98,24 @@ class Text extends StatelessWidget {
             TextSpan(text: s.base)
           else
             WidgetSpan(
-              // 下をそろえる：ふりがなの分、行が上へ高くなる。
-              alignment: PlaceholderAlignment.bottom,
+              // 漢字を、まわりの文字と同じベースライン（下ぞろえ）に置く。ふりがなの分、行は上へ高くなる。
+              alignment: PlaceholderAlignment.baseline,
+              baseline: TextBaseline.alphabetic,
               child: ExcludeSemantics(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  // 文字の大きさの倍率は、外側の Text.rich が WidgetSpan ごと掛けるので、ここでは掛けない
-                  // （掛けると二重に大きくなる）。
-                  m.Text(s.ruby!,
-                      style: rubyStyle,
-                      maxLines: 1,
-                      textScaler: TextScaler.noScaling),
-                  m.Text(s.base, style: base, textScaler: TextScaler.noScaling),
-                ]),
+                // 下から上へ積む。Column のベースラインは先頭の子（漢字）のものになる。
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    verticalDirection: VerticalDirection.up,
+                    children: [
+                      // 文字の大きさの倍率は、外側の Text.rich が WidgetSpan ごと掛けるので、ここでは掛けない
+                      // （掛けると二重に大きくなる）。
+                      m.Text(s.base,
+                          style: base, textScaler: TextScaler.noScaling),
+                      m.Text(s.ruby!,
+                          style: rubyStyle,
+                          maxLines: 1,
+                          textScaler: TextScaler.noScaling),
+                    ]),
               ),
             ),
       ]),

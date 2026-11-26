@@ -1031,7 +1031,7 @@ class _InputBar extends StatelessWidget {
                   icon: AppIcon(AppIcons.send,
                       size: 32,
                       color: enabled && value.text.trim().isNotEmpty
-                          ? AppColors.blue
+                          ? AppColors.white
                           : AppColors.white.withValues(alpha: 0.16)),
                 ),
               ),

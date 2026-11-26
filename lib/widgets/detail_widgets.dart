@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_settings.dart';
 import '../core/app_text.dart';
 import '../core/read_aloud.dart';
@@ -166,14 +167,12 @@ class DetailButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     final radius = BorderRadius.circular(AppRadius.md);
-    // 塗りの上の文字：blue の上は white、white の上は amber、amber の上は ink。
-    final fg = color == AppColors.blue
-        ? AppColors.on(AppColors.blue)
-        : color == AppColors.white
-            ? AppColors.amber
-            : AppColors.on(AppColors.amber);
+    // 塗りと文字の色は、配色パターンごとの指定（PartColors）。
+    final fg = PartColors.detailText(color);
     return Material(
-      color: busy || disabled ? AppColors.white.withValues(alpha: 0.16) : color,
+      color: busy || disabled
+          ? AppColors.white.withValues(alpha: 0.16)
+          : PartColors.detailFill(color),
       borderRadius: radius,
       child: InkWell(
         borderRadius: radius,
@@ -188,13 +187,12 @@ class DetailButton extends StatelessWidget {
                 ? SizedBox(
                     width: 22,
                     height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: fg))
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: PartColors.busySpinner(color)))
                 : Text(label,
                     textAlign: TextAlign.center,
                     style: AppText.noto(r.x(14),
-                        color: disabled
-                            ? AppColors.white.withValues(alpha: 0.7)
-                            : fg,
+                        color: disabled ? PartColors.disabledButtonText : fg,
                         height: 20 / 14)),
           ),
         ),
@@ -202,6 +200,12 @@ class DetailButton extends StatelessWidget {
     );
   }
 }
+
+/// 拡声器のアイコンで、字の下端から行の基準線までの余白（アイコンの大きさに対する割合）。
+const _campaignBottomGap = 0.166;
+
+/// NotoSansJP の日本語の字が、基準線より下へ出る分（文字の大きさに対する割合）。
+const _kanjiBelowBaseline = 0.07;
 
 /// 画面上部のお知らせ（枠線なし）。
 class NoticeBar extends StatelessWidget {
@@ -216,10 +220,22 @@ class NoticeBar extends StatelessWidget {
     final size = r.x(14);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: r.x(4), vertical: r.x(4)),
+      // アイコンの下端を、1行目の本文（ふりがなではない方）の字の下端にそろえる。
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          Icon(Icons.campaign_outlined, size: r.x(24), color: AppColors.white),
+          Transform.translate(
+            offset: Offset(0,
+                r.x(24) * _campaignBottomGap + r.tx(14) * _kanjiBelowBaseline),
+            // 高さを取らずに下端を基準線へ置き、本文の位置は動かさない。
+            child: Baseline(
+              baseline: 0,
+              baselineType: TextBaseline.alphabetic,
+              child: Icon(Icons.campaign_outlined,
+                  size: r.x(24), color: AppColors.white),
+            ),
+          ),
           SizedBox(width: size),
           Expanded(
               child: Text(text, style: AppText.dark(size, height: 21 / 14))),

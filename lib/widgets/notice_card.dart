@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
 import 'app_icon.dart';
@@ -27,7 +28,7 @@ class NoticeCard extends StatelessWidget {
   final Color? _borderColor;
   final Color? _bellColor;
   Color get borderColor => _borderColor ?? AppColors.amber;
-  Color get bellColor => _bellColor ?? AppColors.amber;
+  Color get bellColor => _bellColor ?? PartColors.unreadBell;
   final VoidCallback? onTap;
 
   @override

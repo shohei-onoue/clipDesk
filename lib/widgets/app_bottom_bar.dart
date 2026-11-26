@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
-import '../core/app_text.dart';
 import '../core/responsive.dart';
 import 'app_icon.dart';
 
@@ -14,15 +13,11 @@ class BarItem {
     this.selectedIcon,
     required this.route,
     this.size = 32,
-    this.shortLabel,
     this.replaceToHome = false,
   });
 
   /// 読み上げ・tooltip 用の語句。
   final String label;
-
-  /// 文字が大きいとき（中・大）に、アイコンの下へ出す短い語句。なければ [label]。
-  final String? shortLabel;
 
   /// Figma「icon_list」のアイコン。一覧にない用途は [materialIcon] を使う。
   final AppIcons? icon;
@@ -48,7 +43,6 @@ class AppBottomBar extends StatelessWidget {
 
   static const _dashboard = BarItem(
       label: 'ダッシュボード',
-      shortLabel: '一覧',
       icon: AppIcons.viewCozy,
       route: '/home',
       replaceToHome: true);
@@ -66,8 +60,7 @@ class AppBottomBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: SizedBox(
-        // 文字が大きいとき（中・大）は、アイコンの下に語句を出すため高くする（A案）。
-        height: r.large ? r.x(48) * r.textScale : r.x(56),
+        height: r.x(56),
         child: _row(context, const [_dashboard, _home, _library]),
       ),
     );
@@ -136,21 +129,10 @@ class _BarButtonState extends State<_BarButton>
     widget.onTap();
   }
 
-  Widget _icon(Responsive r, Color color) => widget.item.materialIcon != null
-      ? Icon(widget.item.materialIcon,
-          size: r.x(widget.item.size), color: color)
-      : AppIcon(
-          widget.selected
-              ? (widget.item.selectedIcon ?? widget.item.icon!)
-              : widget.item.icon!,
-          size: r.x(widget.item.size),
-          color: color);
-
   @override
   Widget build(BuildContext context) {
     final r = context.r;
     final tap = r.x(56);
-    final labeled = r.large;
     final color = widget.selected ? AppColors.amber : AppColors.white;
     return Semantics(
       button: true,
@@ -162,8 +144,8 @@ class _BarButtonState extends State<_BarButton>
           behavior: HitTestBehavior.opaque,
           onTap: _tap,
           child: SizedBox(
-            width: labeled ? r.x(110) : tap,
-            height: labeled ? r.x(48) * r.textScale : tap,
+            width: tap,
+            height: tap,
             child: Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
@@ -193,19 +175,15 @@ class _BarButtonState extends State<_BarButton>
                   ),
                 ),
                 ExcludeSemantics(
-                  child: labeled
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _icon(r, color),
-                            SizedBox(height: r.x(2)),
-                            Text(widget.item.shortLabel ?? widget.item.label,
-                                maxLines: 1,
-                                style: AppText.noto(r.x(11),
-                                    color: color, height: 1.2)),
-                          ],
-                        )
-                      : _icon(r, color),
+                  child: widget.item.materialIcon != null
+                      ? Icon(widget.item.materialIcon,
+                          size: r.x(widget.item.size), color: color)
+                      : AppIcon(
+                          widget.selected
+                              ? (widget.item.selectedIcon ?? widget.item.icon!)
+                              : widget.item.icon!,
+                          size: r.x(widget.item.size),
+                          color: color),
                 ),
               ],
             ),

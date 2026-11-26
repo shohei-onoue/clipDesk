@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
 import '../core/responsive.dart';
@@ -35,11 +36,11 @@ class StaffAdminScreen extends StatelessWidget {
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: FloatingActionButton(
           tooltip: 'スタッフを招待',
-          backgroundColor: AppColors.blue,
-          foregroundColor: AppColors.on(AppColors.blue),
+          backgroundColor: PartColors.toggleFill,
+          foregroundColor: AppColors.on(PartColors.toggleFill),
           onPressed: () => Navigator.of(context).pushNamed('/staff/invite'),
           child: AppIcon(AppIcons.addCircle,
-              size: 32, color: AppColors.on(AppColors.blue)),
+              size: 32, color: AppColors.on(PartColors.toggleFill)),
         ),
         body: SafeArea(
           child: Column(children: [
@@ -144,7 +145,7 @@ class _UserTileState extends State<_UserTile> {
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.amber,
-                  foregroundColor: AppColors.on(AppColors.amber)),
+                  foregroundColor: PartColors.onAmber),
               child: const Text('削除する')),
         ],
       ),
@@ -214,7 +215,7 @@ class _UserTileState extends State<_UserTile> {
                               ),
                               child: Text('ログイン',
                                   style: AppText.dark(r.x(12),
-                                      color: AppColors.on(AppColors.amber))),
+                                      color: PartColors.onAmber)),
                             );
                             if (r.large) {
                               return Wrap(
@@ -334,6 +335,7 @@ class _PendingInvites extends StatelessWidget {
                   _InviteButton(
                     icon: AppIcons.delete,
                     label: '取消',
+                    danger: true,
                     onTap: () => Services.repo.cancelInvite(i.email),
                   ),
                 ],
@@ -345,10 +347,14 @@ class _PendingInvites extends StatelessWidget {
   }
 }
 
-/// アイコンの下に語句を置いたボタン（amber 塗り、アイコンと文字は White）。
+/// アイコンの下に語句を置いたボタン。[danger]（取消）は赤。色は PartColors。
 class _InviteButton extends StatelessWidget {
   const _InviteButton(
-      {required this.icon, required this.label, required this.onTap});
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      this.danger = false});
+  final bool danger;
   final AppIcons icon;
   final String label;
   final VoidCallback onTap;
@@ -356,11 +362,12 @@ class _InviteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final fg = danger ? PartColors.onRed : PartColors.resendText;
     return Semantics(
       button: true,
       label: label,
       child: Material(
-        color: AppColors.amber,
+        color: danger ? AppColors.badgeRed : PartColors.resendFill,
         borderRadius: BorderRadius.circular(r.x(10)),
         child: InkWell(
           borderRadius: BorderRadius.circular(r.x(10)),
@@ -372,9 +379,8 @@ class _InviteButton extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AppIcon(icon, size: r.x(24), color: AppColors.white),
-                  Text(label,
-                      style: AppText.dark(r.x(12), color: AppColors.white)),
+                  AppIcon(icon, size: r.x(24), color: fg),
+                  Text(label, style: AppText.dark(r.x(12), color: fg)),
                 ],
               ),
             ),

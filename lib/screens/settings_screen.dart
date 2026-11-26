@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_settings.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
@@ -10,7 +13,8 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
 import '../widgets/ruby_text.dart';
 
-/// 設定画面。文字の大きさ（小・中・大）、色の組み合わせ（5パターン）、ふりがなの表示を切り替える。
+/// 設定画面（Figma 421:3）。文字の大きさ（x1.0・x1.5・x2.0）、色の組み合わせ（5パターン）、
+/// ふりがなの表示、音声読み上げを切り替える。
 /// 変更はすぐ画面全体に反映され、端末に保存される。
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -36,7 +40,6 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     _Section(
                       title: '文字の大きさ',
-                      note: '「小」が標準です。「中」は1.5倍、「大」は2倍になります。',
                       child: Column(children: [
                         Row(children: [
                           for (final level in TextSizeLevel.values) ...[
@@ -44,7 +47,7 @@ class SettingsScreen extends StatelessWidget {
                               SizedBox(width: r.x(8)),
                             Expanded(
                               child: _Choice(
-                                label: level.label,
+                                scale: level.scale,
                                 selected: s.textSize == level,
                                 onTap: () => s.setTextSize(level),
                               ),
@@ -58,7 +61,6 @@ class SettingsScreen extends StatelessWidget {
                     SizedBox(height: r.x(16)),
                     _Section(
                       title: '色の組み合わせ',
-                      note: '背景・文字・強調・操作・面の色をまとめて変えます。',
                       child: Column(children: [
                         for (final p in AppPalette.values) ...[
                           _PaletteTile(
@@ -72,34 +74,32 @@ class SettingsScreen extends StatelessWidget {
                       ]),
                     ),
                     SizedBox(height: r.x(16)),
+                    // 見出しは出さず、スイッチの行だけ。行の上下の余白と合わせて、高さをそろえる。
                     _Section(
-                      title: 'ふりがな',
-                      note: '漢字の上に、ふりがなを表示します。利用者が入力した名前などには付きません。',
-                      child: _RubySwitch(
-                        label: 'ふりがなを表示する',
+                      top: 6,
+                      bottom: 6,
+                      child: _SwitchRow(
+                        label: 'ふりがなを表示',
                         value: s.ruby,
                         onChanged: s.setRuby,
                       ),
                     ),
                     SizedBox(height: r.x(16)),
                     _Section(
-                      title: '音声読み上げ',
-                      note: 'オンにすると、画面の文字をタップしたとき、その文字を声で読み上げます。',
+                      top: 6,
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _RubySwitch(
-                              label: '音声で読み上げる',
+                            // 見出しの右に、読み上げのスイッチを置く。
+                            _SwitchRow(
+                              label: '音声読み上げ',
                               value: s.readAloud,
                               onChanged: s.setReadAloud,
                             ),
-                            SizedBox(height: r.x(14)),
-                            Text('読み上げの速さ', style: AppText.dark(r.x(16))),
-                            SizedBox(height: r.x(8)),
-                            Text(ReadSpeed.label(s.readSpeed),
-                                style: AppText.dark(r.x(14))),
+                            SizedBox(height: r.x(6)),
+                            Text('読み上げ速さ', style: AppText.dark(r.x(16))),
                             Semantics(
-                              label: '読み上げの速さ',
+                              label: '読み上げ速さ',
                               value: ReadSpeed.label(s.readSpeed),
                               child: Slider(
                                 value: s.readSpeed,
@@ -169,8 +169,8 @@ class _SaveBarState extends State<_SaveBar> {
   Widget build(BuildContext context) {
     final r = context.r;
     final unsaved = AppSettings.instance.unsaved;
-    final note = _result ??
-        (unsaved ? '変更はまだ保存していません。保存すると、あなたの設定として残ります。' : '変更はありません。');
+    final note =
+        _result ?? (unsaved ? '変更はまだ保存していません。保存すると、あなたの設定として残ります。' : null);
     return Container(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(10), r.x(14), r.x(12)),
       decoration: BoxDecoration(
@@ -179,19 +179,21 @@ class _SaveBarState extends State<_SaveBar> {
             top: BorderSide(color: AppColors.white.withValues(alpha: 0.16))),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(note,
-            style: AppText.dark(r.x(13),
-                weight: FontWeight.w400,
-                color: AppColors.white.withValues(alpha: 0.7),
-                height: 1.5)),
-        SizedBox(height: r.x(8)),
+        if (note != null) ...[
+          Text(note,
+              style: AppText.dark(r.x(13),
+                  weight: FontWeight.w400,
+                  color: AppColors.white.withValues(alpha: 0.7),
+                  height: 1.5)),
+          SizedBox(height: r.x(8)),
+        ],
         SizedBox(
           width: double.infinity,
           child: FilledButton(
             onPressed: _busy || !unsaved ? null : _save,
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.amber,
-              foregroundColor: AppColors.ink,
+              foregroundColor: PartColors.onAmber,
               disabledBackgroundColor: AppColors.white.withValues(alpha: 0.16),
               disabledForegroundColor: AppColors.white.withValues(alpha: 0.7),
               minimumSize: Size.fromHeight(r.x(56)),
@@ -207,20 +209,23 @@ class _SaveBarState extends State<_SaveBar> {
   }
 }
 
-/// 見出し・説明つきの設定のまとまり（情報面のカード）。
+/// 設定のまとまり（情報面のカード）。見出しは省略できる。
 class _Section extends StatelessWidget {
   const _Section(
-      {required this.title, required this.note, required this.child});
-  final String title;
-  final String note;
+      {this.title, required this.child, this.top = 14, this.bottom = 14});
+  final String? title;
   final Widget child;
+
+  /// 内側の上下の余白。左右は14。
+  final double top;
+  final double bottom;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(r.x(14)),
+      padding: EdgeInsets.fromLTRB(r.x(14), r.x(top), r.x(14), r.x(bottom)),
       decoration: BoxDecoration(
         color: AppColors.gray,
         border: Border.all(color: AppColors.white.withValues(alpha: 0.16)),
@@ -229,14 +234,10 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppText.dark(r.x(18))),
-          SizedBox(height: r.x(4)),
-          Text(note,
-              style: AppText.dark(r.x(13),
-                  weight: FontWeight.w400,
-                  color: AppColors.white.withValues(alpha: 0.7),
-                  height: 1.5)),
-          SizedBox(height: r.x(12)),
+          if (title != null) ...[
+            Text(title!, style: AppText.dark(r.x(18))),
+            SizedBox(height: r.x(16)),
+          ],
           child,
         ],
       ),
@@ -244,21 +245,22 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// 選択ボタン（小・中・大）。選択中は blue 塗り＋「選択中」の語句＋チェック。
+/// 文字の大きさの選択ボタン（x1.0・x1.5・x2.0）。選択中は blue 塗り、ほかは枠だけ。
 class _Choice extends StatelessWidget {
   const _Choice(
-      {required this.label, required this.selected, required this.onTap});
-  final String label;
+      {required this.scale, required this.selected, required this.onTap});
+  final double scale;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final times = scale.toStringAsFixed(1);
     return Semantics(
       button: true,
       selected: selected,
-      label: '文字の大きさ$label',
+      label: '文字の大きさ$times倍',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -273,7 +275,8 @@ class _Choice extends StatelessWidget {
             borderRadius: BorderRadius.circular(r.x(10)),
           ),
           child: ExcludeSemantics(
-            child: Text(label,
+            child: Text('x$times',
+                semanticsLabel: '$times倍',
                 style: AppText.dark(r.x(18),
                     color: selected
                         ? AppColors.on(AppColors.blue)
@@ -350,12 +353,7 @@ class _PaletteTile extends StatelessWidget {
                   children: [
                     Text(palette.label,
                         style: AppText.dark(r.x(16), color: palette.white)),
-                    SizedBox(height: r.x(2)),
-                    Text(palette.note,
-                        style: AppText.dark(r.x(12),
-                            weight: FontWeight.w400,
-                            color: palette.white.withValues(alpha: 0.7))),
-                    SizedBox(height: r.x(8)),
+                    SizedBox(height: r.x(10)),
                     // 5色の見本：白・黒（背景）・琥珀・青・グレー。
                     Row(children: [
                       _Swatch(palette.white, ring: palette.white),
@@ -378,10 +376,12 @@ class _PaletteTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(r.x(8)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.check, size: r.x(16), color: palette.on(palette.blue)),
+                    Icon(Icons.check,
+                        size: r.x(16), color: palette.on(palette.blue)),
                     SizedBox(width: r.x(4)),
                     Text('選択中',
-                        style: AppText.dark(r.x(12), color: palette.on(palette.blue))),
+                        style: AppText.dark(r.x(12),
+                            color: palette.on(palette.blue))),
                   ]),
                 ),
             ]),
@@ -413,9 +413,9 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-/// オン・オフの切り替え（ふりがな・音声読み上げ）。「オン」「オフ」の語句も添える。
-class _RubySwitch extends StatelessWidget {
-  const _RubySwitch(
+/// オン・オフの切り替え（ふりがな・音声読み上げ）。左に見出し、右にスイッチ。下の端をそろえる。
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow(
       {required this.label, required this.value, required this.onChanged});
   final String label;
   final bool value;
@@ -425,20 +425,28 @@ class _RubySwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     // 押せるのはスイッチの部分だけ。文字をタップしたときは、音声読み上げ（オンのとき）だけが働く。
-    return Row(children: [
+    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
       Expanded(
-        child: Text('$label（${value ? 'オン' : 'オフ'}）',
-            style: AppText.dark(r.x(16))),
+        // スイッチ（高さ48）の絵の下には8の余白がある。字は枠の下から文字の大きさの約0.21上にあるので、
+        // その分を引いて持ち上げ、文字が大きくてもスイッチと下の位置がずれないようにする。
+        child: Padding(
+          padding: EdgeInsets.only(
+              top: 8, bottom: math.max(0, 12 - r.tx(18) * 0.21)),
+          child: Text(label, style: AppText.dark(r.x(18))),
+        ),
       ),
       SizedBox(width: r.x(8)),
       Semantics(
         toggled: value,
         label: label,
         child: Switch(
+          padding: EdgeInsets.zero,
+          // パソコンのブラウザでも高さを48にする（押しやすさと、文字との下ぞろえのため）。
+          materialTapTargetSize: MaterialTapTargetSize.padded,
           value: value,
           onChanged: onChanged,
-          activeThumbColor: AppColors.on(AppColors.blue),
-          activeTrackColor: AppColors.blue,
+          activeThumbColor: AppColors.on(PartColors.toggleFill),
+          activeTrackColor: PartColors.toggleFill,
           inactiveThumbColor: AppColors.white.withValues(alpha: 0.7),
           inactiveTrackColor: AppColors.gray,
         ),

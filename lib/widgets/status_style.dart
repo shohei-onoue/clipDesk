@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../domain/request_status.dart';
 import '../domain/video_request.dart';
 
@@ -36,7 +37,7 @@ Color tagColor(RequestStatus s) => switch (s) {
     };
 
 Color tagTextColor(RequestStatus s) => tagColor(s) == AppColors.amber
-    ? AppColors.on(AppColors.amber)
+    ? PartColors.onAmber
     : AppColors.on(AppColors.blue);
 
 String dateText(DateTime? d) => d == null

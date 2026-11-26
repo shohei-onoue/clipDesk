@@ -24,7 +24,6 @@ enum TextSizeLevel {
 enum AppPalette {
   standard(
     label: 'デフォルト',
-    note: '黒 × 青 × 琥珀',
     white: Color(0xFFF5F5F5),
     ink: Color(0xFF1A1D20),
     amber: Color(0xFFD97706),
@@ -35,7 +34,6 @@ enum AppPalette {
   ),
   contrast(
     label: 'ハイコントラスト',
-    note: '炭黒 × 黄 × シアン',
     white: Color(0xFFF5F5F5),
     ink: Color(0xFF121212),
     amber: Color(0xFF40C4FF),
@@ -44,7 +42,6 @@ enum AppPalette {
   ),
   ocean(
     label: 'クリア・オーシャン',
-    note: '紺 × オレンジ × ミント',
     white: Color(0xFFF0F4F8),
     ink: Color(0xFF0A192F),
     amber: Color(0xFF64FFDA),
@@ -53,7 +50,6 @@ enum AppPalette {
   ),
   forest(
     label: 'フォレスト',
-    note: '深緑 × 黄 × ライム',
     white: Color(0xFFF4F7F5),
     ink: Color(0xFF0D1F17),
     amber: Color(0xFF69F0AE),
@@ -62,7 +58,6 @@ enum AppPalette {
   ),
   light(
     label: 'クリーン・ライト',
-    note: '象牙 × 青 × 赤（眩しさを抑えた明るい背景）',
     white: Color(0xFF111111),
     ink: Color(0xFFF7F5F0),
     amber: Color(0xFFC62828),
@@ -72,7 +67,6 @@ enum AppPalette {
 
   const AppPalette({
     required this.label,
-    required this.note,
     required this.white,
     required this.ink,
     required this.amber,
@@ -81,7 +75,6 @@ enum AppPalette {
   });
 
   final String label;
-  final String note;
   final Color white;
   final Color ink;
   final Color amber;

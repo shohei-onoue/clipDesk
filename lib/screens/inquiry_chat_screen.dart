@@ -349,7 +349,7 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
                     size: 28,
                     color: v.text.trim().isEmpty
                         ? AppColors.white.withValues(alpha: 0.16)
-                        : AppColors.blue),
+                        : AppColors.white),
               ),
             ),
           ]),

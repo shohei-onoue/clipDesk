@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Text;
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/night_theme.dart';
 import '../core/responsive.dart';
@@ -79,6 +80,8 @@ class _StaffInviteScreenState extends State<StaffInviteScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('管理者'),
                     value: _manager,
+                    activeThumbColor: AppColors.on(PartColors.toggleFill),
+                    activeTrackColor: PartColors.toggleFill,
                     onChanged: (v) => setState(() => _manager = v),
                   ),
                   SizedBox(height: r.y(8)),

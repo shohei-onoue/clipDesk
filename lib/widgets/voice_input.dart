@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../core/app_colors.dart';
+import '../core/part_colors.dart';
 import '../core/japanese_speech.dart';
 
 /// 入力欄（[TextEditingController]）へ、マイクの音声を日本語で書き込む。
@@ -118,7 +119,7 @@ class VoiceMicButton extends StatelessWidget {
       icon: Icon(on ? Icons.stop : Icons.mic,
           size: 28,
           color: on
-              ? AppColors.on(AppColors.amber)
+              ? PartColors.onAmber
               : AppColors.white.withValues(alpha: enabled ? 0.7 : 0.3)),
     );
   }
