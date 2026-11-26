@@ -140,33 +140,38 @@ class _NotificationDialog extends StatelessWidget {
                 disabledForegroundColor:
                     AppColors.white.withValues(alpha: 0.35),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 32),
+                // 文字が大きいときは、押す範囲を44以上にする。
+                minimumSize: Size(0, r.large ? 44 : 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(label, style: const TextStyle(fontSize: 12)),
             );
+        final heading = Text('通知', style: AppText.dark(18));
+        final actions = [
+          action(
+              'すべて既読',
+              unread.isEmpty
+                  ? null
+                  : () => Services.repo.markNotificationsRead(uid, unreadIds)),
+          action(
+              '既読メッセージを削除',
+              readIds.isEmpty
+                  ? null
+                  : () => Services.repo.hideNotifications(uid, readIds)),
+        ];
         return AlertDialog(
           backgroundColor: AppColors.ink,
           shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
-          // 右上に「すべて既読」「既読メッセージを削除」。
-          title: Row(children: [
-            Text('通知', style: AppText.dark(18)),
-            const Spacer(),
-            action(
-                'すべて既読',
-                unread.isEmpty
-                    ? null
-                    : () =>
-                        Services.repo.markNotificationsRead(uid, unreadIds)),
-            action(
-                '既読メッセージを削除',
-                readIds.isEmpty
-                    ? null
-                    : () => Services.repo.hideNotifications(uid, readIds)),
-          ]),
+          // 右上に「すべて既読」「既読メッセージを削除」。文字が大きいとき（中・大）は、
+          // 横に並びきらないので、見出しの下に置いて折り返す。
+          title: r.large
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [heading, Wrap(spacing: 8, children: actions)])
+              : Row(children: [heading, const Spacer(), ...actions]),
           content: SizedBox(
             width: double.maxFinite,
             child: all.isEmpty

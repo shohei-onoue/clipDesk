@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart' hide Text;
@@ -426,41 +428,60 @@ class _ChatScreenState extends State<ChatScreen> {
     return showModalBottomSheet<int>(
       context: context,
       backgroundColor: AppColors.ink,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: 300,
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Row(children: [
-                TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('キャンセル')),
-                Expanded(
-                    child:
-                        Center(child: Text('動画の長さ', style: AppText.dark(16)))),
-                TextButton(
-                    onPressed: () => Navigator.of(context).pop(selected),
-                    child: const Text('決定')),
-              ]),
-            ),
-            Expanded(
-              child: CupertinoPicker(
-                scrollController: controller,
-                itemExtent: 40,
-                backgroundColor: AppColors.ink,
-                onSelectedItemChanged: (i) => selected = i + 1,
-                children: [
-                  for (var n = 1; n <= 600; n++)
-                    Center(
-                        child: Text('$n秒',
-                            style: AppText.dark(20, weight: FontWeight.w400))),
-                ],
+      isScrollControlled: true,
+      builder: (context) {
+        final r = context.r;
+        // 文字が大きい・ふりがなありのときは、数字が重ならないよう1項目の高さを広げる。
+        final extent = r.roomy ? r.tx(r.ruby ? 44 : 36) : 40.0;
+        final screen = MediaQuery.sizeOf(context);
+        final cancel = TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'));
+        final heading = Text('動画の長さ', style: AppText.dark(16));
+        final done = TextButton(
+            onPressed: () => Navigator.of(context).pop(selected),
+            child: const Text('決定'));
+        return SafeArea(
+          child: SizedBox(
+            height: math.min(r.large ? 500 : 300, screen.height * 0.9),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                // 文字が大きいとき（中・大）は、題名を上の段に置く。
+                child: r.large
+                    ? Column(children: [
+                        heading,
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [cancel, done]),
+                      ])
+                    : Row(children: [
+                        cancel,
+                        Expanded(child: Center(child: heading)),
+                        done,
+                      ]),
               ),
-            ),
-          ]),
-        ),
-      ),
+              Expanded(
+                child: CupertinoPicker(
+                  scrollController: controller,
+                  itemExtent: extent,
+                  // 標準の詰め方（1.45）は、大きい文字だと前後の項目が重なる。
+                  squeeze: r.roomy ? 1 : 1.45,
+                  backgroundColor: AppColors.ink,
+                  onSelectedItemChanged: (i) => selected = i + 1,
+                  children: [
+                    for (var n = 1; n <= 600; n++)
+                      Center(
+                          child: Text('$n秒',
+                              style:
+                                  AppText.dark(20, weight: FontWeight.w400))),
+                  ],
+                ),
+              ),
+            ]),
+          ),
+        );
+      },
     );
   }
 
@@ -520,8 +541,10 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       showDragHandle: true,
       backgroundColor: AppColors.ink,
+      // 文字が大きいときに収まるよう、高さは中身に合わせ、足りなければスクロールする。
+      isScrollControlled: true,
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             ListTile(

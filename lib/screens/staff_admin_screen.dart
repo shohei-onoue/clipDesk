@@ -285,69 +285,89 @@ class _UserTileState extends State<_UserTile> {
 class _PendingInvites extends StatelessWidget {
   const _PendingInvites();
 
+  /// 招待1件のカード。文字が大きいとき（中・大）は、「再送」「取消」を下の段に置く。
+  Widget _inviteCard(BuildContext context, Invite i) {
+    final r = context.r;
+    final texts = [
+      Text('登録待ちスタッフ', style: AppText.dark(r.x(16))),
+      Text(i.email,
+          style: AppText.dark(r.x(13),
+              color: AppColors.white.withValues(alpha: 0.7))),
+    ];
+    final resend = _InviteButton(
+      icon: AppIcons.send,
+      label: '再送',
+      onTap: () async {
+        final m = ScaffoldMessenger.of(context);
+        try {
+          await const InviteMailer().send(i.email);
+          m.showSnackBar(const SnackBar(content: Text('再送しました')));
+        } catch (e) {
+          m.showSnackBar(SnackBar(content: Text('送れませんでした：$e')));
+        }
+      },
+    );
+    final cancel = _InviteButton(
+      icon: AppIcons.delete,
+      label: '取消',
+      danger: true,
+      onTap: () => Services.repo.cancelInvite(i.email),
+    );
+    return Container(
+      margin: EdgeInsets.only(bottom: r.y(10)),
+      padding: EdgeInsets.all(r.x(14)),
+      decoration: BoxDecoration(
+        color: AppColors.gray,
+        border: Border.all(color: AppColors.amber, width: 2),
+        borderRadius: BorderRadius.circular(r.x(15)),
+      ),
+      child: r.large
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...texts,
+                SizedBox(height: r.x(12)),
+                Row(children: [
+                  Expanded(child: resend),
+                  SizedBox(width: r.x(12)),
+                  Expanded(child: cancel),
+                ]),
+              ],
+            )
+          : Row(
+              // ボタンはカードの高さに対して上下中央。
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: texts),
+                ),
+                resend,
+                SizedBox(width: r.x(8)),
+                cancel,
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final r = context.r;
     return StreamBuilder<List<Invite>>(
       stream: Services.repo.watchInvites(),
       builder: (context, snap) {
         final list = snap.data ?? const <Invite>[];
         // 招待1件ごとに1枚のカード（スタッフカードと同じ作り）。
         return Column(children: [
-          for (final i in list)
-            Container(
-              margin: EdgeInsets.only(bottom: r.y(10)),
-              padding: EdgeInsets.all(r.x(14)),
-              decoration: BoxDecoration(
-                color: AppColors.gray,
-                border: Border.all(color: AppColors.amber, width: 2),
-                borderRadius: BorderRadius.circular(r.x(15)),
-              ),
-              child: Row(
-                // ボタンはカードの高さに対して上下中央。
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('登録待ちスタッフ', style: AppText.dark(r.x(16))),
-                        Text(i.email,
-                            style: AppText.dark(r.x(13),
-                                color: AppColors.white.withValues(alpha: 0.7))),
-                      ],
-                    ),
-                  ),
-                  _InviteButton(
-                    icon: AppIcons.send,
-                    label: '再送',
-                    onTap: () async {
-                      final m = ScaffoldMessenger.of(context);
-                      try {
-                        await const InviteMailer().send(i.email);
-                        m.showSnackBar(const SnackBar(content: Text('再送しました')));
-                      } catch (e) {
-                        m.showSnackBar(SnackBar(content: Text('送れませんでした：$e')));
-                      }
-                    },
-                  ),
-                  SizedBox(width: r.x(8)),
-                  _InviteButton(
-                    icon: AppIcons.delete,
-                    label: '取消',
-                    danger: true,
-                    onTap: () => Services.repo.cancelInvite(i.email),
-                  ),
-                ],
-              ),
-            ),
+          for (final i in list) _inviteCard(context, i),
         ]);
       },
     );
   }
 }
 
-/// アイコンの下に語句を置いたボタン。[danger]（取消）は赤。色は PartColors。
+/// アイコンと語句のボタン。標準はアイコンの下に語句、文字が大きいとき（中・大）は横に並べて
+/// 幅いっぱいにする。[danger]（取消）は赤。色は PartColors。
 class _InviteButton extends StatelessWidget {
   const _InviteButton(
       {required this.icon,
@@ -363,6 +383,8 @@ class _InviteButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.r;
     final fg = danger ? PartColors.onRed : PartColors.resendText;
+    final image = AppIcon(icon, size: r.x(24), color: fg);
+    final text = Text(label, style: AppText.dark(r.x(12), color: fg));
     return Semantics(
       button: true,
       label: label,
@@ -373,17 +395,29 @@ class _InviteButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(r.x(10)),
           onTap: onTap,
           child: ExcludeSemantics(
-            child: SizedBox(
-              width: r.x(56),
-              height: r.x(56),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AppIcon(icon, size: r.x(24), color: fg),
-                  Text(label, style: AppText.dark(r.x(12), color: fg)),
-                ],
-              ),
-            ),
+            child: r.large
+                ? ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: r.x(56)),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: r.x(4)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          image,
+                          SizedBox(width: r.x(8)),
+                          Flexible(child: text),
+                        ],
+                      ),
+                    ),
+                  )
+                : SizedBox(
+                    width: r.x(56),
+                    height: r.x(56),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [image, text],
+                    ),
+                  ),
           ),
         ),
       ),
@@ -494,9 +528,32 @@ class _EditDialogState extends State<_EditDialog> {
   @override
   Widget build(BuildContext context) {
     final r = context.r;
+    final lastName = TextField(
+      controller: _lastName,
+      decoration:
+          const InputDecoration(labelText: '姓', border: OutlineInputBorder()),
+    );
+    final firstName = TextField(
+      controller: _firstName,
+      decoration:
+          const InputDecoration(labelText: '名', border: OutlineInputBorder()),
+    );
+    final managerNote = Text('管理者はスタッフ招待権限を持ちます',
+        style: AppText.dark(14,
+            weight: FontWeight.w400,
+            color: AppColors.white.withValues(alpha: 0.7)));
+    final managerChip = RoleChip('管理者権限',
+        selected: _manager,
+        onChanged: widget.isMe ? null : (v) => setState(() => _manager = v));
+    // 入力欄の間隔。文字が大きいときは、枠の上の見出しが重ならないよう広げる。
+    final fieldGap = r.large ? r.tx(12) : r.y(12);
     return Theme(
       data: nightTheme,
       child: AlertDialog(
+        // 文字が大きいとき（中・大）は、画面の端まで広げて入力欄の幅をとる。
+        insetPadding: r.large
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 24)
+            : null,
         backgroundColor: AppColors.ink,
         shape: RoundedRectangleBorder(
             side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
@@ -505,28 +562,24 @@ class _EditDialogState extends State<_EditDialog> {
         content: SizedBox(
           width: r.x(340),
           child: SingleChildScrollView(
+            // 入力欄の枠の上に出る見出しが、上の端で欠けないようにする。
+            padding: EdgeInsets.only(top: r.large ? r.tx(8) : 0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _lastName,
-                      decoration: const InputDecoration(
-                          labelText: '姓', border: OutlineInputBorder()),
-                    ),
-                  ),
-                  SizedBox(width: r.x(12)),
-                  Expanded(
-                    child: TextField(
-                      controller: _firstName,
-                      decoration: const InputDecoration(
-                          labelText: '名', border: OutlineInputBorder()),
-                    ),
-                  ),
-                ]),
-                SizedBox(height: r.y(12)),
+                // 文字が大きいとき（中・大）は、姓と名を縦に並べる。
+                if (r.large) ...[
+                  lastName,
+                  SizedBox(height: fieldGap),
+                  firstName,
+                ] else
+                  Row(children: [
+                    Expanded(child: lastName),
+                    SizedBox(width: r.x(12)),
+                    Expanded(child: firstName),
+                  ]),
+                SizedBox(height: fieldGap),
                 TextField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
@@ -534,20 +587,16 @@ class _EditDialogState extends State<_EditDialog> {
                       labelText: 'メールアドレス', border: OutlineInputBorder()),
                 ),
                 SizedBox(height: r.y(16)),
-                Row(children: [
-                  Expanded(
-                    child: Text('管理者はスタッフ招待権限を持ちます',
-                        style: AppText.dark(14,
-                            weight: FontWeight.w400,
-                            color: AppColors.white.withValues(alpha: 0.7))),
-                  ),
-                  SizedBox(width: r.x(8)),
-                  RoleChip('管理者権限',
-                      selected: _manager,
-                      onChanged: widget.isMe
-                          ? null
-                          : (v) => setState(() => _manager = v)),
-                ]),
+                if (r.large) ...[
+                  managerNote,
+                  SizedBox(height: r.x(8)),
+                  managerChip,
+                ] else
+                  Row(children: [
+                    Expanded(child: managerNote),
+                    SizedBox(width: r.x(8)),
+                    managerChip,
+                  ]),
                 if (widget.isMe) ...[
                   SizedBox(height: r.y(16)),
                   Text('パスワードの変更（変えない場合は空欄）', style: AppText.dark(14)),
@@ -558,7 +607,7 @@ class _EditDialogState extends State<_EditDialog> {
                     decoration: const InputDecoration(
                         labelText: '現在のパスワード', border: OutlineInputBorder()),
                   ),
-                  SizedBox(height: r.y(12)),
+                  SizedBox(height: fieldGap),
                   TextField(
                     controller: _newPassword,
                     obscureText: true,

@@ -16,7 +16,10 @@ import 'package:clipdesk/screens/requester_home_screen.dart';
 import 'package:clipdesk/screens/settings_screen.dart';
 import 'package:clipdesk/screens/staff_admin_screen.dart';
 import 'package:clipdesk/screens/staff_invite_screen.dart';
+import 'package:clipdesk/widgets/chat_widgets.dart';
+import 'package:clipdesk/widgets/ruby_text.dart' as ruby;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -84,6 +87,9 @@ void main() {
     await repo.startEditing(requestId: 'r3', uid: 'e1');
     await repo.askForInfo(
         requestId: 'r3', uid: 'e1', reason: 'BGMの雰囲気を教えてください');
+    // 登録待ちの招待（スタッフ管理の「再送」「取消」）。
+    await repo.saveInvite('new.staff@example.com',
+        manager: false, invitedBy: 'u1');
     settings.resetForTest();
   });
 
@@ -113,6 +119,37 @@ void main() {
     '設定': () => const SettingsScreen(),
     '指示チャット': () => const ChatScreen(),
     'ドロワー': () => const _DrawerOpened(),
+    // 開いてから確かめるダイアログ・シート（操作は openers）。
+    '通知ダイアログ': () => const MenuScreen(),
+    'スタッフ編集ダイアログ': () => const StaffAdminScreen(),
+    '添付のシート': () => const ChatScreen(),
+    '動画の長さのシート': () => const ChatScreen(),
+  };
+
+  final openers = <String, Future<void> Function(WidgetTester)>{
+    '通知ダイアログ': (tester) => _tap(tester, find.byTooltip('通知')),
+    'スタッフ編集ダイアログ': (tester) async {
+      await tester.drag(_label('編集 花子').first, const Offset(-300, 0));
+      await _settle(tester);
+      await _tap(tester, _label('編集').last);
+      expect(find.byType(AlertDialog), findsOneWidget);
+    },
+    '添付のシート': (tester) async {
+      await _answerUntil(
+          tester, () => find.byTooltip('ファイルを添付').evaluate().isNotEmpty);
+      await _tap(tester, find.byTooltip('ファイルを添付'));
+      expect(find.byType(BottomSheet), findsOneWidget);
+    },
+    '動画の長さのシート': (tester) async {
+      await _answerUntil(
+          tester, () => find.byType(CupertinoPicker).evaluate().isNotEmpty,
+          customLength: true);
+      // 1項目の高さに、数字の行が収まる（前後の項目と重ならない）。
+      final picker =
+          tester.widget<CupertinoPicker>(find.byType(CupertinoPicker));
+      expect(tester.getSize(_label('45秒')).height,
+          lessThanOrEqualTo(picker.itemExtent));
+    },
   };
 
   final cases = <String, void Function()>{
@@ -175,6 +212,8 @@ void main() {
                 () => Future<void>.delayed(const Duration(milliseconds: 80)));
             await tester.pump(const Duration(seconds: 1));
           }
+          await openers[s.key]?.call(tester);
+          await _settle(tester);
           // 画面の画像を保存する（SHOT_DIR を指定したときだけ。見た目の確認用）。
           final dir = Platform.environment['SHOT_DIR'];
           if (dir != null) {
@@ -207,6 +246,60 @@ void main() {
       });
     }
   }
+}
+
+/// ふりがなの有無にかかわらず、その文字の部品を探す。
+Finder _label(String text) =>
+    find.byWidgetPredicate((w) => w is ruby.Text && w.data == text,
+        description: text);
+
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 2; i++) {
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 80)));
+    await tester.pump(const Duration(seconds: 1));
+  }
+}
+
+Future<void> _tap(WidgetTester tester, Finder target) async {
+  expect(target, findsWidgets);
+  await tester.ensureVisible(target.first);
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.tap(target.first);
+  await _settle(tester);
+}
+
+/// 指示チャットの質問に順に答えて、[done] になるまで進める。
+/// [customLength] なら、長さの質問で「直接入力」を選ぶ（秒数のシートが出る）。
+Future<void> _answerUntil(WidgetTester tester, bool Function() done,
+    {bool customLength = false}) async {
+  final chips = find.byType(AppChip);
+  for (var i = 0; i < 30 && !done(); i++) {
+    if (chips.evaluate().isNotEmpty) {
+      var target = chips.first;
+      for (final text in ['直接入力', '指示はなし', 'いいえ']) {
+        // 「直接入力」は、長さの質問（30秒がある）のときだけ選ぶ。
+        if (text == '直接入力' &&
+            (!customLength || _label('30秒').evaluate().isEmpty)) {
+          continue;
+        }
+        final found = find.descendant(of: chips, matching: _label(text));
+        if (found.evaluate().isNotEmpty) {
+          target = found.first;
+          break;
+        }
+      }
+      await _tap(tester, target);
+      if (find.byType(DatePickerDialog).evaluate().isNotEmpty) {
+        await _tap(tester, find.text('OK'));
+      }
+    } else {
+      await tester.enterText(find.byType(TextField).last, 'テストの回答');
+      await tester.pump();
+      await _tap(tester, find.byTooltip('回答を送信'));
+    }
+  }
+  expect(done(), isTrue, reason: '指示チャットを目的の質問まで進められませんでした');
 }
 
 /// ドロワーを開いた状態の画面。
