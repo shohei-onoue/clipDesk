@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_settings.dart';
 import 'core/boot.dart';
+import 'core/web_platform.dart';
 import 'screens/brief_confirm_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/delivery_library_screen.dart';
@@ -19,16 +20,17 @@ import 'screens/settings_screen.dart';
 
 /// Web でも、VoiceOver・TalkBack・ブラウザの読み上げ機能が画面の文字を読めるよう、
 /// アクセシビリティ情報（セマンティクス）をオンにする。
-/// ただし、メール・パスワードの入力欄があるログイン・登録画面ではオフにする。
-/// オンのままだと、iPhone Safari で1文字入力するたびに入力欄が作り直され、
-/// キーボードが英字からかなへ戻ってしまう。
+/// ただし、iPhone・iPad のブラウザと、メール・パスワードの入力欄があるログイン・登録画面では
+/// オンにしない。オンのままだと、iPhone Safari で入力欄をタップしてもキーボードが出ないことがあり、
+/// 1文字入力するたびに入力欄が作り直されて、キーボードが英字からかなへ戻ることもある。
+/// オフでも、VoiceOver の利用者は、画面の読み上げを有効にする操作（Flutter の標準）でオンにできる。
 class _SemanticsSwitch extends NavigatorObserver {
   SemanticsHandle? _handle;
 
   void _sync(Route<dynamic>? route) {
     final name = route?.settings.name;
     if (name == null) return; // ダイアログなどは、直前の状態のまま。
-    final off = name == '/' || name == '/register';
+    final off = isIOSWeb || name == '/' || name == '/register';
     if (off) {
       _handle?.dispose();
       _handle = null;

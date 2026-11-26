@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart' hide Text;
-import 'package:speech_to_text/speech_to_text.dart';
-
-import '../core/japanese_speech.dart';
 
 import '../core/app_colors.dart';
 import '../core/part_colors.dart';
 import '../core/app_text.dart';
 import '../core/app_tokens.dart';
+import '../core/web_platform.dart';
 import 'ruby_text.dart';
+import 'voice_input.dart';
 
 /// メッセージ入力のダイアログ。キーボード入力に加えて、マイクで音声入力できる。
 /// 送信なら入力した文字（前後の空白なし）、キャンセルなら null を返す。
@@ -45,92 +44,43 @@ class _VoiceMessageDialog extends StatefulWidget {
 
 class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
   late final _text = TextEditingController(text: widget.initialText);
-  final _speech = SpeechToText();
-  bool _ready = false;
 
-  /// 端末の音声認識が持つ日本語のロケールID。
-  String? _localeId;
-  bool _listening = false;
-  String? _notice;
+  /// 音声入力。指示作成の画面などと同じ部品を使う。
+  final _voice = VoiceInput();
 
-  /// 音声入力を始める前に入っていた文字。認識結果はこの後ろにつなげる。
-  String _base = '';
+  @override
+  void initState() {
+    super.initState();
+    _voice.addListener(_onVoice);
+  }
+
+  void _onVoice() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
-    _speech.cancel();
+    _voice.removeListener(_onVoice);
+    _voice.dispose();
     _text.dispose();
     super.dispose();
   }
 
-  Future<void> _toggle() async {
-    if (_listening) {
-      await _speech.stop();
-      if (mounted) setState(() => _listening = false);
-      return;
-    }
-    if (!_ready) {
-      _ready = await _speech.initialize(
-        onStatus: (s) {
-          if (mounted && (s == 'done' || s == 'notListening')) {
-            setState(() => _listening = false);
-          }
-        },
-        onError: (e) {
-          if (mounted) {
-            setState(() {
-              _listening = false;
-              _notice = 'エラー：音声を聞き取れませんでした。もう一度マイクを押してください';
-            });
-          }
-        },
-      );
-    }
-    if (!_ready) {
-      if (mounted) {
-        setState(() =>
-            _notice = 'エラー：このブラウザ・端末では音声入力が使えません。マイクの許可を確認するか、文字で入力してください');
-      }
-      return;
-    }
-    // 日本語で聞き取る。端末が報告する日本語のロケールIDがあればそれを使う（なければ ja_JP）。
-    _localeId ??= await findJapaneseLocale(_speech);
-    _base = _text.text.trim();
-    setState(() {
-      _listening = true;
-      _notice = null;
-    });
-    await _speech.listen(
-      listenOptions:
-          SpeechListenOptions(partialResults: true, localeId: _localeId),
-      onResult: (r) {
-        final spoken = r.recognizedWords;
-        final joined = _base.isEmpty ? spoken : '$_base $spoken';
-        _text.value = TextEditingValue(
-          text: joined,
-          selection: TextSelection.collapsed(offset: joined.length),
-        );
-      },
-    );
-  }
-
   /// 入力した内容（音声の認識結果も）を消して、最初から入力し直す。聞き取り中なら止める。
   Future<void> _redo() async {
-    if (_listening) await _speech.cancel();
-    _base = '';
+    final cancel = _voice.cancel();
     _text.clear();
-    if (mounted) {
-      setState(() {
-        _listening = false;
-        _notice = null;
-      });
-    }
+    await cancel;
   }
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppRadius.md);
+    final listening = _voice.listening;
+    final notice = _voice.notice;
     return AlertDialog(
+      // キーボードが出て高さが足りないときは、スクロールできるようにする。
+      scrollable: true,
       backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
@@ -146,7 +96,9 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
             Stack(children: [
               TextField(
                 controller: _text,
-                autofocus: true,
+                // スマートフォンのブラウザでは、自動でフォーカスするとキーボードが出なくなるため、
+                // 利用者が入力欄をタップしてから入力する。
+                autofocus: !isMobileWeb,
                 minLines: 4,
                 maxLines: 6,
                 style: AppText.dark(15, weight: FontWeight.w400, height: 1.5),
@@ -183,10 +135,10 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
                 ),
               ),
             ]),
-            if (_notice != null)
+            if (notice != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_notice!,
+                child: Text(notice,
                     style: AppText.dark(12,
                         weight: FontWeight.w400, color: AppColors.amber)),
               ),
@@ -197,15 +149,15 @@ class _VoiceMessageDialogState extends State<_VoiceMessageDialog> {
       actionsAlignment: MainAxisAlignment.start,
       actions: [
         IconButton.filled(
-          tooltip: _listening ? '音声入力をとめる' : '音声で入力する',
+          tooltip: listening ? '音声入力をとめる' : '音声で入力する',
           style: IconButton.styleFrom(
-            backgroundColor: _listening ? AppColors.amber : AppColors.blue,
+            backgroundColor: listening ? AppColors.amber : AppColors.blue,
             foregroundColor:
-                _listening ? PartColors.onAmber : AppColors.on(AppColors.blue),
+                listening ? PartColors.onAmber : AppColors.on(AppColors.blue),
             minimumSize: const Size(44, 44),
           ),
-          onPressed: _toggle,
-          icon: Icon(_listening ? Icons.stop : Icons.mic),
+          onPressed: () => _voice.toggle(_text),
+          icon: Icon(listening ? Icons.stop : Icons.mic),
         ),
         const SizedBox(width: 24),
         OutlinedButton(

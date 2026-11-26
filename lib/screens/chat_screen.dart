@@ -289,6 +289,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final msg = _msgs[index];
     final step = msg.step;
     if (step == null) return;
+    // 選び直しのダイアログでも音声入力を使うので、聞き取り中なら止める。
+    _voice.cancel();
     if (step == _Step.due) {
       final picked = await _showDatePicker();
       if (picked == null || !mounted) return;
@@ -380,6 +382,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// その他の指示の入力（キーボード／音声）。キャンセルや空なら null。
   Future<String?> _askNotes() async {
+    _voice.cancel();
     final t = await showVoiceMessageDialog(context,
         title: 'その他の指示', hint: 'その他の指示を入力（音声でも入力できます）', sendLabel: '決定');
     return t == null || t.isEmpty ? null : t;
@@ -536,6 +539,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _attachments() async {
+    _voice.cancel();
     FocusScope.of(context).unfocus();
     final kind = await showModalBottomSheet<String>(
       context: context,
@@ -639,6 +643,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// 「完了」：確認のポップアップのあと、指示内容の確認画面へ進む。
   Future<void> _complete() async {
+    _voice.cancel();
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -866,8 +871,8 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ],
           ),
-          // 音声入力中は、画面の中心に大きなマイクを出す。
-          VoiceListeningOverlay(listening: _voice.listening),
+          // 音声入力中は、画面の中心に大きなマイクを出す（マイクを押すと止まる）。
+          VoiceListeningOverlay(voice: _voice),
         ]),
       ),
     );

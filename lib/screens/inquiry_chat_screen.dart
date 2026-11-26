@@ -293,8 +293,8 @@ class _InquiryChatScreenState extends State<InquiryChatScreen> {
             else
               _bar(),
           ]),
-          // 音声入力中は、画面の中心にマイクを大きく出す（操作は通す）。
-          VoiceListeningOverlay(listening: _voice.listening),
+          // 音声入力中は、画面の中心にマイクを大きく出す（マイクを押すと止まる）。
+          VoiceListeningOverlay(voice: _voice),
         ]),
       ),
     );
