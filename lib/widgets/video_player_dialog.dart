@@ -3,11 +3,13 @@ import 'package:video_player/video_player.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
+import '../core/app_tokens.dart';
 import '../data/local_video.dart';
 import '../data/services.dart';
 import '../domain/video_request.dart';
 import 'attachment_thumb.dart';
 import 'submission_player.dart';
+import 'video_autoplay.dart';
 import '../data/storage_service.dart';
 import 'ruby_text.dart';
 
@@ -31,12 +33,21 @@ Future<void> showVideoDialog(BuildContext context,
           width: screen.width < 560 ? double.maxFinite : 480,
           height: screen.height * 0.85,
           child: Stack(children: [
-            VideoPanel(
-                key: ValueKey(path),
-                path: path,
-                title: title,
-                audio: audio,
-                onDocs: onDocs),
+            // 動画は、ダイアログの内側に余白をあけて収める。上は閉じるボタンの分をあけ、
+            // 動画が上端に接したり、ボタンと重なったりしないようにする。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpace.s3,
+                  kMinInteractiveDimension + AppSpace.s2,
+                  AppSpace.s3,
+                  AppSpace.s2),
+              child: VideoPanel(
+                  key: ValueKey(path),
+                  path: path,
+                  title: title,
+                  audio: audio,
+                  onDocs: onDocs),
+            ),
             Positioned(
               right: 4,
               top: 4,
@@ -92,14 +103,10 @@ Future<void> showAttachmentDialog(BuildContext context,
                     Navigator.of(ctx).pop();
                     onDownload();
                   },
-                  child: Text('ダウンロード',
-                      style:
-                          AppText.dark(14, color: AppColors.on(Colors.black)))),
+                  child: Text('ダウンロード', style: AppText.dark(14))),
             TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: Text('閉じる',
-                    style:
-                        AppText.dark(14, color: AppColors.on(Colors.black)))),
+                child: Text('閉じる', style: AppText.dark(14))),
           ],
         ),
       );
@@ -145,7 +152,7 @@ class _ImageDialog extends StatelessWidget {
                           height: 120,
                           child: Center(
                               child: CircularProgressIndicator(
-                                  color: AppColors.on(Colors.black))));
+                                  color: AppColors.white)));
                     }
                     return Image.network(
                       snap.data!,
@@ -158,7 +165,7 @@ class _ImageDialog extends StatelessWidget {
                               height: 120,
                               child: Center(
                                   child: CircularProgressIndicator(
-                                      color: AppColors.on(Colors.black)))),
+                                      color: AppColors.white))),
                       errorBuilder: (_, __, ___) => Text(
                           'エラー：画像を表示できません。通信を確認して、もう一度開いてください',
                           style: AppText.dark(14, weight: FontWeight.w400)),
@@ -170,9 +177,7 @@ class _ImageDialog extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text('閉じる',
-                        style: AppText.dark(14,
-                            color: AppColors.on(Colors.black)))),
+                    child: Text('閉じる', style: AppText.dark(14))),
               ),
             ],
           ),
@@ -212,7 +217,7 @@ class _VideoDialogState extends State<_VideoDialog> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool autoplay = true}) async {
     try {
       final c = await widget.create();
       await c.initialize();
@@ -221,7 +226,11 @@ class _VideoDialogState extends State<_VideoDialog> {
         return;
       }
       setState(() => _c = c);
-      await c.play();
+      if (autoplay && !await startWithSound(c) && mounted) {
+        setState(() => _c = null);
+        await c.dispose();
+        if (mounted) await _load(autoplay: false);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
@@ -253,8 +262,8 @@ class _VideoDialogState extends State<_VideoDialog> {
                 ? SizedBox(
                     height: 120,
                     child: Center(
-                        child: CircularProgressIndicator(
-                            color: AppColors.on(Colors.black))))
+                        child:
+                            CircularProgressIndicator(color: AppColors.white)))
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -270,7 +279,7 @@ class _VideoDialogState extends State<_VideoDialog> {
                         valueListenable: c,
                         builder: (_, v, __) => IconButton(
                           tooltip: v.isPlaying ? '一時停止' : '再生',
-                          color: AppColors.on(Colors.black),
+                          color: AppColors.white,
                           icon: Icon(
                               v.isPlaying ? Icons.pause : Icons.play_arrow),
                           onPressed: () => v.isPlaying ? c.pause() : c.play(),
@@ -282,8 +291,7 @@ class _VideoDialogState extends State<_VideoDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('閉じる',
-                style: AppText.dark(14, color: AppColors.on(Colors.black)))),
+            child: Text('閉じる', style: AppText.dark(14))),
       ],
     );
   }

@@ -8,6 +8,7 @@ import '../core/app_text.dart';
 import '../data/services.dart';
 import '../domain/video_request.dart';
 import 'ruby_text.dart';
+import 'video_autoplay.dart';
 
 /// 依頼確認画面の上部に置く、提出された動画のプレーヤー。
 /// 画面を開いたあと（遷移後）に、自動で再生を始める。承認済みなら承認された版、
@@ -167,7 +168,7 @@ class _VideoPanelState extends State<VideoPanel> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool autoplay = true}) async {
     try {
       final c = VideoPlayerController.networkUrl(
           Uri.parse(await Services.repo.downloadUrl(widget.path)));
@@ -179,10 +180,17 @@ class _VideoPanelState extends State<VideoPanel> {
       c.addListener(() => _guard(c));
       setState(() => _c = c);
       _tick = Timer.periodic(const Duration(milliseconds: 200), (_) => _sync());
+      if (!autoplay) {
+        _wantPlay = false;
+        return;
+      }
       // 画面を開いたあとに再生する。ブラウザが自動再生をふさいだときは、再生ボタンで始める。
-      try {
-        await c.play();
-      } catch (_) {}
+      if (!await startWithSound(c) && mounted) {
+        _tick?.cancel();
+        setState(() => _c = null);
+        await c.dispose();
+        if (mounted) await _load(autoplay: false);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }

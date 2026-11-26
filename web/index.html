@@ -76,11 +76,13 @@
     })();
   </script>
   <script>
-    // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
+    // iOS Safari: 消音の動画（背景の動画など）は、最初のタッチ操作で再生を試みる（自動再生制限の回避）
+    // 音を出す動画・音声には触れない（ここで消音すると、カードから再生しても音が出ない）。
     (function () {
       function kick() {
         document.querySelectorAll('video').forEach(function (v) {
-          v.muted = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+          if (!v.muted) return;
+          v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
           if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
         });
       }
