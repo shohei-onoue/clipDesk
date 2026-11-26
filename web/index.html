@@ -59,6 +59,23 @@
     }, true);
   </script>
   <script>
+    // パソコン: カードをマウスで素早くスライドすると、離したときの click が先に届き、
+    // Flutter がスライドではなくタップ（動画の再生）として扱う。
+    // 押した位置から動いたマウスの click は、Flutter に届けない。
+    (function () {
+      var down = null;
+      window.addEventListener('pointerdown', function (e) {
+        down = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null;
+      }, true);
+      window.addEventListener('pointerup', function () {
+        setTimeout(function () { down = null; }, 0);
+      }, true);
+      window.addEventListener('click', function (e) {
+        if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) e.stopPropagation();
+      }, true);
+    })();
+  </script>
+  <script>
     // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
     (function () {
       function kick() {

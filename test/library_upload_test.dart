@@ -7,6 +7,7 @@ import 'package:clipdesk/data/storage_service.dart';
 import 'package:clipdesk/screens/delivery_library_screen.dart';
 import 'package:clipdesk/widgets/library_upload_dialog.dart';
 import 'package:clipdesk/widgets/ruby_text.dart';
+import 'package:clipdesk/widgets/swipe_actions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_test/flutter_test.dart';
@@ -76,5 +77,41 @@ void main() {
             '${at.year}/${two(at.month)}/${two(at.day)} ${two(at.hour)}:${two(at.minute)}'),
         findsOneWidget);
     expect(DateTime.now().difference(at).inMinutes, lessThan(1));
+  });
+
+  testWidgets('左へのスライドの削除ボタンは、依頼した本人と管理者のカードに出る', (tester) async {
+    AppSettings.instance.resetForTest();
+    for (final (uid, manager, expected) in [
+      ('owner', false, 1),
+      ('other', false, 0),
+      ('boss', true, 1),
+    ]) {
+      final db = FakeFirebaseFirestore();
+      final repo = RequestRepository(db: db, storage: _FakeStorage());
+      Services.repo = repo;
+      Services.uidOverride = uid;
+      addTearDown(() => Services.uidOverride = null);
+      await db
+          .collection('roles')
+          .doc(uid)
+          .set({'role': 'staff', 'manager': manager});
+      await repo.addLibraryVideo(
+          requestId: 'lib1',
+          uid: 'owner',
+          title: '完成版',
+          posterName: '投稿 太郎',
+          uploadedAt: DateTime(2026, 11, 26),
+          file: UploadFile(
+              name: 'a.mp4', size: 3, read: () async => Uint8List(3)));
+
+      await tester.pumpWidget(
+          MaterialApp(home: DeliveryLibraryScreen(key: ValueKey(uid))));
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(seconds: 1));
+      }
+      expect(find.byType(SwipeActions), findsNWidgets(expected), reason: uid);
+    }
   });
 }

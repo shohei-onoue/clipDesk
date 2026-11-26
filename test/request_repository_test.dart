@@ -429,6 +429,18 @@ void main() {
         throwsA(isA<RequestStateException>()));
     await repo.deletePostedRequest(requestId: 'r1', uid: 'req');
     expect((await db.collection('requests').doc('r1').get()).exists, isFalse);
+    // 管理者は、他人の投稿済みの依頼も削除できる。
+    await create('r2');
+    await repo.startEditing(requestId: 'r2', uid: 'ed');
+    await repo.submitVideo(requestId: 'r2', uid: 'ed', file: _file('v1.mp4'));
+    await repo.approve(requestId: 'r2', uid: 'req');
+    await repo.markPosted(requestId: 'r2', uid: 'ed');
+    await db
+        .collection('roles')
+        .doc('mgr')
+        .set({'role': 'staff', 'manager': true});
+    await repo.deletePostedRequest(requestId: 'r2', uid: 'mgr');
+    expect((await db.collection('requests').doc('r2').get()).exists, isFalse);
     expect(
         (await db
                 .collection('requests')

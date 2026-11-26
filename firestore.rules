@@ -212,6 +212,8 @@ service cloud.firestore {
                 .hasOnly(['postedAt', 'status', 'updatedAt']))
         );
 
+      // 管理者は、投稿済み（ライブラリ）の依頼を削除できる。
+      allow delete: if isManager() && resource.data.status == 'posted';
       // 依頼者は、承認前（投稿済みでない）の自分の依頼を取り消せる（削除）。
       allow delete: if signedIn() && isRequester()
         && resource.data.requesterId == request.auth.uid
@@ -238,6 +240,9 @@ service cloud.firestore {
           && sid == 'v1'
           && request.resource.data.path.matches('library/' + request.auth.uid + '/' + requestId + '/.*');
         allow update: if false;
+        // 管理者は、投稿済み（ライブラリ）の依頼の記録を、依頼と一緒に削除できる。
+        allow delete: if isManager()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted';
         // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
         // また、承認したあとは、依頼者が、承認されなかった版の記録を消せる。
         allow delete: if signedIn() && isRequester()
@@ -259,6 +264,9 @@ service cloud.firestore {
           && request.resource.data.instruction is string
           && request.resource.data.instruction.size() > 0;
         allow update: if false;
+        // 管理者は、投稿済み（ライブラリ）の依頼の記録を、依頼と一緒に削除できる。
+        allow delete: if isManager()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted';
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
           && (get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted'
@@ -278,6 +286,9 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid
           && request.resource.data.answer is string
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'answeredAt']);
+        // 管理者は、投稿済み（ライブラリ）の依頼の記録を、依頼と一緒に削除できる。
+        allow delete: if isManager()
+          && get(/databases/$(database)/documents/requests/$(requestId)).data.status == 'posted';
         // 依頼の取り消し（承認前）と同時にだけ、依頼者が消せる。
         allow delete: if signedIn() && isRequester()
           && get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid

@@ -130,7 +130,11 @@ class _SwipeActionsState extends State<SwipeActions>
           child: AnimatedBuilder(
             animation: _c,
             builder: (_, child) => GestureDetector(
-              behavior: HitTestBehavior.translucent,
+              // 開いているときは、カードの上の右へのスライドも受け取れるようにする
+              // （中身は操作を受け付けないので、ここで受けないと閉じられない）。
+              behavior: _c.value > 0.05
+                  ? HitTestBehavior.opaque
+                  : HitTestBehavior.translucent,
               onTap: _c.value > 0.05 ? () => _c.animateTo(0) : null,
               child: IgnorePointer(ignoring: _c.value > 0.05, child: child),
             ),

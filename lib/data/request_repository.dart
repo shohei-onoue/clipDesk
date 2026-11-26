@@ -1024,7 +1024,8 @@ class RequestRepository {
     await batch.commit();
   }
 
-  /// 依頼者が、投稿済み（ライブラリにある）自分の依頼を削除する。元には戻せない。
+  /// 投稿済み（ライブラリにある）依頼を削除する。依頼者（直接追加した動画は追加した人）本人と、
+  /// 管理者だけ。元には戻せない。
   /// Storage の動画を消してから、提出動画・修正指示・問合せ履歴の記録と、依頼を消す。
   /// Storage から消せなかったときは、記録を残したまま失敗にする（あとでやり直せる）。
   Future<void> deletePostedRequest(
@@ -1033,8 +1034,8 @@ class RequestRepository {
     final snap = await ref.get();
     if (!snap.exists) throw RequestStateException('依頼が見つかりません');
     final r = _Snapshot.from(snap);
-    if (r.requesterId != uid) {
-      throw RequestStateException('依頼者本人だけが削除できます');
+    if (r.requesterId != uid && !await _isManager(uid)) {
+      throw RequestStateException('削除できるのは、依頼した本人と管理者だけです');
     }
     if (r.status != RequestStatus.posted) {
       throw RequestStateException('投稿済みの依頼だけ削除できます');
@@ -1063,6 +1064,9 @@ class RequestRepository {
     batch.delete(ref);
     await batch.commit();
   }
+
+  Future<bool> _isManager(String uid) async =>
+      (await _db.collection('roles').doc(uid).get()).data()?['manager'] == true;
 
   // ---- 共通 ----
 

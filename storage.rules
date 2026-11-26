@@ -17,6 +17,14 @@ service firebase.storage {
     function reqExists(requestId) {
       return firestore.exists(/databases/(default)/documents/requests/$(requestId));
     }
+    // 管理者は、投稿済み（ライブラリ）の依頼の動画を削除できる。
+    function managerDeletes(requestId) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/roles/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.uid)).data.get('manager', false) == true
+        && reqExists(requestId)
+        && req(requestId).status == 'posted';
+    }
     // 1ファイルの上限（暫定 500MB。FigJamで未確定、lib/data/storage_service.dart と揃える）
     function sizeOk() { return request.resource.size <= 500 * 1024 * 1024; }
 
@@ -48,6 +56,7 @@ service firebase.storage {
         && (request.resource.contentType.matches('video/.*')
           || (file == 'thumb.jpg' && request.resource.contentType == 'image/jpeg'));
       allow delete: if hasRole('requester') && request.auth.uid == uid;
+      allow delete: if managerDeletes(requestId);
       allow read: if signedIn() && isStaff();
     }
 
@@ -59,6 +68,7 @@ service firebase.storage {
         && (request.resource.contentType.matches('video/.*')
           // 一覧に出す静止画サムネイル（動画の最初の1コマ）。
           || (file == 'thumb.jpg' && request.resource.contentType == 'image/jpeg'));
+      allow delete: if managerDeletes(requestId);
       // 承認後、依頼者が、承認されなかった提出動画を削除する。承認された版は消せない。
       allow delete: if hasRole('requester') && reqExists(requestId)
         && req(requestId).requesterId == request.auth.uid

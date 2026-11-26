@@ -389,3 +389,39 @@ test('ライブラリへの直接追加: スタッフ本人が、投稿済みの
   b.delete(doc(db(STAFF), 'requests', 'l1'));
   await assertSucceeds(b.commit());
 });
+
+test('管理者: 他人のライブラリの動画を、記録ごと削除できる。管理者以外と投稿前は不可', async () => {
+  const posted = newReq({ editorId: ED, status: 'posted', submissionCount: 1, approvedVersion: 1 });
+  await seed(posted);
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    await setDoc(doc(d, 'requests', 'r1', 'submissions', 'v1'), { version: 1, path: 'videos/r1/v1/a.mp4' });
+    await setDoc(doc(d, 'requests', 'r1', 'revisions', '1'), { version: 1, instruction: 'x' });
+    await setDoc(doc(d, 'requests', 'r1', 'inquiries', 'r1'), { round: 1, question: 'q' });
+    const mp4 = { contentType: 'video/mp4' };
+    await uploadBytes(ref(c.storage(), 'videos/r1/v1/a.mp4'), new Uint8Array(1), mp4);
+    await uploadBytes(ref(c.storage(), 'library/req/r1/a.mp4'), new Uint8Array(1), mp4);
+  });
+  const records = [['submissions', 'v1'], ['revisions', '1'], ['inquiries', 'r1']];
+  // 管理者でないスタッフ（本人以外）は消せない。
+  await assertFails(deleteDoc(doc(db(STAFF), 'requests', 'r1')));
+  for (const [c, id] of records) await assertFails(deleteDoc(doc(db(STAFF), 'requests', 'r1', c, id)));
+  await assertFails(deleteObject(ref(st(STAFF), 'videos/r1/v1/a.mp4')));
+  await assertFails(deleteObject(ref(st(STAFF), 'library/req/r1/a.mp4')));
+  await assertSucceeds(deleteObject(ref(st(MGR), 'videos/r1/v1/a.mp4')));
+  await assertSucceeds(deleteObject(ref(st(MGR), 'library/req/r1/a.mp4')));
+  const b = writeBatch(db(MGR));
+  for (const [c, id] of records) b.delete(doc(db(MGR), 'requests', 'r1', c, id));
+  b.delete(doc(db(MGR), 'requests', 'r1'));
+  await assertSucceeds(b.commit());
+  // 投稿前の依頼は、管理者でも消せない。
+  await seed(newReq({ editorId: ED, status: 'review', submissionCount: 1 }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'requests', 'r1', 'submissions', 'v1'), { version: 1, path: 'videos/r1/v1/a.mp4' });
+    await uploadBytes(ref(c.storage(), 'videos/r1/v1/a.mp4'), new Uint8Array(1), { contentType: 'video/mp4' });
+  });
+  await assertFails(deleteDoc(doc(db(MGR), 'requests', 'r1')));
+  await assertFails(deleteDoc(doc(db(MGR), 'requests', 'r1', 'submissions', 'v1')));
+  await assertFails(deleteObject(ref(st(MGR), 'videos/r1/v1/a.mp4')));
+});
+

@@ -9,6 +9,7 @@ import '../core/app_tokens.dart';
 import '../core/responsive.dart';
 import '../data/services.dart';
 import '../domain/request_status.dart';
+import '../domain/staff_access.dart';
 import '../domain/video_request.dart';
 import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_drawer.dart';
@@ -25,6 +26,7 @@ import 'request_detail_screen.dart';
 /// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
 /// 右下の「＋」から、完成済みの動画を直接追加できる。
+/// カードを左にスライドすると削除ボタンが出る（依頼した本人は自分のカード、管理者は全カード）。
 class DeliveryLibraryScreen extends StatefulWidget {
   const DeliveryLibraryScreen({super.key});
 
@@ -52,6 +54,18 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
       if (submission == null) _submissions.remove(key);
       return submission;
     });
+  }
+
+  Stream<StaffAccess>? _access;
+  String? _accessUid;
+
+  /// ログイン中のスタッフの権限（管理者かどうか）。画面の作り直しで購読し直さないように保つ。
+  Stream<StaffAccess> _watchAccess(String uid) {
+    if (_accessUid != uid) {
+      _accessUid = uid;
+      _access = Services.repo.watchAccess(uid);
+    }
+    return _access!;
   }
 
   @override
@@ -98,58 +112,64 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
           Expanded(
             child: RoleBuilder(
               dark: true,
-              builder: (context, uid, role) => Stack(children: [
-                StreamBuilder<List<VideoRequest>>(
-                  stream: _stream,
-                  builder: (context, snap) {
-                    // 投稿済みの動画だけをサーバーから取る（承認が新しい順）。
-                    final approved = snap.data ?? const <VideoRequest>[];
-                    _lastCount = approved.length;
-                    return ListView.builder(
-                      controller: _scroll,
-                      // 下は、「＋」ボタンが最後のカードに重ならない分をあける。
-                      padding:
-                          EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), 88),
-                      itemCount: approved.length + 1,
-                      itemBuilder: (context, i) {
-                        if (i == 0) {
-                          if (snap.hasError) {
-                            return emptyTextDark(context,
-                                'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください');
+              builder: (context, uid, role) => StreamBuilder<StaffAccess>(
+                stream: _watchAccess(uid),
+                builder: (context, access) => Stack(children: [
+                  StreamBuilder<List<VideoRequest>>(
+                    stream: _stream,
+                    builder: (context, snap) {
+                      // 投稿済みの動画だけをサーバーから取る（承認が新しい順）。
+                      final approved = snap.data ?? const <VideoRequest>[];
+                      _lastCount = approved.length;
+                      return ListView.builder(
+                        controller: _scroll,
+                        // 下は、「＋」ボタンが最後のカードに重ならない分をあける。
+                        padding:
+                            EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), 88),
+                        itemCount: approved.length + 1,
+                        itemBuilder: (context, i) {
+                          if (i == 0) {
+                            if (snap.hasError) {
+                              return emptyTextDark(context,
+                                  'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください');
+                            }
+                            if (approved.isEmpty &&
+                                snap.connectionState !=
+                                    ConnectionState.waiting) {
+                              return emptyTextDark(context, '投稿済みの動画はまだありません');
+                            }
+                            return const SizedBox.shrink();
                           }
-                          if (approved.isEmpty &&
-                              snap.connectionState != ConnectionState.waiting) {
-                            return emptyTextDark(context, '投稿済みの動画はまだありません');
-                          }
-                          return const SizedBox.shrink();
-                        }
-                        final q = approved[i - 1];
-                        return Padding(
-                          key: ValueKey((q.id, q.approvedVersion)),
-                          padding: EdgeInsets.only(bottom: r.x(12)),
-                          child: _LibraryCard(
-                              request: q,
-                              loadVideo: _approvedSubmission,
-                              uid: uid,
-                              role: role),
-                        );
-                      },
-                    );
-                  },
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    tooltip: '完成した動画を追加',
-                    backgroundColor: PartColors.toggleFill,
-                    foregroundColor: AppColors.on(PartColors.toggleFill),
-                    onPressed: () => _addVideo(uid),
-                    child: AppIcon(AppIcons.addCircle,
-                        size: 32, color: AppColors.on(PartColors.toggleFill)),
+                          final q = approved[i - 1];
+                          return Padding(
+                            key: ValueKey((q.id, q.approvedVersion)),
+                            padding: EdgeInsets.only(bottom: r.x(12)),
+                            child: _LibraryCard(
+                                request: q,
+                                loadVideo: _approvedSubmission,
+                                uid: uid,
+                                role: role,
+                                canDelete: q.requesterId == uid ||
+                                    (access.data?.manager ?? false)),
+                          );
+                        },
+                      );
+                    },
                   ),
-                ),
-              ]),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      tooltip: '完成した動画を追加',
+                      backgroundColor: PartColors.toggleFill,
+                      foregroundColor: AppColors.on(PartColors.toggleFill),
+                      onPressed: () => _addVideo(uid),
+                      child: AppIcon(AppIcons.addCircle,
+                          size: 32, color: AppColors.on(PartColors.toggleFill)),
+                    ),
+                  ),
+                ]),
+              ),
             ),
           ),
         ]),
@@ -170,11 +190,15 @@ class _LibraryCard extends StatefulWidget {
       {required this.request,
       required this.loadVideo,
       required this.uid,
-      required this.role});
+      required this.role,
+      required this.canDelete});
   final VideoRequest request;
   final Future<Submission?> Function(VideoRequest) loadVideo;
   final String uid;
   final UserRole role;
+
+  /// 左にスライドして削除できるか。
+  final bool canDelete;
 
   @override
   State<_LibraryCard> createState() => _LibraryCardState();
@@ -277,8 +301,8 @@ class _LibraryCardState extends State<_LibraryCard> {
             ),
           ),
         );
-        // 依頼者本人のカードだけ、左にスワイプすると削除ボタンが出る。
-        return request.requesterId == uid
+        // 依頼した本人と管理者は、左にスライドすると削除ボタンが出る。
+        return widget.canDelete
             ? SwipeActions(
                 actions: [
                   SwipeAction(
