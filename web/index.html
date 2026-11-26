@@ -49,26 +49,37 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
-    // Safari: pointerdownで入力欄にフォーカスした直後、mousedownの既定動作がフォーカスを奪い返して
-    // 入力できなくなる（フォーカスが外れる）ため、mousedownの既定動作を止める。
-    window.addEventListener('mousedown', function (e) {
-      var t = e.target;
-      if (t && (t.tagName === 'FLT-GLASS-PANE' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.preventDefault();
-    }, true);
+    // Mac等のSafari: pointerdownで入力欄にフォーカスした直後、mousedownの既定動作がフォーカスを奪い返すため止める。
+    // タッチ端末（iPhone/iPad）では止めると、タップでの入力欄フォーカスとキーボード表示を妨げるため何もしない。
+    (function () {
+      if (navigator.maxTouchPoints > 0) return;
+      window.addEventListener('mousedown', function (e) {
+        var t = e.target;
+        if (t && t.tagName === 'FLT-GLASS-PANE') e.preventDefault();
+      }, true);
+    })();
   </script>
   <script>
-    // iOS Safari: 動画は最初のタッチ操作で再生を試みる（自動再生制限の回避）
+    // iOS Safari: 背景動画（ループ再生の動画）は、自動再生が止められたらタップ時に再生する。
+    // ・定期的な再生（setInterval）はしない：音声入力中にメディア再生が割り込み、画面が固まる原因になる。
+    // ・入力欄にフォーカス中は何もしない：キーボード表示・音声入力を妨げない。
+    // ・ループでない動画/音声（エラー音声、納品動画など）には触らない。
     (function () {
+      function typing() {
+        var a = document.activeElement;
+        return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+      }
       function kick() {
+        if (typing()) return;
         document.querySelectorAll('video').forEach(function (v) {
-          v.muted = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+          if (!v.loop) return;
+          v.muted = true; v.setAttribute('playsinline', '');
           if (v.paused) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
         });
       }
-      ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(function (e) {
+      ['touchend', 'click'].forEach(function (e) {
         window.addEventListener(e, kick, { capture: true, passive: true });
       });
-      setInterval(kick, 1500);
     })();
   </script>
 </body>
