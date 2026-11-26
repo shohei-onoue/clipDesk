@@ -68,6 +68,54 @@ void main() {
           .map((d) => {...d.data(), 'id': d.id})
           .toList();
 
+  test('ライブラリへの直接追加：投稿済みとして保存し、通知は出さず、削除でファイルも消える', () async {
+    final at = DateTime(2026, 11, 26, 15, 30);
+    Future<void> add({String title = ' 会社紹介 ', String poster = '山田 花子'}) =>
+        repo.addLibraryVideo(
+            requestId: 'lib1',
+            uid: 'u1',
+            title: title,
+            posterName: poster,
+            uploadedAt: at,
+            file: _file('完成.MP4'));
+    // 未入力・動画以外・保存の失敗では、記録を作らない。
+    await expectLater(add(title: ' '), throwsA(isA<RequestStateException>()));
+    await expectLater(add(poster: ''), throwsA(isA<RequestStateException>()));
+    await expectLater(
+        repo.addLibraryVideo(
+            requestId: 'lib1',
+            uid: 'u1',
+            title: 't',
+            posterName: 'p',
+            uploadedAt: at,
+            file: _file('a.pdf')),
+        throwsA(isA<RequestStateException>()));
+    storage.fail = true;
+    await expectLater(add(), throwsA(isA<StateError>()));
+    expect((await db.collection('requests').get()).docs, isEmpty);
+    storage.fail = false;
+
+    await add();
+    await add(); // 再試行しても1件。
+    final posted = await repo.watchPostedRequests(limit: 10).first;
+    final q = posted.single;
+    expect(q.brief.title, '会社紹介');
+    expect(q.editorName, '山田 花子');
+    expect(q.approvedAt, at);
+    expect(q.requesterId, 'u1');
+    expect(q.libraryUpload, isTrue);
+    expect(q.attachments, isEmpty);
+    final video = (await repo.getSubmission('lib1', q.approvedVersion!))!;
+    expect(video.path, startsWith('library/u1/lib1/'));
+    expect(await notes(), isEmpty);
+    // ダッシュボードなどの進行中の一覧には出ない。
+    expect(await repo.watchActiveRequests().first, isEmpty);
+    // 追加した本人は削除でき、動画も消える。
+    await repo.deletePostedRequest(requestId: 'lib1', uid: 'u1');
+    expect((await db.collection('requests').get()).docs, isEmpty);
+    expect(storage.deleted, contains(video.path));
+  });
+
   test('依頼作成: 受付待ち・指示書と添付を保存し、編集者へ新規依頼通知', () async {
     await create();
     final d = await doc();

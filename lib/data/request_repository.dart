@@ -467,6 +467,72 @@ class RequestRepository {
     await batch.commit();
   }
 
+  /// 完成済みの動画を、指示書なしでライブラリに追加する。投稿済み・承認版 v1 の記録として保存し、
+  /// 通知は出さない。カードには [title]・[uploadedAt]（アップロード日時）・[posterName]（投稿者名）が出る。
+  /// [requestId] は入力画面で1回だけ採番し、再試行でも1件になる。
+  Future<void> addLibraryVideo({
+    required String requestId,
+    required String uid,
+    required String title,
+    required String posterName,
+    required DateTime uploadedAt,
+    required UploadFile file,
+  }) async {
+    final name = title.trim();
+    final poster = posterName.trim();
+    if (name.isEmpty) throw RequestStateException('動画タイトルを入力してください');
+    if (poster.isEmpty) throw RequestStateException('投稿者名を入力してください');
+    if (!isVideoFileName(file.name)) {
+      throw RequestStateException('動画ファイル（mp4・mov・m4v・webm）を選んでください');
+    }
+    final ref = _requests.doc(requestId);
+    if ((await ref.get()).exists) return; // 追加済み（再試行）
+    final dir = 'library/$uid/$requestId';
+    final path = '$dir/${_safe(file.name)}';
+    await _storage.upload(path, file,
+        contentType: StorageService.contentTypeFor(file.name, video: true));
+    final thumbPath = await _uploadThumbnail('$dir/thumb.jpg', file);
+    final batch = _db.batch();
+    batch.set(ref, {
+      'source': 'library',
+      'requesterId': uid,
+      'requesterName': poster,
+      'editorId': uid,
+      'editorName': poster,
+      'status': RequestStatus.posted.name,
+      'title': name,
+      'brief': Brief(title: name).toMap(),
+      'attachments': <Object>[],
+      'reviewReason': null,
+      'revisionNote': null,
+      'reviewRound': 0,
+      'submissionCount': 1,
+      'approvedVersion': 1,
+      // ライブラリは approvedAt の新しい順に並び、カードの日時にもこれを出す。
+      'approvedAt': Timestamp.fromDate(uploadedAt),
+      'postedAt': Timestamp.fromDate(uploadedAt),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(ref.collection('submissions').doc('v1'), {
+      'version': 1,
+      'name': file.name,
+      'path': path,
+      'size': file.size,
+      if (thumbPath != null) 'thumbPath': thumbPath,
+      'uploadedBy': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    try {
+      await batch.commit();
+    } catch (_) {
+      // 記録を残せなかったときは、保存した動画も消す。
+      await _storage.delete(path);
+      if (thumbPath != null) await _storage.delete(thumbPath);
+      rethrow;
+    }
+  }
+
   /// 動画の最初の1コマをJPEGにして [path] に保存する。保存したパスを返す。
   /// 作れない・保存できないときは null（動画そのものの保存は止めない。一覧は代替表示になる）。
   Future<String?> _uploadThumbnail(String path, UploadFile video) async {
@@ -835,6 +901,9 @@ class RequestRepository {
     );
   }
 
+  /// ログイン中のスタッフの表示名（投稿者名の初期値など）。分からなければ null。
+  Future<String?> displayName(String uid) => _displayName(uid);
+
   /// ログイン中のスタッフの表示名。プロフィールの名前 → 認証の表示名 → メールの順。
   Future<String?> _displayName(String uid) async {
     final profile = await userName(uid);
@@ -977,9 +1046,14 @@ class RequestRepository {
       inquiries = (await ref.collection('inquiries').get()).docs;
     } catch (_) {}
     for (final d in subs.docs) {
-      final path = Submission.fromMap(d.data()).path;
-      if (path.isNotEmpty && !await _storage.delete(path)) {
+      final video = Submission.fromMap(d.data());
+      if (video.path.isNotEmpty && !await _storage.delete(video.path)) {
         throw RequestStateException('動画を削除できませんでした。通信を確認して、もう一度お試しください');
+      }
+      // ライブラリから追加した動画は、静止画も消す（消せなくても、削除は続ける）。
+      final thumb = video.thumbPath;
+      if (thumb != null && thumb.startsWith('library/')) {
+        await _storage.delete(thumb);
       }
     }
     final batch = _db.batch();

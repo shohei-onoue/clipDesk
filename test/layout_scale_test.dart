@@ -124,6 +124,7 @@ void main() {
     'スタッフ編集ダイアログ': () => const StaffAdminScreen(),
     '添付のシート': () => const ChatScreen(),
     '動画の長さのシート': () => const ChatScreen(),
+    'ライブラリ追加ダイアログ': () => const DeliveryLibraryScreen(),
   };
 
   final openers = <String, Future<void> Function(WidgetTester)>{
@@ -149,6 +150,13 @@ void main() {
           tester.widget<CupertinoPicker>(find.byType(CupertinoPicker));
       expect(tester.getSize(_label('45秒')).height,
           lessThanOrEqualTo(picker.itemExtent));
+    },
+    'ライブラリ追加ダイアログ': (tester) async {
+      await _tap(tester, find.byTooltip('完成した動画を追加'));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      // 入力不足の案内を出した状態（いちばん高くなる）でも、はみ出さない。
+      await _tap(tester, _label('アップロード'));
+      expect(_label('エラー：動画が選ばれていません。動画を選んでください'), findsOneWidget);
     },
   };
 

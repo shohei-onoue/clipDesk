@@ -27,6 +27,12 @@ class UploadFile {
       );
 }
 
+/// 動画として扱うファイル名か。
+bool isVideoFileName(String name) {
+  final lower = name.toLowerCase();
+  return const ['.mp4', '.mov', '.m4v', '.webm'].any(lower.endsWith);
+}
+
 class StorageService {
   StorageService([this._injected]);
 

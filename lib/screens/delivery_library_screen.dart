@@ -13,7 +13,9 @@ import '../domain/video_request.dart';
 import '../widgets/app_bottom_bar.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/attachment_thumb.dart';
+import '../widgets/library_upload_dialog.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
 import '../widgets/video_player_dialog.dart';
@@ -22,6 +24,7 @@ import 'request_detail_screen.dart';
 
 /// ライブラリ（Figma 302:7489）：投稿済みの編集完了動画の一覧。
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
+/// 右下の「＋」から、完成済みの動画を直接追加できる。
 class DeliveryLibraryScreen extends StatefulWidget {
   const DeliveryLibraryScreen({super.key});
 
@@ -76,6 +79,12 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
     }
   }
 
+  Future<void> _addVideo(String uid) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await showLibraryUploadDialog(context, uid: uid)) return;
+    messenger.showSnackBar(const SnackBar(content: Text('ライブラリに追加しました')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = context.r;
@@ -89,44 +98,58 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
           Expanded(
             child: RoleBuilder(
               dark: true,
-              builder: (context, uid, role) =>
-                  StreamBuilder<List<VideoRequest>>(
-                stream: _stream,
-                builder: (context, snap) {
-                  // 投稿済みの動画だけをサーバーから取る（承認が新しい順）。
-                  final approved = snap.data ?? const <VideoRequest>[];
-                  _lastCount = approved.length;
-                  return ListView.builder(
-                    controller: _scroll,
-                    padding:
-                        EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), r.x(16)),
-                    itemCount: approved.length + 1,
-                    itemBuilder: (context, i) {
-                      if (i == 0) {
-                        if (snap.hasError) {
-                          return emptyTextDark(context,
-                              'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください');
+              builder: (context, uid, role) => Stack(children: [
+                StreamBuilder<List<VideoRequest>>(
+                  stream: _stream,
+                  builder: (context, snap) {
+                    // 投稿済みの動画だけをサーバーから取る（承認が新しい順）。
+                    final approved = snap.data ?? const <VideoRequest>[];
+                    _lastCount = approved.length;
+                    return ListView.builder(
+                      controller: _scroll,
+                      // 下は、「＋」ボタンが最後のカードに重ならない分をあける。
+                      padding:
+                          EdgeInsets.fromLTRB(r.x(14), r.x(16), r.x(14), 88),
+                      itemCount: approved.length + 1,
+                      itemBuilder: (context, i) {
+                        if (i == 0) {
+                          if (snap.hasError) {
+                            return emptyTextDark(context,
+                                'エラー：読み込みに失敗しました（${snap.error}）。通信を確認して、もう一度開いてください');
+                          }
+                          if (approved.isEmpty &&
+                              snap.connectionState != ConnectionState.waiting) {
+                            return emptyTextDark(context, '投稿済みの動画はまだありません');
+                          }
+                          return const SizedBox.shrink();
                         }
-                        if (approved.isEmpty &&
-                            snap.connectionState != ConnectionState.waiting) {
-                          return emptyTextDark(context, '投稿済みの動画はまだありません');
-                        }
-                        return const SizedBox.shrink();
-                      }
-                      final q = approved[i - 1];
-                      return Padding(
-                        key: ValueKey((q.id, q.approvedVersion)),
-                        padding: EdgeInsets.only(bottom: r.x(12)),
-                        child: _LibraryCard(
-                            request: q,
-                            loadVideo: _approvedSubmission,
-                            uid: uid,
-                            role: role),
-                      );
-                    },
-                  );
-                },
-              ),
+                        final q = approved[i - 1];
+                        return Padding(
+                          key: ValueKey((q.id, q.approvedVersion)),
+                          padding: EdgeInsets.only(bottom: r.x(12)),
+                          child: _LibraryCard(
+                              request: q,
+                              loadVideo: _approvedSubmission,
+                              uid: uid,
+                              role: role),
+                        );
+                      },
+                    );
+                  },
+                ),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton(
+                    tooltip: '完成した動画を追加',
+                    backgroundColor: PartColors.toggleFill,
+                    foregroundColor: AppColors.on(PartColors.toggleFill),
+                    onPressed: () => _addVideo(uid),
+                    child: AppIcon(AppIcons.addCircle,
+                        size: 32, color: AppColors.on(PartColors.toggleFill)),
+                  ),
+                ),
+              ]),
             ),
           ),
         ]),
@@ -177,12 +200,18 @@ class _LibraryCardState extends State<_LibraryCard> {
           label: '${request.brief.title}を再生する',
           child: GestureDetector(
             onTap: video == null
-                ? () => openRequest(context, request.id)
+                // 直接追加した動画には、開ける依頼の画面がない。
+                ? (request.libraryUpload
+                    ? null
+                    : () => openRequest(context, request.id))
                 : () => showVideoDialog(context,
                     path: video.path,
                     title: request.brief.title,
-                    onDocs: () => showRequestDocsDialog(context,
-                        request: request, uid: uid, role: role)),
+                    // 直接追加した動画には指示書がないので、資料のボタンを出さない。
+                    onDocs: request.libraryUpload
+                        ? null
+                        : () => showRequestDocsDialog(context,
+                            request: request, uid: uid, role: role)),
             child: Container(
               padding: EdgeInsets.all(r.x(9)),
               decoration: BoxDecoration(

@@ -9,7 +9,7 @@
 | メイン / menu_screen.dart | AppHeader「ホーム」→権限別のイラスト付きグラデーションカード。依頼者ページ／編集者ページ／依頼一覧／スタッフ管理（ルビは「管理」の上） | なし |
 | ダッシュボード / requester_home_screen.dart | AppHeader「ダッシュボード」→TopTabs（すべて・依頼・編集・確認）→2列の進捗カード。全スタッフが全案件を見られる | あり |
 | 通知 / notifications_screen.dart | AppHeader→通知カード。新着はAmberの枠・ベルと「新着」の語句。タップで案件詳細 | あり |
-| 納品ライブラリ / delivery_library_screen.dart | AppHeader→投稿済の行カード。最終動画を再生 | あり |
+| 納品ライブラリ / delivery_library_screen.dart | AppHeader→投稿済の行カード。最終動画を再生。右下の「＋」で完成した動画を追加（library_upload_dialog.dart：動画の選択→動画タイトル→投稿者名→アップロード日時） | あり |
 | 依頼チャット・指示書の修正 / chat_screen.dart | AppHeader→上詰めの会話・添付一覧・回答選択肢→入力バー。完了時は確認CTA | なし |
 | 指示書確認 / brief_confirm_screen.dart | AppHeader→ナビゲーター付きのまとめ→不足・失敗の案内→修正する／依頼する（または再送信） | なし |
 | 案件詳細 / request_detail_screen.dart | AppHeader→題名・進捗・納期・確認事項→状態別操作→指示書→添付資料→提出動画の版一覧 | あり |

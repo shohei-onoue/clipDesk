@@ -171,6 +171,7 @@ class _SaveBarState extends State<_SaveBar> {
     final unsaved = AppSettings.instance.unsaved;
     final note =
         _result ?? (unsaved ? '変更はまだ保存していません。保存すると、あなたの設定として残ります。' : null);
+    final canSave = !_busy && unsaved;
     return Container(
       padding: EdgeInsets.fromLTRB(r.x(14), r.x(10), r.x(14), r.x(12)),
       decoration: BoxDecoration(
@@ -190,10 +191,10 @@ class _SaveBarState extends State<_SaveBar> {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _busy || !unsaved ? null : _save,
+            onPressed: canSave ? _save : null,
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.amber,
-              foregroundColor: PartColors.onAmber,
+              foregroundColor: PartColors.saveButtonText,
               disabledBackgroundColor: AppColors.white.withValues(alpha: 0.16),
               disabledForegroundColor: AppColors.white.withValues(alpha: 0.7),
               minimumSize: Size.fromHeight(r.x(56)),
@@ -201,7 +202,9 @@ class _SaveBarState extends State<_SaveBar> {
                   borderRadius: BorderRadius.circular(r.x(10))),
             ),
             child: Text(_busy ? '保存しています…' : '設定を保存する',
-                style: AppText.dark(r.x(18), color: null)),
+                // 文字の色は style で決まる（押せないときは、画面の文字の色）。
+                style: AppText.dark(r.x(18),
+                    color: canSave ? PartColors.saveButtonText : null)),
           ),
         ),
       ]),

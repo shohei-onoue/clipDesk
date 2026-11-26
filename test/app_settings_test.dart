@@ -1,6 +1,7 @@
 import 'package:clipdesk/core/app_colors.dart';
 import 'package:clipdesk/core/app_settings.dart';
 import 'package:clipdesk/core/ruby_dictionary.dart';
+import 'package:clipdesk/screens/settings_screen.dart';
 import 'package:clipdesk/widgets/detail_widgets.dart';
 import 'package:clipdesk/widgets/ruby_text.dart';
 import 'package:flutter/material.dart' hide Text;
@@ -29,6 +30,37 @@ void main() {
     expect(AppColors.blue, const Color(0xFF0052CC));
     // 面のグレーは、従来の「白 8%」と同じ。
     expect(AppColors.gray, AppColors.white.withValues(alpha: 0.08));
+  });
+
+  testWidgets('「設定を保存する」の文字色は、配色ごとに決まっている', (tester) async {
+    const black = Color(0xFF111111);
+    final expected = {
+      AppPalette.standard: AppPalette.standard.white,
+      AppPalette.contrast: black,
+      AppPalette.ocean: black,
+      AppPalette.forest: black,
+      AppPalette.light: const Color(0xFFF5F5F5),
+    };
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final palette in AppPalette.values) {
+      settings.resetForTest();
+      // 未保存の変更があるとき、ボタンが押せる。
+      await settings.setRuby(true);
+      await settings.setRuby(false);
+      await settings.setPalette(palette);
+      await tester
+          .pumpWidget(MaterialApp(home: SettingsScreen(key: UniqueKey())));
+      await tester.pump();
+      final label = find.text('設定を保存する');
+      final button = tester.widget<FilledButton>(
+          find.ancestor(of: label, matching: find.byType(FilledButton)));
+      expect(button.onPressed, isNotNull, reason: palette.label);
+      final text = tester.widget<RichText>(
+          find.descendant(of: label, matching: find.byType(RichText)));
+      expect(text.text.style!.color, expected[palette], reason: palette.label);
+    }
   });
 
   test('文字の大きさは、小・中・大が 1・1.5・2 倍', () {

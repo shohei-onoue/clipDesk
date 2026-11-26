@@ -120,6 +120,7 @@ class VideoRequest {
     this.requesterName,
     this.inquirerIds = const [],
     this.inquiryFromRevision = false,
+    this.libraryUpload = false,
   });
 
   final String id;
@@ -134,6 +135,9 @@ class VideoRequest {
 
   /// 問合せをした編集者（uid）。問合せ中の依頼を開けるのは、依頼主とこの人たちだけ。
   final List<String> inquirerIds;
+
+  /// 完成済みの動画を、ライブラリから直接追加したものか（指示書・添付・通知はない）。
+  final bool libraryUpload;
 
   /// 問合せが、修正の依頼の内容についてのものか（回答すると、受付待ちではなく修正に戻る）。
   final bool inquiryFromRevision;
@@ -191,6 +195,7 @@ class VideoRequest {
       editorName: m['editorName'] as String?,
       requesterName: m['requesterName'] as String?,
       inquiryFromRevision: m['inquiryFrom'] == 'revision',
+      libraryUpload: m['source'] == 'library',
       inquirerIds: [
         for (final x in (m['inquirerIds'] as List?) ?? const [])
           if (x is String) x,

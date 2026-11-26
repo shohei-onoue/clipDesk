@@ -342,3 +342,50 @@ test('招待: 責任者だけが作れる。本人は確認済みメールで、
   await assertSucceeds(setDoc(doc(me('n1', 'new@x.y'), 'roles', 'n1'), { role: 'editor', manager: false }));
   await assertSucceeds(deleteDoc(doc(me('n1', 'new@x.y'), 'invites', 'new@x.y')));
 });
+
+test('ライブラリへの直接追加: スタッフ本人が、投稿済みの記録・動画を作れる。他人名義・上書きは不可', async () => {
+  await seed();
+  const libReq = (uid, over = {}) => ({
+    source: 'library', requesterId: uid, requesterName: 'n', editorId: uid, editorName: 'n', status: 'posted',
+    title: 't', brief, attachments: [], reviewReason: null, revisionNote: null, reviewRound: 0,
+    submissionCount: 1, approvedVersion: 1, approvedAt: new Date('2026-11-01'), postedAt: new Date('2026-11-01'),
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...over,
+  });
+  const sub = (uid, id, over = {}) => ({
+    version: 1, name: 'a.mp4', path: `library/${uid}/${id}/a.mp4`, size: 1, uploadedBy: uid,
+    createdAt: serverTimestamp(), ...over,
+  });
+  const add = (uid, id, req, video = sub(uid, id)) => {
+    const b = writeBatch(db(uid));
+    b.set(doc(db(uid), 'requests', id), req);
+    if (video) b.set(doc(db(uid), 'requests', id, 'submissions', 'v1'), video);
+    return b.commit();
+  };
+  const mp4 = { contentType: 'video/mp4' };
+  const file = ref(st(STAFF), `library/${STAFF}/l1/a.mp4`);
+  await assertFails(uploadBytes(ref(st(STAFF), `library/${REQ}/l1/a.mp4`), new Uint8Array(1), mp4));
+  await assertFails(uploadBytes(ref(st(NOROLE), `library/${NOROLE}/l1/a.mp4`), new Uint8Array(1), mp4));
+  await assertFails(uploadBytes(ref(st(STAFF), `library/${STAFF}/l1/a.pdf`), new Uint8Array(1), { contentType: 'application/pdf' }));
+  await assertSucceeds(uploadBytes(file, new Uint8Array(1), mp4));
+  await assertSucceeds(uploadBytes(ref(st(STAFF), `library/${STAFF}/l1/thumb.jpg`), new Uint8Array(1), { contentType: 'image/jpeg' }));
+
+  await assertFails(add(NOROLE, 'l0', libReq(NOROLE)));
+  await assertFails(add(STAFF, 'l2', libReq(REQ)));
+  await assertFails(add(STAFF, 'l2', libReq(STAFF), null)); // 動画の記録なし
+  await assertFails(add(STAFF, 'l2', libReq(STAFF, { status: 'review' })));
+  await assertFails(add(STAFF, 'l2', libReq(STAFF, { title: '' })));
+  await assertFails(add(STAFF, 'l2', libReq(STAFF, { extra: 1 })));
+  await assertFails(add(STAFF, 'l2', libReq(STAFF), sub(STAFF, 'l2', { path: 'videos/l2/v1/a.mp4' })));
+  await assertSucceeds(add(STAFF, 'l1', libReq(STAFF)));
+
+  await assertFails(uploadBytes(file, new Uint8Array(2), mp4)); // 記録のあとは上書き不可
+  await assertSucceeds(getBytes(ref(st(ED), `library/${STAFF}/l1/a.mp4`)));
+  await assertFails(getBytes(ref(st(NOROLE), `library/${STAFF}/l1/a.mp4`)));
+  await assertFails(deleteDoc(doc(db(REQ), 'requests', 'l1')));
+  await assertFails(deleteObject(ref(st(REQ), `library/${STAFF}/l1/a.mp4`)));
+  await assertSucceeds(deleteObject(file));
+  const b = writeBatch(db(STAFF));
+  b.delete(doc(db(STAFF), 'requests', 'l1', 'submissions', 'v1'));
+  b.delete(doc(db(STAFF), 'requests', 'l1'));
+  await assertSucceeds(b.commit());
+});

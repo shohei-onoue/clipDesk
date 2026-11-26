@@ -68,12 +68,23 @@ class TapEditText extends StatelessWidget {
   final TextAlign? textAlign;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: '$labelを編集',
-        child: InkWell(
-          onTapUp: (d) => onTap(d.globalPosition),
-          onTap: () {},
+  Widget build(BuildContext context) {
+    // 指で押した位置。Web の短いタップは、読み上げ情報（セマンティクス）の操作として
+    // onTap だけが呼ばれ、位置がないため、この文字の中央を使う。
+    Offset? at;
+    return Semantics(
+      button: true,
+      label: '$labelを編集',
+      child: Builder(
+        builder: (context) => InkWell(
+          onTapUp: (d) => at = d.globalPosition,
+          onTap: () {
+            final box = context.findRenderObject()! as RenderBox;
+            final position =
+                at ?? box.localToGlobal(box.size.center(Offset.zero));
+            at = null;
+            onTap(position);
+          },
           borderRadius: BorderRadius.circular(4),
           child: Text(text,
               textAlign: textAlign,
@@ -81,7 +92,9 @@ class TapEditText extends StatelessWidget {
                   decoration: TextDecoration.underline,
                   decorationColor: style.color)),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class DetailRow extends StatelessWidget {

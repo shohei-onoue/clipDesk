@@ -55,6 +55,13 @@ class PartColors {
         : AppColors.on(AppColors.blue);
   }
 
+  /// 設定画面の「設定を保存する」ボタン（押せるとき。琥珀の塗り）の文字。
+  static Color get saveButtonText => switch (_p) {
+        AppPalette.standard => AppColors.white,
+        AppPalette.contrast || AppPalette.ocean || AppPalette.forest => _black,
+        AppPalette.light => _paper,
+      };
+
   /// 押せないボタンの文字。
   static Color get disabledButtonText =>
       _p == AppPalette.forest || _p == AppPalette.light

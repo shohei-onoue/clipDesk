@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/app_settings.dart';
+import '../core/event_age.dart';
 import '../core/read_aloud.dart';
 import '../core/ruby_dictionary.dart';
 
@@ -139,6 +140,29 @@ class Text extends StatelessWidget {
 /// 読み上げの長押しの長さ。
 const readAloudHold = Duration(milliseconds: 200);
 
+/// 指の操作が、アプリに届くまでにたった時間。テストで差し替える。
+@visibleForTesting
+Duration Function(Duration timeStamp) readAloudEventAge = eventAge;
+
+/// 指が触れてから [readAloudHold] たった時に成立する長押し。
+/// Web では触れた合図が遅れて届くことがあるため、届くまでの時間を引いて待つ。
+/// 引かないと、長押しと判定するまでが約0.4秒になる。
+class _ReadAloudPress extends LongPressGestureRecognizer {
+  _ReadAloudPress() : super(duration: readAloudHold);
+
+  Duration _wait = readAloudHold;
+
+  @override
+  Duration get deadline => _wait;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    final left = readAloudHold - readAloudEventAge(event.timeStamp);
+    _wait = left.isNegative ? Duration.zero : left;
+    super.addAllowedPointer(event);
+  }
+}
+
 class _LongPressSpeak extends StatelessWidget {
   const _LongPressSpeak({required this.text, required this.child});
   final String text;
@@ -149,15 +173,26 @@ class _LongPressSpeak extends StatelessWidget {
   /// 指を動かした（スクロール）ときは、どちらにもならない。
   @override
   Widget build(BuildContext context) {
+    void speak() => ReadAloud.instance.speak(text);
     return RawGestureDetector(
       gestures: {
-        LongPressGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(duration: readAloudHold),
-          (r) => r.onLongPress = () => ReadAloud.instance.speak(text),
+        _ReadAloudPress: GestureRecognizerFactoryWithHandlers<_ReadAloudPress>(
+          _ReadAloudPress.new,
+          (r) => r.onLongPress = speak,
         ),
       },
+      semantics: _SpeakSemantics(speak),
       child: child,
     );
   }
+}
+
+/// 画面読み上げ機能の「長押し」でも読み上げる。
+class _SpeakSemantics extends SemanticsGestureDelegate {
+  const _SpeakSemantics(this.speak);
+  final VoidCallback speak;
+
+  @override
+  void assignSemantics(RenderSemanticsGestureHandler renderObject) =>
+      renderObject.onLongPress = speak;
 }

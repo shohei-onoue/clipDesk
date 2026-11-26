@@ -40,6 +40,17 @@ service firebase.storage {
         request.auth.uid == uid || isStaff());
     }
 
+    // ライブラリに直接追加する完成動画（と静止画）。追加した本人のフォルダにだけ書ける。
+    // 記録（requests）を作ったあとは、上書きできない。
+    match /library/{uid}/{requestId}/{file} {
+      allow create, update: if hasRole('requester') && request.auth.uid == uid && sizeOk()
+        && !reqExists(requestId)
+        && (request.resource.contentType.matches('video/.*')
+          || (file == 'thumb.jpg' && request.resource.contentType == 'image/jpeg'));
+      allow delete: if hasRole('requester') && request.auth.uid == uid;
+      allow read: if signedIn() && isStaff();
+    }
+
     // 編集者が提出する初稿・修正動画。担当編集者が編集中／修正の間だけ書ける。
     match /videos/{requestId}/{version}/{file} {
       allow create, update: if hasRole('editor') && reqExists(requestId) && sizeOk()
