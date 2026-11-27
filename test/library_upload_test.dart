@@ -77,6 +77,52 @@ void main() {
             '${at.year}/${two(at.month)}/${two(at.day)} ${two(at.hour)}:${two(at.minute)}'),
         findsOneWidget);
     expect(DateTime.now().difference(at).inMinutes, lessThan(1));
+
+    // カードのダウンロードアイコンから、保存先のメニューが出る（動画の再生は始まらない）。
+    await tester.tap(find.byTooltip('ダウンロード（保存先を選ぶ）'));
+    await settle();
+    for (final d in ['この端末に保存', 'Dropbox', 'Google ドライブ', 'OneDrive']) {
+      expect(find.text(d), findsOneWidget);
+    }
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('ダウンロードアイコンがあっても、文字「大」＋ふりがなではみ出さない', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = AppSettings.instance..resetForTest();
+    settings.setTextSize(TextSizeLevel.large);
+    settings.setRuby(true);
+    addTearDown(settings.resetForTest);
+    final db = FakeFirebaseFirestore();
+    final repo = RequestRepository(db: db, storage: _FakeStorage());
+    Services.repo = repo;
+    Services.uidOverride = 'u1';
+    addTearDown(() => Services.uidOverride = null);
+    await db.collection('roles').doc('u1').set({'role': 'staff'});
+    await repo.addLibraryVideo(
+        requestId: 'lib1',
+        uid: 'u1',
+        title: '新商品紹介動画の完成版をお届けします',
+        posterName: '投稿 太郎',
+        uploadedAt: DateTime(2026, 11, 26),
+        file:
+            UploadFile(name: 'a.mp4', size: 3, read: () async => Uint8List(3)));
+
+    await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!),
+        home: const DeliveryLibraryScreen()));
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(find.byTooltip('ダウンロード（保存先を選ぶ）'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('左へのスライドの削除ボタンは、依頼した本人と管理者のカードに出る', (tester) async {

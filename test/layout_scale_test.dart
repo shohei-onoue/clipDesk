@@ -130,7 +130,8 @@ void main() {
   final openers = <String, Future<void> Function(WidgetTester)>{
     '通知ダイアログ': (tester) => _tap(tester, find.byTooltip('通知')),
     'スタッフ編集ダイアログ': (tester) async {
-      await tester.drag(_label('編集 花子').first, const Offset(-300, 0));
+      // 編集できるのは、ログイン者本人（依頼 太郎）のカードだけ。
+      await tester.drag(_label('依頼 太郎').first, const Offset(-300, 0));
       await _settle(tester);
       await _tap(tester, _label('編集').last);
       expect(find.byType(AlertDialog), findsOneWidget);

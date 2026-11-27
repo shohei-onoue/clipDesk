@@ -19,6 +19,7 @@ import '../widgets/attachment_thumb.dart';
 import '../widgets/library_upload_dialog.dart';
 import '../widgets/list_helpers.dart';
 import '../widgets/role_builder.dart';
+import '../widgets/save_menu.dart';
 import '../widgets/video_player_dialog.dart';
 import '../widgets/ruby_text.dart';
 import 'request_detail_screen.dart';
@@ -27,6 +28,7 @@ import 'request_detail_screen.dart';
 /// 1本ずつカードにして縦に並べる。登録済みのスタッフは全員、全件を見られる。
 /// 右下の「＋」から、完成済みの動画を直接追加できる。
 /// カードを左にスライドすると削除ボタンが出る（依頼した本人は自分のカード、管理者は全カード）。
+/// カードの右上のダウンロードアイコンから、保存先を選んで動画を保存できる。
 class DeliveryLibraryScreen extends StatefulWidget {
   const DeliveryLibraryScreen({super.key});
 
@@ -150,7 +152,9 @@ class _DeliveryLibraryScreenState extends State<DeliveryLibraryScreen> {
                                 uid: uid,
                                 role: role,
                                 canDelete: q.requesterId == uid ||
-                                    (access.data?.manager ?? false)),
+                                    (access.data?.manager ?? false),
+                                // 依頼確認の添付資料と同じく、編集者権限のスタッフだけ。
+                                canDownload: access.data?.canEdit ?? false),
                           );
                         },
                       );
@@ -191,7 +195,8 @@ class _LibraryCard extends StatefulWidget {
       required this.loadVideo,
       required this.uid,
       required this.role,
-      required this.canDelete});
+      required this.canDelete,
+      required this.canDownload});
   final VideoRequest request;
   final Future<Submission?> Function(VideoRequest) loadVideo;
   final String uid;
@@ -199,6 +204,9 @@ class _LibraryCard extends StatefulWidget {
 
   /// 左にスライドして削除できるか。
   final bool canDelete;
+
+  /// ダウンロードアイコンを出すか。
+  final bool canDownload;
 
   @override
   State<_LibraryCard> createState() => _LibraryCardState();
@@ -272,12 +280,22 @@ class _LibraryCardState extends State<_LibraryCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(request.brief.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.dark(r.x(16),
-                              weight: FontWeight.w400, height: 20 / 16)),
-                      SizedBox(height: r.x(12)),
+                      // 題名と、右上のダウンロードアイコン。
+                      Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(request.brief.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppText.dark(r.x(16),
+                                      weight: FontWeight.w400,
+                                      height: 20 / 16)),
+                            ),
+                            if (video != null && widget.canDownload)
+                              _DownloadButton(video),
+                          ]),
+                      SizedBox(height: r.x(8)),
                       // 日付と編集者名の2行（高さ40）。右に、配信先のアイコンを同じ高さで並べる。
                       Row(children: [
                         Expanded(
@@ -318,6 +336,30 @@ class _LibraryCardState extends State<_LibraryCard> {
       },
     );
   }
+}
+
+/// 依頼確認の添付資料と同じダウンロードアイコン。
+/// タップで保存先のメニューを開く（端末・Dropbox・Google ドライブ・OneDrive）。
+class _DownloadButton extends StatelessWidget {
+  const _DownloadButton(this.video);
+  final Submission video;
+
+  @override
+  Widget build(BuildContext context) => Builder(
+        // メニューをボタンの位置に出すため、ボタン自身の context を渡す。
+        builder: (bctx) => IconButton(
+          tooltip: 'ダウンロード（保存先を選ぶ）',
+          color: AppColors.white,
+          icon: const Icon(Icons.download),
+          // カードが高くなりすぎないよう、タップ領域は40にする。
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          style: const ButtonStyle(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+          onPressed: () =>
+              showSaveMenu(bctx, path: video.path, name: video.name),
+        ),
+      );
 }
 
 /// 削除の確認。「削除」を選んだときだけ、依頼ごと（動画・記録も）消す。元には戻せない。

@@ -15,12 +15,14 @@ import '../widgets/role_chip.dart';
 import '../widgets/swipe_actions.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_header.dart';
+import '../widgets/hold_to_confirm.dart';
 import '../widgets/ruby_text.dart';
 
-/// スタッフ管理（責任者のみ）。登録済みのスタッフを一覧で表示し、権限を変更できる。
+/// スタッフ管理（責任者のみ）。登録済みのスタッフを一覧で表示する。
 /// 右下の「＋」から招待画面（/staff/invite）へ進む。
-/// 権限：全員が依頼も編集もできる。責任者の印は別に付けられる。承認の取り消しもできる。
-/// 自分自身の権限は変更できない（ルールでも拒否される）。
+/// 権限：全員が依頼も編集もできる。責任者の印は、招待するときに付ける。
+/// 編集できるのはログイン者本人の情報（名前・メールアドレス・パスワード）だけ。
+/// 削除（承認の取り消し）は、5秒の長押し。
 class StaffAdminScreen extends StatelessWidget {
   const StaffAdminScreen({super.key});
 
@@ -79,7 +81,11 @@ class StaffAdminScreen extends StatelessWidget {
                               children: [
                                 const _PendingInvites(),
                                 for (final u in list)
-                                  _UserTile(user: u, isMe: u.uid == me),
+                                  // 一覧が入れ替わっても、長押し中の削除が別の人に移らないようにする。
+                                  _UserTile(
+                                      key: ValueKey(u.uid),
+                                      user: u,
+                                      isMe: u.uid == me),
                                 if (list.length <= 1 && users.hasData)
                                   const Padding(
                                     padding: EdgeInsets.all(16),
@@ -100,10 +106,10 @@ class StaffAdminScreen extends StatelessWidget {
 }
 
 class _UserTile extends StatefulWidget {
-  const _UserTile({required this.user, required this.isMe});
+  const _UserTile({super.key, required this.user, required this.isMe});
   final StaffUser user;
 
-  /// ログイン者本人のカード。ログイン者バッヂを付け、編集・削除はできない（自分の権限は変えられない）。
+  /// ログイン者本人のカード。「ログイン」の印を付ける。編集できるのは、このカードだけ。
   final bool isMe;
 
   @override
@@ -115,55 +121,46 @@ class _UserTileState extends State<_UserTile> {
     final messenger = ScaffoldMessenger.of(context);
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) =>
-          _EditDialog(user: widget.user, access: a, isMe: widget.isMe),
+      builder: (context) => _EditDialog(user: widget.user, access: a),
     );
     if (saved == true) {
       messenger.showSnackBar(const SnackBar(content: Text('スタッフ情報を更新しました')));
     }
   }
 
+  /// 「削除」ボタンの長押しが完了したときに実行する。
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.ink,
-        shape: RoundedRectangleBorder(
-            side: BorderSide(color: AppColors.white.withValues(alpha: 0.16)),
-            borderRadius: BorderRadius.circular(15)),
-        title: Text('スタッフ情報を削除します', style: AppText.dark(16)),
-        content: Text(
-            widget.isMe
-                ? 'あなた自身の登録情報と権限を削除します。削除するとログアウトされ、ほかの管理者がいないと管理画面を使えなくなります。'
-                : '${widget.user.name.isEmpty ? widget.user.email : widget.user.name} の登録情報と権限を削除します。',
-            style: AppText.dark(14, weight: FontWeight.w400)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル')),
-          FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.amber,
-                  foregroundColor: PartColors.onAmber),
-              child: const Text('削除する')),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
+    final isMe = widget.isMe;
     try {
       await Services.repo
           .deleteStaff(widget.user.uid, email: widget.user.email);
-      if (widget.isMe) {
+      if (isMe) {
         // 自分の情報を消したので、ログアウトして最初の画面へ戻る。
         await FirebaseAuth.instance.signOut();
         nav.pushNamedAndRemoveUntil('/', (_) => false);
+      } else {
+        messenger.showSnackBar(const SnackBar(content: Text('スタッフ情報を削除しました')));
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('削除できませんでした：$e')));
+      messenger.showSnackBar(
+          SnackBar(content: Text('エラー：削除できませんでした（$e）。通信を確認して、もう一度お試しください')));
     }
+  }
+
+  /// 削除ボタンを押している間と、短く押したときの案内。
+  SwipeHold get _deleteHold {
+    final u = widget.user;
+    final seconds = HoldToConfirm.defaultDuration.inSeconds;
+    final name = u.name.isEmpty ? u.email : u.name;
+    return SwipeHold(
+      popupMessage: widget.isMe
+          ? 'このまま押し続けると\nあなたの情報を削除して\nログアウトします'
+          : 'このまま押し続けると\n$name の情報を削除します',
+      shortPressMessage: '$seconds秒間、長押しするとスタッフ情報を削除します',
+    );
   }
 
   @override
@@ -259,18 +256,20 @@ class _UserTileState extends State<_UserTile> {
             ],
           ),
         );
-        // 左にスワイプすると、編集・削除ボタンが現れる。
+        // 左にスワイプすると、ボタンが現れる（編集は本人のカードだけ。削除は長押し）。
         final swipe = SwipeActions(
           actions: [
-            SwipeAction(
-                icon: Icons.edit_outlined,
-                label: '編集',
-                color: AppColors.blue,
-                onTap: () => _edit(a)),
+            if (widget.isMe)
+              SwipeAction(
+                  icon: Icons.edit_outlined,
+                  label: '編集',
+                  color: AppColors.blue,
+                  onTap: () => _edit(a)),
             SwipeAction(
                 icon: Icons.delete_outline,
                 label: '削除',
                 color: AppColors.badgeRed,
+                hold: _deleteHold,
                 onTap: _delete),
           ],
           child: card,
@@ -425,15 +424,12 @@ class _InviteButton extends StatelessWidget {
   }
 }
 
-/// スタッフ情報の編集ダイアログ：名前、メールアドレス、管理者権限（区分は全員、依頼も編集もできる）。
+/// ログイン者本人の情報の編集ダイアログ：名前、メールアドレス、パスワード。
+/// 管理者権限は表示だけ（自分では変えられない。ルールでも拒否される）。
 /// 暗い面・White文字（デザインシステムのダイアログ）。キャンセルと「保存する」を明確に分ける。
 class _EditDialog extends StatefulWidget {
-  const _EditDialog(
-      {required this.user, required this.access, required this.isMe});
+  const _EditDialog({required this.user, required this.access});
   final StaffUser user;
-
-  /// ログイン者本人。権限は自分では変えられない（ルールでも拒否）ので、名前とメールアドレスだけ直せる。
-  final bool isMe;
   final StaffAccess access;
 
   @override
@@ -446,7 +442,6 @@ class _EditDialogState extends State<_EditDialog> {
   late final _email = TextEditingController(text: widget.user.email);
   final _currentPassword = TextEditingController();
   final _newPassword = TextEditingController();
-  late bool _manager = widget.access.manager;
   bool _busy = false;
   String? _error;
 
@@ -467,7 +462,7 @@ class _EditDialogState extends State<_EditDialog> {
       return;
     }
     final newPassword = _newPassword.text;
-    if (widget.isMe && newPassword.isNotEmpty) {
+    if (newPassword.isNotEmpty) {
       if (newPassword.length < 6) {
         setState(() => _error = 'エラー：新しいパスワードが短すぎます。6文字以上で入力してください');
         return;
@@ -482,7 +477,7 @@ class _EditDialogState extends State<_EditDialog> {
       _error = null;
     });
     try {
-      if (widget.isMe && newPassword.isNotEmpty) {
+      if (newPassword.isNotEmpty) {
         // パスワードの変更は、現在のパスワードで本人確認（再認証）してから行う。
         final user = FirebaseAuth.instance.currentUser;
         if (user == null || user.email == null) {
@@ -496,9 +491,6 @@ class _EditDialogState extends State<_EditDialog> {
           lastName: _lastName.text.trim(),
           firstName: _firstName.text.trim(),
           email: email);
-      if (!widget.isMe) {
-        await Services.repo.setStaffAccess(widget.user.uid, manager: _manager);
-      }
       if (mounted) Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -542,9 +534,7 @@ class _EditDialogState extends State<_EditDialog> {
         style: AppText.dark(14,
             weight: FontWeight.w400,
             color: AppColors.white.withValues(alpha: 0.7)));
-    final managerChip = RoleChip('管理者権限',
-        selected: _manager,
-        onChanged: widget.isMe ? null : (v) => setState(() => _manager = v));
+    final managerChip = RoleChip('管理者権限', selected: widget.access.manager);
     // 入力欄の間隔。文字が大きいときは、枠の上の見出しが重ならないよう広げる。
     final fieldGap = r.large ? r.tx(12) : r.y(12);
     return Theme(
@@ -597,25 +587,23 @@ class _EditDialogState extends State<_EditDialog> {
                     SizedBox(width: r.x(8)),
                     managerChip,
                   ]),
-                if (widget.isMe) ...[
-                  SizedBox(height: r.y(16)),
-                  Text('パスワードの変更（変えない場合は空欄）', style: AppText.dark(14)),
-                  SizedBox(height: r.y(8)),
-                  TextField(
-                    controller: _currentPassword,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                        labelText: '現在のパスワード', border: OutlineInputBorder()),
-                  ),
-                  SizedBox(height: fieldGap),
-                  TextField(
-                    controller: _newPassword,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                        labelText: '新しいパスワード（6文字以上）',
-                        border: OutlineInputBorder()),
-                  ),
-                ],
+                SizedBox(height: r.y(16)),
+                Text('パスワードの変更（変えない場合は空欄）', style: AppText.dark(14)),
+                SizedBox(height: r.y(8)),
+                TextField(
+                  controller: _currentPassword,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                      labelText: '現在のパスワード', border: OutlineInputBorder()),
+                ),
+                SizedBox(height: fieldGap),
+                TextField(
+                  controller: _newPassword,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                      labelText: '新しいパスワード（6文字以上）',
+                      border: OutlineInputBorder()),
+                ),
                 if (_error != null) ...[
                   SizedBox(height: r.y(12)),
                   Text(_error!,

@@ -128,7 +128,7 @@ class RequestRepository {
                   firstName: d.data()['firstName'] as String? ?? '')
           ]);
 
-  /// 権限の割り当て。責任者の画面からだけ呼ぶ（ルールでも責任者以外は拒否）。
+  /// 権限の割り当て（ルールでも責任者以外は拒否）。いまの画面からは呼ばない。
   /// 区分は全員「両方」（`staff`）。責任者の印だけ切り替える。
   Future<void> setStaffAccess(String uid, {required bool manager}) => _db
       .collection('roles')

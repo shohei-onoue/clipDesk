@@ -3,7 +3,16 @@ import 'package:flutter/material.dart' hide Text;
 import '../core/app_colors.dart';
 import '../core/app_text.dart';
 import '../core/responsive.dart';
+import 'hold_to_confirm.dart';
 import 'ruby_text.dart';
+
+/// 長押しで実行するボタンの、案内の文言。
+class SwipeHold {
+  const SwipeHold(
+      {required this.popupMessage, required this.shortPressMessage});
+  final String popupMessage;
+  final String shortPressMessage;
+}
 
 /// スワイプで現れるボタン1つ分。
 class SwipeAction {
@@ -11,17 +20,22 @@ class SwipeAction {
       {required this.icon,
       required this.label,
       required this.color,
-      required this.onTap});
+      required this.onTap,
+      this.hold});
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+
+  /// 指定すると、タップではなく長押し（[HoldToConfirm]）で [onTap] を実行する。
+  final SwipeHold? hold;
 }
 
 /// 左にスワイプすると、右端からボタン（編集・削除など）が現れる（Behind motion）。
 /// 途中で離すと、半分を超えていれば開き、超えていなければ閉じる（アニメーションで動く）。
 /// 開いているときにカードをタップすると閉じる。ボタンを押すと閉じてから実行する。
 /// 別のカードをスワイプし始めると、開いていたカードは閉じる（開くのは常に1枚だけ）。
+/// [SwipeAction.hold] を指定したボタンは、長押しし終わるまで開いたままにする。
 class SwipeActions extends StatefulWidget {
   const SwipeActions({super.key, required this.child, required this.actions});
   final Widget child;
@@ -53,6 +67,42 @@ class _SwipeActionsState extends State<SwipeActions>
         ? velocity < 0
         : _c.value > 0.5;
     _c.animateTo(open ? 1 : 0);
+  }
+
+  void _run(SwipeAction a) {
+    _c.animateTo(0);
+    a.onTap();
+  }
+
+  Widget _button(Responsive r, SwipeAction a, double one, double gap) {
+    final face = Container(
+      width: one,
+      margin: EdgeInsets.only(left: gap),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: a.color,
+        borderRadius: BorderRadius.circular(r.x(15)),
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(a.icon, color: AppColors.on(Colors.black), size: r.x(26)),
+        Text(a.label,
+            style: AppText.dark(r.x(12), color: AppColors.on(Colors.black))),
+      ]),
+    );
+    final hold = a.hold;
+    return Semantics(
+      key: ValueKey(a.label),
+      button: true,
+      label: a.label,
+      hint: hold?.shortPressMessage,
+      child: hold == null
+          ? GestureDetector(onTap: () => _run(a), child: face)
+          : HoldToConfirm(
+              onConfirmed: () => _run(a),
+              popupMessage: hold.popupMessage,
+              shortPressMessage: hold.shortPressMessage,
+              child: face),
+    );
   }
 
   @override
@@ -88,36 +138,7 @@ class _SwipeActionsState extends State<SwipeActions>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final a in widget.actions)
-                      Semantics(
-                        button: true,
-                        label: a.label,
-                        child: GestureDetector(
-                          onTap: () {
-                            _c.animateTo(0);
-                            a.onTap();
-                          },
-                          child: Container(
-                            width: one,
-                            margin: EdgeInsets.only(left: gap),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: a.color,
-                              borderRadius: BorderRadius.circular(r.x(15)),
-                            ),
-                            child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(a.icon,
-                                      color: AppColors.on(Colors.black),
-                                      size: r.x(26)),
-                                  Text(a.label,
-                                      style: AppText.dark(r.x(12),
-                                          color: AppColors.on(Colors.black))),
-                                ]),
-                          ),
-                        ),
-                      ),
+                    for (final a in widget.actions) _button(r, a, one, gap),
                   ]),
             ),
           ),
